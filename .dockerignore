@@ -1,0 +1,6 @@
+**/node_modules
+**/vendor
+backend/var
+frontend/dist
+services/ml-processor/models
+.git

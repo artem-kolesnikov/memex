@@ -1,0 +1,20 @@
+# Memex Standalone's own services, loaded after the core's (see App\Kernel): the
+# owner's password and first run in src/Standalone, and its answer to the core's door.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $appBaseUrl: '%env(APP_BASE_URL)%'
+
+    App\Standalone\:
+        resource: '../../src/Standalone/'
+
+    App\Service\AccountDoor: '@App\Standalone\OwnerDoor'
+
+    # The owner's raw-SQL directory tables, hidden from Doctrine's schema tools
+    # like the core's (config/packages/doctrine.yaml).
+    app.standalone.raw_directory_tables:
+        class: Doctrine\Bundle\DoctrineBundle\Dbal\RegexSchemaAssetFilter
+        arguments: ['~^(?!owner_password|setup_code)~']
+        tags: [{ name: doctrine.dbal.schema_filter, connection: directory }]

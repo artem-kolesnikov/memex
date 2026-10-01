@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  image:
+    name: Publish the image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Smoke test before publishing
+        run: docker build -t memex:release . && docker/smoke-test.sh memex:release
+      - name: Build for amd64 and arm64, and push
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/memex"
+          version="${TAG#v}"
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --use
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --build-arg "RELEASE=$version" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$version" \
+            --label "org.opencontainers.image.licenses=AGPL-3.0-only" \
+            -t "$image:$version" -t "$image:latest" --push .
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes="$(awk -v v="${TAG#v}" '$0 ~ "^## " v "( |$)" {on=1; next} /^## / {on=0} on' CHANGELOG.md)"
+          gh release create "$TAG" --title "$TAG" --notes "${notes:-See CHANGELOG.md.}"

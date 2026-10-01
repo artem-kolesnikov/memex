@@ -1,0 +1,2 @@
+CREATE TABLE owner_password (account_id INTEGER NOT NULL PRIMARY KEY, hash VARCHAR(255) NOT NULL, changed_at DATETIME NOT NULL, CONSTRAINT fk_owner_password_account FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE);
+CREATE TABLE setup_code (id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), code VARCHAR(16) NOT NULL, created_at DATETIME NOT NULL);

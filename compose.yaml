@@ -1,0 +1,30 @@
+services:
+  memex:
+    image: ghcr.io/artem-kolesnikov/memex:latest
+    container_name: memex
+    restart: unless-stopped
+    environment:
+      APP_BASE_URL: https://${MEMEX_DOMAIN:?set MEMEX_DOMAIN in .env}
+      TRUSTED_PROXIES: REMOTE_ADDR
+    volumes:
+      - memex:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      MEMEX_DOMAIN: ${MEMEX_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  memex:
+    name: memex
+  caddy-data:
+  caddy-config:

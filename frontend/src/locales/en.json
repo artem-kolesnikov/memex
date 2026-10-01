@@ -1,0 +1,1989 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "remove": "Remove",
+    "edit": "Edit",
+    "done": "Done",
+    "back": "Back",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "unknown_error": "Unknown error",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "search": "Search",
+    "copy": "Copy",
+    "copied": "Copied",
+    "retry": "Retry",
+    "open": "Open",
+    "none": "None",
+    "next": "Next",
+    "refresh": "Refresh",
+    "session_changed": "Your session changed while this request was running. Please try again.",
+    "operation_outcome_unknown": "Your session changed while this operation was running. It may have completed. Copy any unsaved text, then reload to check the result before trying again.",
+    "reload_page": "Reload page"
+  },
+  "app": {
+    "brand": {
+      "word": "memex",
+      "name": "memex.tools"
+    },
+    "shell": {
+      "open_navigation": "Open navigation",
+      "primary_navigation": "Primary navigation",
+      "home": "memex.tools home",
+      "workspace": "Workspace",
+      "expand_sidebar": "Expand sidebar",
+      "collapse_sidebar": "Collapse sidebar",
+      "show_rail": "Show the side panel",
+      "hide_rail": "Hide the side panel",
+      "sign_out": "Sign out",
+      "sign_out_failed": "Sign out was not confirmed. Please try again.",
+      "appearance": "Appearance"
+    },
+    "nav": {
+      "notes": "Notes",
+      "review_inbox": "Review Inbox",
+      "settings": "Settings",
+      "activity": "Activity log",
+      "skills": "Skills",
+      "personalization": "Personalization"
+    },
+    "footer": {
+      "copyright": "© {year} memex.tools",
+      "about": "About",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    },
+    "breadcrumbs": {
+      "aria": "breadcrumb",
+      "home": "Home",
+      "create": "Create",
+      "view": "View",
+      "review_inbox": "Review inbox",
+      "deleted_notes": "Deleted notes"
+    },
+    "confirm_dialog": {
+      "confirm": "Confirm"
+    },
+    "password": {
+      "hide": "Hide password",
+      "show": "Show password"
+    }
+  },
+  "auth": {
+    "continue_with": "Continue with {provider}",
+    "login": {
+      "errors": {
+        "denied": "Sign-in was cancelled, so nothing happened.",
+        "state": "That sign-in took too long, or arrived by a route we did not start. Please try again.",
+        "provider": "The other site could not complete the sign-in. Try again in a moment.",
+        "unconfigured": "That way of signing in is not set up on this server.",
+        "no_email": "That account did not give us a verified email address, so there is nothing to open an account with.",
+        "email_in_use": "There is already a memex account using that email address. Sign in the way you normally do, then add this provider in Settings so it works next time.",
+        "identity_taken": "That account is already the way in to a different memex knowledge base. Sign out of it there, or use another one.",
+        "link_session": "You need to be signed in before you can add another way in.",
+        "suspended": "This account is suspended.",
+        "unfinished": "Sign-in did not finish. Please try again."
+      },
+      "welcome_back": "Welcome back to memex",
+      "unreachable": "We could not reach memex just now, so there is nothing to offer yet.",
+      "try_again": "Try again"
+    },
+    "invited": {
+      "title": "You have been invited to memex",
+      "lede": "A single, shared knowledge base across all the assistants and agents you already use. Anything one of them learns, all of them keep.",
+      "no_way_in": "This server has no way to sign you in yet. Reply to whoever sent you the invite.",
+      "fineprint": "Sign in with a service you already use. There is no password to invent."
+    }
+  },
+  "search": {
+    "status": {
+      "any": "Any status",
+      "verified": "Verified",
+      "pending": "Pending review",
+      "flagged": "Flagged for curation",
+      "undescribed": "Not described yet"
+    },
+    "chip": {
+      "tag_fallback": "Tag {id}",
+      "terms": "“{terms}”",
+      "added_by": "Added by {name}",
+      "connection_fallback": "connection {id}"
+    },
+    "load_failed": "Could not load notes",
+    "marks": {
+      "flagged_title": "Flagged for curation",
+      "pending_title": "Pending your review",
+      "help": "About the status marks",
+      "intro": "Marks show notes that need you.",
+      "pending": "Pending your review",
+      "flagged": "Flagged for curation"
+    },
+    "title": "Notes",
+    "notes_in_memex": "{count} notes in memex | {count} note in memex | {count} notes in memex",
+    "new_note": "New note",
+    "placeholder": "Search your knowledge base",
+    "loading": "Loading...",
+    "all_tags": "All tags",
+    "status_label": "Status",
+    "active": "Active:",
+    "clear_all": "Clear all",
+    "select_rows": "Select rows",
+    "select_all_on_page": "All on this page",
+    "columns": {
+      "title": "Title",
+      "modified": "Modified",
+      "by": "By",
+      "tags": "Tags"
+    },
+    "last_modified": "Last modified:",
+    "by_word": "by",
+    "showing": "Showing {from}–{to} of {total}",
+    "pagination": "Pagination",
+    "prev": "Prev",
+    "next": "Next",
+    "page_of": "Page {page} of {total}",
+    "go_to": "Go to",
+    "rows": "Rows",
+    "rows_per_page": "Rows per page",
+    "per_page": "/ page",
+    "empty": {
+      "title": "Your memex is empty.",
+      "keep": "Everything that ends up here, you'll be able to read, edit, and take with you.",
+      "start": "Start by writing a note, or import what you already have — a file, a folder, or an entire knowledge base.",
+      "import": "Import"
+    },
+    "no_match": {
+      "title": "No notes match",
+      "semantic_unavailable": "No note contains these words. Meaning-based search is unavailable right now, so notes worded differently were not searched.",
+      "exact": "No note matches this expression. OR, NOT and quotes match words as written; meaning-based search is not used with them.",
+      "body": "Nothing here matches the search and filters above."
+    },
+    "selected": "{size} notes selected | {size} note selected | {size} notes selected",
+    "export_markdown": "Markdown ({ext})",
+    "clear": "Clear",
+    "view": {
+      "label": "How the notes are shown",
+      "list": "List",
+      "map": "Map"
+    }
+  },
+  "presets": {
+    "save": "Save filter",
+    "options": "Options for {name}",
+    "dialog": {
+      "create_title": "Save this filter",
+      "edit_title": "Edit saved filter",
+      "name": "Name",
+      "choose_icon": "Choose an icon",
+      "terms": "Search terms",
+      "tags": "Tags",
+      "tags_placeholder": "Type to pick a tag",
+      "tags_failed": "The tag list did not load, so nothing can be saved. Close and try again.",
+      "status": "Status",
+      "name_required": "Give the filter a name.",
+      "no_criteria": "Choose at least one filter.",
+      "save_failed": "Could not save the filter"
+    },
+    "remove": {
+      "title": "Remove saved filter?",
+      "body": "“{name}” leaves the sidebar. Your notes are not affected.",
+      "failed": "Could not remove the filter"
+    }
+  },
+  "note": {
+    "source": {
+      "scrape": "Fetched from a URL",
+      "upload": "Imported from a file",
+      "memex": "Seeded by memex"
+    },
+    "load_failed": "Failed to load the note",
+    "operation": {
+      "edit": "Edited",
+      "proposal": "Proposal applied",
+      "merge": "Merged",
+      "restore": "Restored",
+      "replaced": "Replaced",
+      "replaced_by": "replaced by {by}"
+    },
+    "history": {
+      "restore_confirm": "Put this version back? The note's current text becomes a revision of its own, so this can be undone again.",
+      "restored_title": "Version restored",
+      "restored_body": "From {date}",
+      "restore_failed": "Could not restore that version",
+      "forget_confirm": "Permanently remove all {n} previous versions and retained proposal content for this note?\n\nRelated Activity text and shared run summaries are also cleared; actions, authors and dates remain. Decide or discard any pending proposals first. The current note, backups and unrelated copies are unchanged. This cannot be undone.",
+      "forgotten_title": "History destroyed",
+      "forgotten_body": "{n} version(s) and related retained history content permanently removed",
+      "forget_failed": "Could not forget the history",
+      "title": "History",
+      "amended": "your edit",
+      "lede": "What the most recent edits changed.",
+      "count": "{count} previous versions | {count} previous version | {count} previous versions",
+      "restore": "Restore this version",
+      "show_diff": "Show what changed",
+      "show_whole": "Show whole version →",
+      "forget": "Forget history",
+      "forget_hint": "Remove earlier versions and related proposal and Activity text after redacting the current note. Backups and unrelated copies remain."
+    },
+    "flag": {
+      "needs_comment_title": "A flag needs a comment",
+      "needs_comment_body": "Say what is wrong with this note and what the curator should look at.",
+      "flagged_for_curation": "Flagged for curation",
+      "flagged_body": "The curator starts here on its next run.",
+      "flag_failed": "Could not flag this note",
+      "withdraw_confirm": "Withdraw this flag? The curator stops treating this note as priority work.",
+      "withdrawn": "Flag withdrawn",
+      "withdraw_failed": "Could not withdraw the flag",
+      "title_flagged": "This note is flagged for the curator — edit what you told it",
+      "title_unflagged": "Tell the curator to look at this note next, and why",
+      "flagged": "Flagged",
+      "flag_for_curation": "Flag for curation",
+      "meta": "by {by} · {date}",
+      "reworded": "· reworded {date}",
+      "withdraw": "Withdraw",
+      "editor_label": "Write what is wrong and what you want done — the next curation puts this at the front of the queue.",
+      "placeholder": "e.g. The deployment section still describes the old box — check it against the runbook notes and rewrite it; leave the history section alone.",
+      "withdraw_flag": "Withdraw flag"
+    },
+    "review": {
+      "approved": "Note approved",
+      "approve_failed": "Could not approve the note",
+      "reject_confirm": "Reject (delete) this pending note?",
+      "rejected": "Note rejected",
+      "reject_failed": "Could not reject the note",
+      "approve": "Approve",
+      "reject": "Reject",
+      "changed": "This note changed. Refresh and review it before approving."
+    },
+    "loading": "Loading...",
+    "breadcrumb": {
+      "label": "Breadcrumb",
+      "notes": "Notes",
+      "current": "View note"
+    },
+    "eyebrow": "Note {id}",
+    "status": {
+      "pending": "Pending review",
+      "verified": "Verified"
+    },
+    "modified_at": "Modified {date}",
+    "actions": {
+      "edit": "Edit note",
+      "download_title": "Download this note as Markdown",
+      "download": "Download .md"
+    },
+    "proposals": {
+      "pending": "{count} pending edit proposals for this note — {link}. | {count} pending edit proposal for this note — {link}. | {count} pending edit proposals for this note — {link}.",
+      "pending_link": "review in the inbox"
+    },
+    "summary": {
+      "show_less": "Show less",
+      "show_more": "Show more"
+    },
+    "context_label": "Note context",
+    "details": {
+      "title": "Note details",
+      "created": "Created",
+      "by": "by",
+      "added_by_title": "All notes added by {name}",
+      "modified": "Modified",
+      "source": "Source",
+      "size": "Size",
+      "size_value": "{words} words · ~{tokens} tokens"
+    },
+    "map": {
+      "open_full": "Open full map →"
+    },
+    "dangling": {
+      "head": "{n} links lead nowhere | {n} link leads nowhere | {n} links lead nowhere"
+    },
+    "backlinks": "Backlinks",
+    "delete": {
+      "title": "Delete this note?",
+      "untitled": "Untitled note",
+      "copy": "It moves to Deleted notes, where it stays restorable for 30 days at the same address. After that its text is purged and a tombstone remains.",
+      "confirm": "Delete note",
+      "drafts": "Waiting for review: {drafts}. The note is restorable for 30 days; this is not. | Waiting for review: {drafts}. The note is restorable for 30 days; this is not. | Waiting for review: {drafts}. The note is restorable for 30 days; these are not.",
+      "confirm_drafts": "Delete note, discard theirs"
+    },
+    "clamp": {
+      "less": "Less",
+      "more": "More"
+    },
+    "helptip": {
+      "label": "What this does"
+    }
+  },
+  "map": {
+    "neighbourhood": "Local neighbourhood",
+    "drawing": "Drawing…",
+    "failed": "The map could not be drawn.",
+    "blank": {
+      "title": "Nothing to draw yet.",
+      "body": "The map is your notes and the links between them, so it appears once there is something to connect.",
+      "new_note": "New note"
+    },
+    "empty_note": "Nothing links to this note, and nothing it links to is here yet.",
+    "off_map": "{count} matching notes are not on the map, which draws {drawn} of your {total} notes. | {count} matching note is not on the map, which draws {drawn} of your {total} notes. | {count} matching notes are not on the map, which draws {drawn} of your {total} notes.",
+    "caption": {
+      "open": "Open {title}",
+      "around": "{count} notes around this one | {count} note around this one | {count} notes around this one"
+    },
+    "depth": {
+      "label": "How far from this note",
+      "hops": "{count} hops | {count} hop | {count} hops"
+    },
+    "about": {
+      "label": "About this map",
+      "note_scope": "Notes linked to this one.",
+      "map_scope": "All notes and their links.",
+      "colours": "Colour shows what needs work.",
+      "lines": "Dashed line: similar, not linked.",
+      "lines_3d": "Faint line: similar, not linked."
+    },
+    "suggested_links": "Suggested links",
+    "rail": {
+      "label": "About the selected note",
+      "no_description": "No description yet.",
+      "flagged": "You flagged this note",
+      "open_note": "Open note",
+      "links_to": "Links to",
+      "linked_from": "Linked from",
+      "close_in_meaning": "Close in meaning",
+      "none": "None.",
+      "most_connected": "Most connected",
+      "two_hops": "Two links away",
+      "no_orphans": "Every note is linked to something.",
+      "no_hubs": "No note carries a link yet.",
+      "no_islands": "Everything that is linked hangs together in one piece.",
+      "alone": "{count} notes sit on their own | {count} note sits on its own | {count} notes sit on their own"
+    },
+    "mode_label": "What the map should show",
+    "mode": {
+      "all": "Everything",
+      "orphans": "Orphans",
+      "hubs": "Hubs",
+      "neighbourhood": "Neighbourhood",
+      "blast": "Possibly stale",
+      "islands": "Islands"
+    },
+    "why": {
+      "orphans": "Nothing links to these and they link to nothing, so an assistant following links from note to note never arrives at one.",
+      "hubs": "The bigger and darker the dot, the more links it carries. These are what the collection hangs on, and what an assistant reaches first.",
+      "neighbourhood": "One and two links out from the note you picked — roughly what an assistant pulls in when it follows links from here.",
+      "neighbourhood_pick": "Pick a note to see what sits one and two links away from it.",
+      "blast": "Something these notes link to has changed, and nothing has looked at them since. They are the likeliest to be out of date.",
+      "islands": "Groups with no link between them. Two islands about the same thing usually means two names for it, and a link worth writing."
+    },
+    "blast": {
+      "window_label": "How far back a neighbour’s change still counts",
+      "window": "Last {n} days",
+      "loading": "Looking for notes a change may have left behind…",
+      "failed": "That could not be worked out just now.",
+      "affected": "Possibly out of date",
+      "none": "Nothing has been left behind in this window.",
+      "off_map": "{n} notes may be out of date, and none of them is drawn on this map."
+    },
+    "panel": {
+      "note": "Selected note",
+      "close": "Close",
+      "move": "Drag to move"
+    }
+  },
+  "editor": {
+    "analyze": {
+      "nothing_to_check": "Write something first — there is nothing to check yet.",
+      "failed": "Could not analyze"
+    },
+    "state": {
+      "conflict": "Conflict needs a decision",
+      "save_failed": "Save failed",
+      "unsaved": "Unsaved changes"
+    },
+    "confirm_leave": "You have unsaved changes. Leave this page and discard them?",
+    "confirm_replace": "This replaces the title and text you have already written. Continue?",
+    "intake": {
+      "file_loaded": "File loaded",
+      "read_failed": "Could not read this file",
+      "button": "Import note…",
+      "title": "Fill this draft from a Markdown or text file",
+      "changed": "The draft changed while the import was loading. Your changes were kept; import again to replace them."
+    },
+    "saved_with_suggestion": "{title} — memex suggests a tag you don't have yet: {tags}",
+    "validation": {
+      "title": "Validation error",
+      "body": "The form has invalid fields. Please correct them and try again."
+    },
+    "created": "Note created",
+    "updated": "Note updated",
+    "conflict": {
+      "toast_title": "Somebody else edited this note",
+      "toast_body": "Your text is still here. Open the note in another tab to see what changed, then choose.",
+      "title": "This note changed while you were editing.",
+      "body": "Your draft is still intact. Compare the current note, keep working, or deliberately replace the newer version.",
+      "open_current": "Open current note",
+      "keep_editing": "Keep editing",
+      "overwrite": "Overwrite with my version"
+    },
+    "pending_drafts": {
+      "notice": "An assistant has an edit waiting for you on this note — {link}. Saving your own version here discards it. | An assistant has an edit waiting for you on this note — {link}. Saving your own version here discards it. | {count} assistants have edits waiting for you on this note — {link}. Saving your own version here discards them.",
+      "link": "read it in the inbox",
+      "dialog_title": "Discard the edit waiting for review?",
+      "dialog_body": "Waiting: {drafts}. Saving rejects it and your text becomes the note. | Waiting: {drafts}. Saving rejects it and your text becomes the note. | Waiting: {drafts}. Saving rejects them and your text becomes the note.",
+      "confirm": "Save mine, discard theirs",
+      "cancel": "Keep editing"
+    },
+    "save_failed_toast": "Could not save note",
+    "deleted": "Note deleted",
+    "delete_failed": "Could not delete note",
+    "load_failed_toast": "Failed to load the note",
+    "loading": "Loading the note…",
+    "breadcrumb": "Breadcrumb",
+    "notes": "Notes",
+    "load_failed": {
+      "title": "This note could not be loaded",
+      "body": "Nothing has been changed. The editor stays closed rather than showing a blank sheet where the note should be.",
+      "back": "Back to Notes"
+    },
+    "note_fallback": "Note",
+    "new_note": "New note",
+    "editing_note": "Editing note {id}",
+    "title_label": "Title",
+    "title_placeholder": "Name this note",
+    "nothing_to_save": "Nothing to save yet.",
+    "title_error": "A title is required, and stops at 500 characters.",
+    "create_note": "Create note",
+    "save_changes": "Save changes",
+    "save_error": {
+      "title": "This draft was not saved.",
+      "body": "{error} — nothing you typed has been lost."
+    },
+    "draft": "Draft",
+    "body_label": "Note text, Markdown",
+    "body_placeholder": "# Note title\n\nWrite markdown here…",
+    "mode": {
+      "label": "Editor mode",
+      "write": "Write",
+      "preview": "Preview"
+    },
+    "body_error": "Some text is required.",
+    "stats": {
+      "chars": "{n} chars",
+      "words": "{n} words | {n} word | {n} words",
+      "token_formula": "estimate — ⌈characters ÷ 4⌉, the same rule the embedding pipeline uses",
+      "tokens": "~{n} tokens",
+      "reading": "~{n} min read",
+      "headings": "{n} headings | {n} heading | {n} headings",
+      "wiki_links": "{n} wiki-links"
+    },
+    "rail_label": "Editorial context",
+    "summary_label": "Summary",
+    "tags_label": "Tags",
+    "source": {
+      "label": "Original source",
+      "read_only": "Read only"
+    },
+    "assistant": {
+      "title": "Editorial assistant",
+      "choose": "You choose what to apply",
+      "ready": "Ready to check this draft",
+      "dismiss": "Dismiss analysis",
+      "lede": "Checks this draft against the notes you already have: near-duplicates, notes you name but do not link, and tags from your vocabulary. Nothing is applied or saved automatically.",
+      "analyzing": "Analyzing…",
+      "analyze": "Analyze draft",
+      "previous_run": "{error} — these findings are from the previous run.",
+      "stale": "The draft has changed since these were found.",
+      "nothing_to_flag": "Nothing to flag — no near-duplicates, no notes named without a link, no tags from your vocabulary that fit.",
+      "possible_duplicate": "Possible duplicate",
+      "possible_duplicate_counted": "Possible duplicate — {count} close notes, nearest first | Possible duplicate — {count} close note, nearest first | Possible duplicate — {count} close notes, nearest first",
+      "named_not_linked": "Named but not linked",
+      "from_vocabulary": "From your vocabulary",
+      "stronger_title": "A stronger title",
+      "use_title": "Use title",
+      "a_summary": "A summary",
+      "use_summary": "Use summary",
+      "not_in_vocabulary": "Not in your vocabulary",
+      "new_term": "{tags} — type one into Tags if it deserves a new term.",
+      "allowance": {
+        "none": "Summaries and titles need your own AI key: {link}.",
+        "own": "Summaries and titles use your own AI key.",
+        "included": "Summaries and titles by {model}: {left} analyses left today. | Summaries and titles by {model}: {left} analysis left today. | Summaries and titles by {model}: {left} analyses left today.",
+        "included_default": "Summaries and titles: {left} analyses left today. | Summaries and titles: {left} analysis left today. | Summaries and titles: {left} analyses left today.",
+        "link": "Settings › AI features"
+      },
+      "nothing_saved_until": "Nothing is saved until {action}.",
+      "analyze_again": "Analyze again"
+    },
+    "danger": {
+      "title": "Delete this note",
+      "body": "Moves the note to Deleted notes. A confirmation names it before anything changes.",
+      "delete": "Delete note"
+    },
+    "toolbar": {
+      "formatting": "Formatting",
+      "undo": "Undo",
+      "redo": "Redo",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strikethrough": "Strikethrough",
+      "inline_code": "Inline code",
+      "heading": "Heading",
+      "heading_level": "{marks} Heading {level}",
+      "normal_text": "Normal text",
+      "bullet_list": "Bullet list",
+      "numbered_list": "Numbered list",
+      "task_list": "Task list",
+      "link": "Link",
+      "note_link": "Link to a note",
+      "table": "Table",
+      "more": "More",
+      "more_formatting": "More formatting"
+    },
+    "tag_input": {
+      "placeholder": "Type to search or create a tag…",
+      "remove": "Remove {tag}",
+      "create": "Create “{name}”"
+    },
+    "summary_guidance": "What this note is about and what a reader would come to it for, in two or three sentences — about {n} characters. It is a hint, not an abstract."
+  },
+  "inbox": {
+    "kinds": {
+      "summary": "Summaries",
+      "tags": "Tags",
+      "content": "Titles & bodies",
+      "new_note": "New notes",
+      "report": "Reports",
+      "deletion": "Deletions",
+      "merge": "Merges"
+    },
+    "fields": {
+      "summary": "summary",
+      "tags": "tags",
+      "content": "title & body",
+      "new_note": "new note",
+      "report": "report",
+      "deletion": "deletion",
+      "merge": "merge"
+    },
+    "just_now": "just now",
+    "scope": {
+      "affected": "affected {fields}.",
+      "with_stem": "{stem}, {affected}"
+    },
+    "chip": {
+      "merge": "Merge",
+      "report": "Report",
+      "new": "New"
+    },
+    "verdict": {
+      "delete_note": "Delete note",
+      "acknowledge": "Acknowledge",
+      "apply_edit": "Apply edit",
+      "reject": "Reject",
+      "dismiss": "Dismiss",
+      "reject_proposal": "Reject proposal",
+      "approve_note": "Approve note",
+      "reject_note": "Reject note",
+      "merge_into_this": "Merge into this note"
+    },
+    "tags_count": "{count} tags | {count} tag | {count} tags",
+    "backlinks_count": "{count} backlinks | {count} backlink | {count} backlinks",
+    "batch": {
+      "reject_with_notes": "Rejected proposals are discarded. Rejected new notes are retired to Deleted, where they stay restorable for 30 days.",
+      "reject": "Rejected proposals are discarded. The notes they were written against are left exactly as they are.",
+      "destructive": "The selection includes deletions or merges, and they will be applied. Deleted notes go to Deleted for 30 days.",
+      "acknowledged": "{count} reports will be acknowledged. The notes they are about are left exactly as they are. | {count} report will be acknowledged. The notes they are about are left exactly as they are. | {count} reports will be acknowledged. The notes they are about are left exactly as they are.",
+      "applied": "{count} items will be applied without opening any of them. | {count} item will be applied without opening any of them. | {count} items will be applied without opening any of them.",
+      "mixed": "{applied} {reports}",
+      "mixed_reports": "The other {count} are reports and are acknowledged — the notes they are about do not change. | The other {count} is a report and is acknowledged — the notes they are about do not change. | The other {count} are reports and are acknowledged — the notes they are about do not change.",
+      "approved_toast": "Approved {count} items. | Approved {count} item. | Approved {count} items.",
+      "rejected_toast": "Rejected {count} items. | Rejected {count} item. | Rejected {count} items.",
+      "approved_report": "Approved {done} of {total}",
+      "rejected_report": "Rejected {done} of {total}",
+      "all_decided": "Every selected item was decided.",
+      "label": "Batch decision",
+      "selected": "{n} selected",
+      "reason_placeholder": "Optional reason, recorded once for all of them",
+      "reason_label": "Reason for this batch decision",
+      "approve_selected": "Approve selected",
+      "reject_selected": "Reject selected",
+      "hint": "Select matching items for a cautious batch decision.",
+      "approve_title": "Approve {count} items? | Approve {count} item? | Approve {count} items?",
+      "reject_title": "Reject {count} items? | Reject {count} item? | Reject {count} items?",
+      "unread": "None of them is opened, and no per-item reason is recorded.",
+      "approve_n": "Approve {n}",
+      "reject_n": "Reject {n}"
+    },
+    "toast": {
+      "note_deleted": "Note deleted",
+      "notes_merged": "Notes merged",
+      "proposal_applied": "Proposal applied",
+      "proposal_rejected": "Proposal rejected",
+      "note_approved": "Note approved",
+      "note_approved_amended": "Note approved with your edits",
+      "note_rejected": "Note rejected"
+    },
+    "breadcrumb": "Breadcrumb",
+    "notes": "Notes",
+    "title": "Review inbox",
+    "waiting": "{n} waiting",
+    "lede": "Agent work waits here until you decide. Nothing changes a note without your approval.",
+    "filter_label": "Show",
+    "everything": "Everything",
+    "load_failed": "The inbox could not be loaded",
+    "loading": "Loading the review inbox…",
+    "empty": "Nothing to review",
+    "empty_body": "Nothing is waiting on you. Agent writes land here for review as they arrive.",
+    "pending_reviews": "Pending reviews",
+    "clear_selection": "Clear selection",
+    "select_all_shown": "Select all shown",
+    "filtered_empty": "Nothing here is {kind}",
+    "filtered_empty_body": "The inbox is not empty — it holds other kinds of work.",
+    "show_everything": "Show everything",
+    "select_item": "Select {kind} {identity}",
+    "hide_review": "Hide review",
+    "review": "Review",
+    "could_not_load": "Could not load {identity}",
+    "try_again": "Try again",
+    "loading_changes": "Loading the changes…",
+    "loading_note": "Loading the note…",
+    "evidence_label": "Proposed changes for {title}",
+    "reason": "Reason:",
+    "amend": {
+      "label": "The edit as you want it applied",
+      "title_label": "Title",
+      "body_label": "Body",
+      "tags_label": "Tags",
+      "summary_label": "Description",
+      "was": "was",
+      "removed": "removed",
+      "note": "Approving applies what is here instead of what was proposed. The proposer is still credited with the change.",
+      "note_own": "Approving saves the note as you have it here. Your edit is recorded as yours.",
+      "cannot_empty": "A note cannot be emptied this way.",
+      "discard": "Cancel amendment",
+      "open": "Amend",
+      "note_merge_unproposed": "This merge proposes no new wording. Approving saves the note as you have it here, and leaves it untouched if you change nothing.",
+      "folding_in": "Text being folded in"
+    },
+    "verdict_failed": "The verdict was not recorded",
+    "items_waiting": "{count} items waiting | {count} item waiting | {count} items waiting",
+    "panel": {
+      "stale_title": "This edit no longer applies",
+      "stale_body": "It changes text that is not in the note any more — it was written against an earlier version. Approving it will be refused, so the note is safe either way; ask for it again and it will be written against the note as it stands.",
+      "empties_title": "This edit would empty the note",
+      "empties_body": "The note has changed since this was written, and applying it now would leave nothing behind. Emptying a note is a deletion, and a deletion is proposed separately so the note stays restorable — so this cannot be approved. What it would remove is below."
+    },
+    "by": "by",
+    "doc": {
+      "heading_new": "Proposed new document:",
+      "heading_edit": "Proposed new document:",
+      "heading_merge": "Proposed new merged document:",
+      "heading_delete": "Document to be deleted:",
+      "heading_report": "The document as it stands:",
+      "body": "Body",
+      "tags": "Tags",
+      "summary": "Description",
+      "no_tags": "no tags",
+      "no_summary": "no description"
+    },
+    "proposal_identity": "#{id}",
+    "note_ref": "note {id}",
+    "relation": {
+      "deleting": "To be deleted — restorable from Deleted for 30 days"
+    },
+    "merge": {
+      "no_keeper": "This merge came back without the note that would survive it."
+    },
+    "review_changed": "This item changed. Refresh to review the latest version before approving.",
+    "refresh_review": "Refresh review",
+    "refresh_discards_amendment": "Refresh this review and discard your unsaved amendment?",
+    "discard_amendment_title": "Discard your amendment?",
+    "discard_amendment_body": "Your unsaved changes will be lost. The pending note or proposal will stay in the inbox.",
+    "discard_amendment_confirm": "Discard amendment",
+    "load_more": "Load more pending notes",
+    "loaded_pending": "Showing {shown} of {total} pending notes."
+  },
+  "activity": {
+    "views": {
+      "journal": "Journal",
+      "journal_hint": "Everything written, in order",
+      "curation": "Curation",
+      "curation_hint": "What each pass did"
+    },
+    "passes_load_failed": "Could not load the passes",
+    "title": "Activity log",
+    "lede": "Everything written to your Memex, every decision made.",
+    "view_label": "Activity view",
+    "passes_failed": "The curation passes could not be loaded.",
+    "try_again": "Try again",
+    "journal": {
+      "load_failed": "Could not load the journal",
+      "deleted_note": "(deleted note)",
+      "action_label": "Action",
+      "all_actions": "All actions",
+      "agent_label": "Agent",
+      "all_agents": "All agents",
+      "scope_label": "Scope",
+      "all_activity": "All activity",
+      "curation_only": "Curation passes only",
+      "run_chip": "Curation pass #{id} · {by} · {at}",
+      "clear_run_scope": "Clear the run scope",
+      "run_unbounded": "This pass did not record a start, so these rows are everything {by} wrote since its previous pass.",
+      "clear_filters": "Clear filters",
+      "loading": "Loading...",
+      "failed": "The journal could not be loaded. Try again.",
+      "no_match": "Nothing matches these filters.",
+      "empty": "Nothing has happened here yet.",
+      "columns": {
+        "entry": "Entry",
+        "date": "Date",
+        "action": "Action",
+        "description": "Description",
+        "by": "By"
+      },
+      "pass_link": "pass #{id}",
+      "at_by": "{at} by {by}",
+      "showing": "Showing {from}–{to} of {total}",
+      "pagination": "Pagination",
+      "newer": "Newer",
+      "older": "Older",
+      "page_of": "Page {page} of {total}",
+      "go_to": "Go to",
+      "rows": "Rows",
+      "rows_per_page": "Rows per page",
+      "per_page": "/ page",
+      "download_link": "Request logs download",
+      "what_changed": "What this changed:"
+    },
+    "runs": {
+      "filters": {
+        "all": "All passes",
+        "mismatch": "Report doesn't match",
+        "waiting": "Waiting on you",
+        "defective": "Still defective",
+        "changed": "Changed something",
+        "unbounded": "No stated window"
+      },
+      "counts": {
+        "edited": "edited",
+        "created": "created",
+        "flags_resolved": "flags answered",
+        "held": "held",
+        "proposed": "deletes or merges"
+      },
+      "badge": {
+        "mismatch": "report ≠ log",
+        "waiting": "{count} waiting on you | {count} waiting on you | {count} waiting on you",
+        "defective": "{count} still defective | {count} still defective | {count} still defective"
+      },
+      "did": {
+        "filed_more": "{count} more are filed for your verdict | {count} more is filed for your verdict | {count} more are filed for your verdict",
+        "nothing": "It recorded nothing read and nothing changed.",
+        "changes": "{count} changes | {count} change | {count} changes",
+        "no_read": "It recorded no notes as read. {applied} applied, {filed} filed for your verdict.",
+        "read_notes": "It read {count} notes. | It read {count} note. | It read {count} notes.",
+        "window_applied": "In the same window {count} changes were applied and {filed} filed for your verdict. | In the same window {count} change was applied and {filed} filed for your verdict. | In the same window {count} changes were applied and {filed} filed for your verdict.",
+        "none_changed": "None of the {count} notes it read came out changed | None of the {count} note it read came out changed | None of the {count} notes it read came out changed",
+        "some_changed": "{applied} of the {count} notes it read came out changed | {applied} of the {count} note it read came out changed | {applied} of the {count} notes it read came out changed",
+        "subset_nothing_filed": "{changed}, and nothing was filed for you.",
+        "subset_more_filed": "{changed}; {tail}."
+      },
+      "report": {
+        "and": "and",
+        "matched": "Its {claims} counts matched. | Its {claims} count matched. | Its {claims} counts matched.",
+        "disagree": "Its account and the journal disagree.",
+        "claimed_agrees": "It claimed {claims}. The journal agrees.",
+        "claimed_nothing": "It claimed nothing, so there was nothing to check."
+      },
+      "on_you": {
+        "waiting": "{count} deletes and merges await your verdict. | {count} delete or merge awaits your verdict. | {count} deletes and merges await your verdict.",
+        "defective": "{count} of the notes it read still fail Memex's own checks. | {count} of the notes it read still fails Memex's own checks. | {count} of the notes it read still fail Memex's own checks.",
+        "nothing": "Nothing is waiting on you from this pass."
+      },
+      "title": "Curation passes",
+      "lede": "One row per pass an assistant recorded. Every number is Memex's own, counted from what it logged; the words in quotes are the assistant's and are not checked.",
+      "search_placeholder": "Search passes, or a note they touched",
+      "search_label": "Search passes",
+      "filter_label": "Filter passes",
+      "reading": "Reading the journal…",
+      "none_recorded": "No pass has been recorded yet. A pass is recorded when a curation assistant closes it with {code}.",
+      "none_recorded_code": "log",
+      "no_match": "Nothing matches those filters.",
+      "columns": {
+        "expand": "Expand",
+        "pass": "Pass",
+        "date": "Date",
+        "assistant": "Assistant",
+        "read": "Read",
+        "applied": "Applied",
+        "filed": "Filed",
+        "status": "Status"
+      },
+      "details_of": "Details of pass #{id}",
+      "since_last_pass": "counts since this assistant's last pass",
+      "slot_did": "Did it do anything",
+      "applied": "applied",
+      "filed": "filed",
+      "unbounded_why": "The pass stated no start time, so “applied” and “filed” cover everything this assistant wrote since its previous pass, which may include work you did by hand. The {read} it read are its own.",
+      "slot_report": "Its report",
+      "claimed_row": "It claimed {n} {claim}.",
+      "journal_holds": "The journal holds {n}.",
+      "slot_on_you": "On you now",
+      "awaiting_verdict": "Awaiting your verdict",
+      "review_inbox": "Review inbox →",
+      "more": "… {count} more. | … {count} more. | … {count} more.",
+      "still_defective": "Read, and still defective",
+      "written": "What it changed",
+      "edits_to_it": "{count} edits | {count} edit | {count} edits",
+      "examined_list": "What it read",
+      "since_deleted": "since deleted",
+      "own_words": "In {by}'s own words",
+      "quoted_whole": "quoted whole, never summarised or checked by Memex",
+      "recorded": "Recorded {at}.",
+      "recorded_window": "Recorded {at} · window from {from}, as the pass stated.",
+      "also_logged": "Also logged",
+      "observations": "{count} observations | {count} observation | {count} observations",
+      "tooling_gaps": "{count} tooling gaps | {count} tooling gap | {count} tooling gaps",
+      "every_row": "Every row of this pass in Activity →",
+      "ledger": "The last {shown} of {total} passes. Nothing here is ever deleted; the whole ledger, including everything that is not curation, is in {link}.",
+      "ledger_link": "the Journal"
+    },
+    "entry": {
+      "notes": "{count} notes: | {count} note: | {count} notes:",
+      "gone": "{count} no longer exist | {count} no longer exist | {count} no longer exist",
+      "hide_diff": "Hide diff",
+      "show_diff": "Show diff",
+      "precedent_title": "The curator may apply this reasoning to comparable cases",
+      "precedent": "precedent"
+    },
+    "download": {
+      "size_kb": "about {n} kB",
+      "size_mb": "about {n} MB",
+      "title": "Download the journal",
+      "from": "From",
+      "to": "To",
+      "format": "Format",
+      "markdown": "Markdown",
+      "csv": "CSV",
+      "inverted": "The first date is after the second.",
+      "counting": "Counting…",
+      "count_failed": "Could not count this range. The download still works.",
+      "empty": "Nothing in this range.",
+      "entries": "{total} entries · {size} | {total} entry · {size} | {total} entries · {size}",
+      "filters_apply": "The filters on the journal apply to this download too.",
+      "download": "Download"
+    },
+    "reasons": {
+      "note": {
+        "operator_flag": "you flagged it",
+        "untagged": "no tags",
+        "no_summary": "no description",
+        "not_embedded": "not searchable by meaning",
+        "disconnected": "no links either way",
+        "dangling_links": "links that lead nowhere",
+        "nonstandard_tags": "tag names to tidy",
+        "weak_title": "title may be a filename"
+      },
+      "count": {
+        "operator_flag": "notes you flagged",
+        "untagged": "notes with no tags",
+        "no_summary": "notes with no description",
+        "not_embedded": "notes not searchable by meaning",
+        "disconnected": "notes with no links either way",
+        "dangling_links": "links that lead nowhere",
+        "nonstandard_tags": "tag names to tidy",
+        "weak_title": "titles that may be filenames"
+      }
+    }
+  },
+  "settings": {
+    "panes": {
+      "account": {
+        "label": "Account",
+        "hint": "Profile, sign-in, browsers"
+      },
+      "general": {
+        "label": "Preferences",
+        "hint": "Appearance, language, date and time"
+      },
+      "personalization": {
+        "label": "Personalization",
+        "hint": "Note writing and your profile"
+      },
+      "content": {
+        "label": "Notes",
+        "hint": "Import, export and tags"
+      },
+      "connections": {
+        "label": "Assistants",
+        "hint": "Connections and note maintenance"
+      },
+      "automation": {
+        "label": "AI features",
+        "hint": "Search, descriptions and tags"
+      }
+    },
+    "title": "Settings",
+    "close": "Close settings",
+    "section": "Settings section",
+    "sections": "Settings sections",
+    "groups": {
+      "personal": "Personal",
+      "memex": "Your memex"
+    }
+  },
+  "account": {
+    "name": {
+      "changed": "Name changed",
+      "not_changed": "Name not changed"
+    },
+    "picture": {
+      "wrong_kind": "Not that kind of file",
+      "wrong_kind_detail": "Your picture has to be a PNG or a JPEG.",
+      "too_large": "That file is too large",
+      "too_large_detail": "Pictures are up to 8 MB.",
+      "not_changed": "Picture not changed",
+      "not_removed": "Picture not removed",
+      "change": "Change your picture",
+      "upload": "Upload a picture",
+      "remove": "Remove your picture"
+    },
+    "link_errors": {
+      "denied": "Sign-in was cancelled, so nothing changed.",
+      "state": "That took too long, or arrived by a route we did not start. Please try again.",
+      "provider": "The other site could not complete the sign-in. Try again in a moment.",
+      "unconfigured": "That way of signing in is not set up on this server.",
+      "identity_taken": "That account is already the way in to a different memex knowledge base. Sign out of it there, or use another one.",
+      "link_session": "Your session ended while you were away. Sign in again and retry.",
+      "unknown": "That did not finish. Please try again."
+    },
+    "linked": {
+      "removed": "{label} removed",
+      "not_removed": "Not removed",
+      "added": "{label} added",
+      "added_detail": "You can sign in with {label} from now on.",
+      "not_added": "Not added",
+      "title": "Sign-in methods",
+      "account": "Account",
+      "last_used": "Last used",
+      "at_least_one": "You must have at least one account connected.",
+      "microsoft_last": "Your Microsoft account is the only way in here. If it belongs to an employer, they can close it without warning, and this knowledge base goes with it. Add a second account.",
+      "add": "Add {label}",
+      "not_set_up": "Not set up on this server."
+    },
+    "devices": {
+      "signed_out": "Signed out",
+      "signed_out_detail": "{browser} cannot open this account any more.",
+      "not_signed_out": "Not signed out",
+      "others_signed_out": "{count} browsers signed out | One browser signed out | {count} browsers signed out",
+      "this_one_stays": "This one is still signed in.",
+      "title": "Signed-in browsers",
+      "intro": "Browsers currently signed in to your account.",
+      "browser": "Browser",
+      "ip": "IP",
+      "last_signed_in": "Last active",
+      "this_browser": "This browser",
+      "sign_out": "Sign out",
+      "sign_out_others": "Sign out everywhere else"
+    },
+    "not_yet": "not yet",
+    "export": {
+      "downloaded": "Export downloaded",
+      "failed": "Export failed",
+      "title": "Export",
+      "intro": "Get all your notes in a ZIP of Markdown files.",
+      "building": "Building the archive...",
+      "download": "Download notes"
+    },
+    "profile": {
+      "title": "Your details",
+      "preferred_name": "Name"
+    },
+    "added": "Added",
+    "delete": {
+      "export_first": "Download your notes before deleting your account",
+      "title": "Delete my account",
+      "intro": "Permanently delete your account. You will no longer be able to access your notes.",
+      "not_deleted": "Not deleted",
+      "question": "Delete your entire account permanently?",
+      "warning": "This action cannot be undone. Your entire account with all notes and history will be permanently deleted.",
+      "type_email": "Please type in your email to confirm.",
+      "confirm_button": "Permanently delete account and {count} notes | Permanently delete account and {count} note | Permanently delete account and {count} notes"
+    }
+  },
+  "personalization": {
+    "persistence": {
+      "saving": "Saving…",
+      "saved": "Saved",
+      "failed": "Not saved"
+    },
+    "writing": {
+      "title": "Writing notes",
+      "intro": "memex-writing is memex’s built-in skill for writing notes, drawn from established professional practice. Assistants load it before they write or edit a note, and what you ask in a conversation comes first.",
+      "memex": "Use memex writing rules",
+      "own": "Use my own writing rules",
+      "source_help": "With your own writing rules, memex-writing is off and assistants follow only the writing rules you add as a skill on the {skills}. Without one there, nothing tells them how to write notes.",
+      "skills_page": "Skills page",
+      "reach": "Assistants are told to load it before they write or edit a note: when they connect, in memex-recall and in the description of propose.",
+      "loaded_by": "Current text loaded by {names}.",
+      "loaded_by_none": "No connection has loaded the current text yet.",
+      "whole": "The whole skill"
+    },
+    "presets": {
+      "setting": "Setting",
+      "choice": "Choice",
+      "says": "What it adds to memex-writing",
+      "not_with": "Not with {choice}",
+      "scope": {
+        "label": "Scope",
+        "one_subject": "One subject",
+        "one_idea": "One idea",
+        "whole_topic": "Whole topic",
+        "scope_short": "Keep it short"
+      },
+      "opening": {
+        "label": "Opening",
+        "summary": "Summary, then sections",
+        "answer": "Answer first",
+        "context": "Context first"
+      },
+      "format": {
+        "label": "Format",
+        "mixed": "Form follows content",
+        "prose": "Prose",
+        "bullets": "Bullets",
+        "format_minimal": "Minimal markup"
+      },
+      "reasoning": {
+        "label": "Reasoning",
+        "reasons": "Conclusion and reasons",
+        "bare": "Conclusions only",
+        "rationale": "Full rationale",
+        "reasoning_confidence": "State how sure",
+        "reasoning_sources": "Cite outside sources"
+      }
+    },
+    "profile_note": {
+      "intro": "An optional note about you: your work, interests and how you like answers. Connected assistants are told to read it so you don’t have to explain yourself each time. You can edit or delete it like any other note.",
+      "none": "You have no profile note yet.",
+      "create": "Add profile",
+      "open": "Open profile",
+      "ask": "Ask an assistant to help write it",
+      "several": "You have several profile notes. Open any of them to edit it.",
+      "pending": "waiting for your review, so it is not in force",
+      "load_failed": "memex could not read your notes just now.",
+      "retry": "Try again",
+      "prompt_hint": "Send this to an assistant you’ve connected to memex, or ask in your own words."
+    },
+    "about": {
+      "title": "About you",
+      "told": "What assistants are told about it"
+    },
+    "settings": {
+      "stale": "These settings changed in another tab",
+      "not_saved": "That setting could not be saved",
+      "load_failed": "memex could not read these settings just now."
+    }
+  },
+  "general": {
+    "name": {
+      "title": "Space name"
+    },
+    "themes": {
+      "sunrise": "Sunrise",
+      "midnight": "Midnight"
+    },
+    "fonts": {
+      "sans": "Sans",
+      "serif": "Serif",
+      "mono": "Mono"
+    },
+    "language": {
+      "not_changed": "Language not changed",
+      "title": "Language",
+      "select": "Select your preferred interface language"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "select_theme": "Select your preferred theme",
+      "text_size": "Notes text size",
+      "typeface": "Note font"
+    },
+    "datetime": {
+      "title": "Date & time",
+      "select_format": "Select date format",
+      "today_is": "Today is {date}",
+      "select_zone": "Select your time zone",
+      "system_zone": "Your system setting ({zone})",
+      "zone_note": "Memex will use this time zone"
+    },
+    "date_formats": {
+      "full": "Full date",
+      "short": "Short date",
+      "mdy": "MM/DD/YYYY",
+      "ymd": "YYYY/MM/DD",
+      "dmy": "DD/MM/YYYY"
+    },
+    "version": {
+      "title": "Version"
+    }
+  },
+  "content": {
+    "import": {
+      "not_added": "Not that kind of file | Not that kind of file | {count} files not added",
+      "skipped": "memex reads .zip, .md and .txt. Skipped: {files}.",
+      "archive_unreadable": "Could not read that archive",
+      "not_imported": "Not imported",
+      "file_error": "{file}: {error}",
+      "failed": "Import failed",
+      "title": "Import",
+      "intro": "Bring notes in from a file, a folder or a ZIP.",
+      "dropzone_title": "Import your content to memex",
+      "dropzone_hint": "Drag and drop ZIP, text or markdown files, or {choose}.",
+      "choose_files": "choose files",
+      "choose_files_aria": "Choose files to import",
+      "zip_max": "ZIP files can be a maximum of 32 MB.",
+      "files_ready": "{count} files ready | {count} file ready | {count} files ready",
+      "files_imported": "Imported {count} files | Imported {count} file | Imported {count} files",
+      "add_more": "Add more",
+      "add_more_aria": "Add more files",
+      "clear": "Clear",
+      "skip_duplicates": "Skip notes whose title already exists",
+      "folder_tags": "Top-level folders become tags",
+      "extra_tags_placeholder": "Extra tags for everything imported (comma-separated, optional)",
+      "working": "Working…",
+      "notes_imported": "Imported {count} notes | Imported {count} note | Imported {count} notes",
+      "notes_ready": "{n} note(s) ready",
+      "duplicates_skipped": "{n} duplicate(s) skipped",
+      "duplicates_imported": "{n} duplicate(s) imported anyway",
+      "not_analysed": "Not analysed yet",
+      "ready": "Ready",
+      "remove_file": "Remove {file}",
+      "previously_retired": "{n} of these were deleted from this knowledge base",
+      "resurrect": "Import them again",
+      "analyze": "Analyze {n} archive(s)",
+      "import_files": "Import {count} files | Import {count} file | Import {count} files",
+      "working_status": "Working...",
+      "browse": "{link} — search improves as the index catches up over the next few minutes.",
+      "browse_link": "Browse your notes"
+    },
+    "tags": {
+      "not_restored": "Tag not restored",
+      "load_failed": "Could not load your tags",
+      "title": "Tags",
+      "in_use": "{n} in use",
+      "intro": "Every tag in your notes. Unlocked ones can be merged or removed.",
+      "load_failed_note": "Your tags could not be loaded. Reload to try again.",
+      "system_aria": "{tag} is a tag memex reads and cannot be removed",
+      "remove_aria": "Remove the tag {tag}",
+      "empty": "No tags yet.",
+      "system_note": "Individual notes can still gain or lose it. | Individual notes can still gain or lose it. | Individual notes can still gain or lose them."
+    },
+    "retired": {
+      "title": "Blocked tag suggestions",
+      "intro": "Memex will not suggest these tags. Allow one again to use it in future suggestions.",
+      "restore_aria": "Start using the tag {tag} again",
+      "empty": "No blocked suggestions.",
+      "confirm_title": "Start using this tag again?",
+      "confirm_label": "Start using {tag}",
+      "confirm_body": "Memex will suggest {tag} again. Notes are not changed."
+    },
+    "map": {
+      "title": "Map",
+      "intro": "Choose how your notes appear on the map. Saved to your account.",
+      "view": "Layout",
+      "view_help": "The flat map is quicker to read and works on a phone. The 3D map separates clusters a flat one has to overlap, and needs a mouse or trackpad to fly around.",
+      "view_2d": "2D",
+      "view_3d": "3D",
+      "shape": "Note shape",
+      "shape_dot": "Dots",
+      "shape_square": "Squares",
+      "links": "Link style",
+      "links_curve": "Curved",
+      "links_line": "Straight",
+      "links_arrow": "Arrows",
+      "labels": "Note labels",
+      "labels_help": "What the name beside a note says. On the 3D map only the note you select and the ones it touches are named; naming six hundred at once reads as noise.",
+      "labels_title": "Title",
+      "labels_id": "Number",
+      "labels_none": "Hidden",
+      "not_saved": "That map setting was not saved"
+    },
+    "deleted": {
+      "load_failed": "Could not load deleted notes",
+      "title": "Deleted notes",
+      "restorable": "{n} restorable",
+      "intro": "Restore deleted notes within {days} days. After that, their content is permanently removed.",
+      "count_failed": "The count could not be loaded. Open the list to try again.",
+      "soon": "{n} of them have a week or less left. | {n} of them has a week or less left. | {n} of them have a week or less left.",
+      "open": "Open deleted notes",
+      "restored": "Restored",
+      "restored_body": "“{title}” is back at note {id}.",
+      "restore_failed": "Could not restore",
+      "purged": "Purged",
+      "purged_body": "The content of “{title}” is gone; the tombstone remains.",
+      "purge_failed": "Could not purge",
+      "dialog_note": "Restored at their original id, with their tags and inbound links. After {days} days the content is purged and a tombstone remains.",
+      "find_placeholder": "Find by title or reason",
+      "find_aria": "Find a deleted note",
+      "include_purged": "Include purged tombstones",
+      "list_failed": "The list could not be loaded. Close this and open it again to retry.",
+      "days_left": "{count} days left | {count} day left | {count} days left",
+      "restore": "Restore",
+      "purge_now": "Purge now",
+      "content_gone": "content gone",
+      "no_match": "Nothing here matches “{query}”.",
+      "empty": "Nothing is waiting. Notes you delete appear here for {days} days.",
+      "total": "{count} notes | {count} note | {count} notes",
+      "tombstones_hidden": "tombstones hidden",
+      "page": "Page {page} of {pages}",
+      "purge_confirm_title": "Purge this note now?",
+      "purge_confirm_label": "Purge the content",
+      "purge_confirm_body": "The content of {title}, its earlier versions and related Activity text are destroyed and cannot be restored. Shared run narratives are also cleared. The tombstone title and audit actions, authors and dates remain; the deletion reason is cleared. Backups and unrelated copies remain. Use this when a note must genuinely be gone, such as one that carried a credential."
+    },
+    "tag_removal": {
+      "merged": "“{removed}” is now “{into}”",
+      "removed": "“{removed}” removed",
+      "notes_changed": "{count} notes changed. | {count} note changed. | {count} notes changed.",
+      "nothing_changed": "Nothing changed",
+      "header": "“{tag}” · {count} notes | “{tag}” · {count} note | “{tag}” · {count} notes",
+      "remove_option": "Remove this tag from {count} notes | Remove this tag from {count} note | Remove this tag from {count} notes",
+      "merge_option": "Merge this tag with another one",
+      "target_aria": "Tag to move these notes to",
+      "choose_tag": "Choose a tag",
+      "merge_preview": "Those notes get “{target}” and lose “{tag}”.",
+      "merge_hint": "Choose the tag those notes should carry instead.",
+      "remove_hint": "This cannot be undone, and no note is deleted — they keep their other tags.",
+      "merge": "Merge",
+      "remove_from": "Remove from {n}"
+    }
+  },
+  "connections": {
+    "guides": {
+      "optional": "Optional",
+      "im_there": "I’m there",
+      "continue_to_test": "Continue to test",
+      "to_prompt": "The prompt to paste",
+      "permissions_title": "Fewer interruptions, same review inbox.",
+      "permissions_tip": "Memex still holds edits, deletions and merges in your review inbox for approval. New notes arrive there for review too.",
+      "permissions_tip_curator": "Memex still holds deletions and merges in your review inbox for approval. A curator connection’s notes and edits apply at once.",
+      "review_tip": "You’ll still review what your assistant writes before it becomes a note.",
+      "review_tip_curator": "This knowledge base has a curator connection: its notes and edits apply at once, and its deletions and merges still wait for you.",
+      "enlarge": "Enlarge screenshot: {what}",
+      "close_screenshot": "Close enlarged screenshot",
+      "diagram_label": "{provider} connects to memex",
+      "diagram_caption": "Your assistant. Your notes in memex.",
+      "images": {
+        "enlarge": "Click to enlarge",
+        "open_memex": "1. Open Memex",
+        "choose_permissions": "2. Choose permissions",
+        "read_only": "2. Read-only",
+        "write_delete": "3. Write/delete",
+        "name_and_address": "1. Name and address",
+        "confirm_and_add": "2. Confirm and add",
+        "paste_link": "1. Paste the link",
+        "confirm_address": "2. Confirm the address",
+        "approve": "Memex connection approval with the Connect it button",
+        "developer_mode": "ChatGPT Security and login settings with Developer mode enabled",
+        "new_plugin": "ChatGPT New Plugin form with the Memex name and server URL",
+        "chatgpt_plugin_list": "ChatGPT Plugins settings showing the Memex plugin",
+        "chatgpt_plugin_permissions": "Memex plugin permissions with Allow all actions selected",
+        "claude_connectors": "Claude Connectors settings with the Add button and Memex connector",
+        "claude_connectors_open": "Claude Connectors settings showing the Memex connector to open",
+        "claude_add": "Claude Add custom connector form with Memex and its server address",
+        "claude_confirm": "Claude connector confirmation with detected sign-in settings and Add button",
+        "claude_read": "Claude Memex read-only tools menu with Always allow available",
+        "claude_write": "Claude Memex write-delete tools menu with Always allow available",
+        "gemini_custom_apps": "Gemini Custom apps for Spark section with the app link field and Next button",
+        "gemini_paste": "Gemini Custom apps for Spark section with the Memex server address",
+        "gemini_confirm": "Gemini Connect to an MCP server screen with the Memex URL and Next button",
+        "gemini_save": "Gemini Save your custom app screen with the Memex name, available actions and Connect button"
+      },
+      "chatgpt": {
+        "developer_mode": {
+          "title": "Turn on Developer mode",
+          "body": "In ChatGPT, open **Settings → Security and login**. Switch on **Developer mode**.",
+          "link": "Open ChatGPT settings",
+          "next": "Developer mode is on"
+        },
+        "plugin": {
+          "title": "Add Memex as a plugin",
+          "body": "Open [Plugins](https://chatgpt.com/plugins) and choose **+ (Add) → Create MCP App**. Name it **Memex** and paste this server address.",
+          "tip": "Tick the confirmation box, then click Create.",
+          "next": "I’ve added Memex"
+        },
+        "approve": {
+          "title": "Allow the connection",
+          "body": "Memex will open in a new tab. Click **Connect it**, then come back here.",
+          "next": "Connection added"
+        },
+        "permissions": {
+          "body": "**Allow low-risk actions** is a good default. For fewer interruptions, let ChatGPT use memex without asking each time.",
+          "instruction": "Open **Settings → Plugins → Memex** and choose **Allow all actions**."
+        }
+      },
+      "claude": {
+        "connectors": {
+          "title": "Open Claude’s connectors",
+          "body": "Go to **Settings → Connectors** in Claude.",
+          "link": "Open Claude connectors"
+        },
+        "add": {
+          "title": "Add your memex",
+          "body": "Click **Add**. Name it **Memex** and paste this address.",
+          "after_address": "Click **Continue**, keep the detected settings, then click **Add**.",
+          "tip": "Free accounts can have one custom connector.",
+          "next": "I’ve added Memex"
+        },
+        "approve": {
+          "title": "Connect and approve",
+          "body": "Click **Connect** next to Memex in Claude. When Memex opens, click **Connect it**, then come back here.",
+          "next": "Connection added"
+        },
+        "permissions": {
+          "body": "In **Connectors**, open **Memex**. Choose **Always allow** for both **Read-only tools** and **Write/delete tools**.",
+          "instruction": "Claude can then use memex without asking each time."
+        },
+        "persist_note": {
+          "before": "For future chats, also paste this into",
+          "link": "Claude’s profile preferences",
+          "after": "or your Project’s instructions."
+        }
+      },
+      "gemini": {
+        "personal": {
+          "title": "Open Personal intelligence",
+          "body": "In Gemini, go to **Settings → Personal intelligence**.",
+          "link": "Open Gemini settings",
+          "tip": "This setup uses Custom apps for Spark. Spark requires a paid Google AI Pro or Ultra plan."
+        },
+        "custom_apps": {
+          "title": "Find Custom apps",
+          "body": "Open **Connected Apps**, then find **Custom apps for Spark**.",
+          "link": "Open Connected Apps",
+          "next": "I found it"
+        },
+        "link": {
+          "title": "Add the Memex link",
+          "body": "Under **Custom apps for Spark**, paste this address.",
+          "after_address": "Click **Next**. On the next screen, leave the settings as they are and click **Next** again.",
+          "next": "Link added"
+        },
+        "accounts": {
+          "title": "Link your accounts",
+          "body": "Check the confirmation box and click **Connect**.",
+          "instruction": "When Google asks to link your Google and Memex accounts, click **Agree and continue**.",
+          "next": "Accounts linked"
+        },
+        "approve": {
+          "title": "Approve in Memex",
+          "body": "When Memex opens, click **Connect it**. Then return to Gemini to finish.",
+          "next": "Connection approved"
+        },
+        "save": {
+          "title": "Save your custom app",
+          "body": "Keep the name **Memex** and click **Connect** to save it.",
+          "tip": "All set. Next, switch to Spark and say hello to memex."
+        }
+      },
+      "paste_prompt": "Start a new chat, then paste this prompt"
+    },
+    "copy_by_hand": "Select it and copy it by hand.",
+    "load_failed": "Could not load your connections",
+    "load_failed_alert": "This page could not be loaded, so the list below may be missing or out of date. Reload to try again.",
+    "quick": {
+      "title": "Connect an assistant",
+      "intro": "Choose your app for step-by-step instructions."
+    },
+    "manual": {
+      "copy_address": "Copy the address",
+      "copy_address_failed": "Could not copy the address",
+      "header_sentence": "The agent sends the token with every request, as the header {header}.",
+      "header_value": "Authorization: Bearer <your token>",
+      "creating": "Creating...",
+      "create": "Create token",
+      "create_failed": "Could not create a token"
+    },
+    "auth": {
+      "oauth": "OAuth",
+      "manual": "Manual"
+    },
+    "table": {
+      "title": "Connected assistants & agents",
+      "connected_count": "{count} connected | {count} connected | {count} connected",
+      "name": "Name",
+      "auth": "Auth",
+      "created": "Created",
+      "last_used": "Last used",
+      "actions": "Actions",
+      "will_be_revoked": "will be revoked",
+      "undo": "Undo",
+      "rename": "Rename",
+      "revoke": "Revoke",
+      "empty": "No assistants connected yet. Use Connect an assistant above to add one.",
+      "not_saved": "Not saved yet.",
+      "discard": "Discard",
+      "saving": "Saving...",
+      "save_changes": "Save changes",
+      "revoke_warning": "{count} connection(s) will stop working immediately. | {count} connection(s) will stop working immediately. | {count} connection(s) will stop working immediately.",
+      "confirm_save": "Save these changes?",
+      "revoke_failed": "Could not revoke a connection",
+      "partial_save": "Some changes were not saved",
+      "saved": "Connections saved"
+    },
+    "new_token": {
+      "copy_now": "Copy this token now. It will not be displayed again.",
+      "copy_token": "Copy the token",
+      "copy_failed": "Could not copy the token",
+      "add": "Add token"
+    },
+    "identity": {
+      "title": "Rename connection",
+      "connected_as": "connected as “{label}” · {auth}",
+      "auth_manual": "manual",
+      "display_name": "Displayed name",
+      "description": "Optional description",
+      "description_placeholder": "e.g. the one on the laptop that files research",
+      "icon": "Icon",
+      "choose_icon": "Choose an icon",
+      "logos": "Logos",
+      "icons": "Icons",
+      "no_icon": "No icon",
+      "uploading": "Uploading…",
+      "upload": "Upload custom icon",
+      "saved": "Saved",
+      "save_failed": "Could not save",
+      "icon_rejected": "That icon was not accepted"
+    }
+  },
+  "automation": {
+    "never": "never",
+    "name": "Name",
+    "provider": "Provider",
+    "add_provider": "Add provider",
+    "choose_provider_first": "Choose a key first",
+    "pane": {
+      "load_failed_title": "Could not load these settings",
+      "enrichment_on": "Automatic descriptions and tags are on",
+      "enrichment_off": "Automatic descriptions and tags are off",
+      "not_saved": "Not saved",
+      "delete_key_confirm": "Delete “{name}”? Anything set to run on it stops.",
+      "key_deleted": "Key deleted",
+      "delete_key_failed": "Could not delete that key",
+      "curation_title": "Note maintenance",
+      "curation_intro": "A curator is a connected assistant you trust to tidy your notes. Memex does not run it for you.",
+      "enrichment_title": "Descriptions and tags",
+      "enrichment_intro": "Your connected assistants add descriptions, tags and cross-links as they work.",
+      "load_failed": "These settings could not be loaded. Reload to try again.",
+      "key": "Key",
+      "last_used": "Last used",
+      "unverified": "unverified",
+      "unreadable": "unreadable",
+      "names_joiner": " and ",
+      "unreadable_notice": "memex can no longer read {names}, so anything set to run on it has stopped. Add the key again and point the task at the new one. | memex can no longer read {names}, so anything set to run on it has stopped. Add the key again and point the task at the new one. | memex can no longer read {names}, so anything set to run on them has stopped. Add the key again and point the task at the new one.",
+      "enrichment_guidance": "A small, fast model is enough. Your provider charges you per token.",
+      "enrichment_why": "When you save a note, Memex can write a short description and add relevant tags from your existing tags. Descriptions you supply and tags you choose are kept.",
+      "enrichment_allowance": "Add your own API key to remove the daily limit and choose a model.",
+      "enrichment_key": "Use a key from OpenAI, Anthropic or Google to turn this on and choose a model. Your provider bills you for usage; Memex applies no daily limit.",
+      "active": "On",
+      "inactive": "Off",
+      "details_limit": "Daily allowance"
+    },
+    "role": {
+      "enable": "Add descriptions and tags automatically",
+      "add_provider_first": "Add a key from OpenAI, Anthropic or Google and this can be switched on.",
+      "not_chosen": "Not chosen",
+      "model": "Model",
+      "default_named": "Default ({model})",
+      "default": "Default",
+      "asking_models": "Asking {provider} which models this key can reach...",
+      "saving": "Saving...",
+      "choose_key_first": "Choose the key this runs on before switching it on.",
+      "not_saved_yet": "Not saved yet.",
+      "key": "Key"
+    },
+    "curation": {
+      "report": {
+        "examined": "Read",
+        "examined_why": "How much of the queue it got through.",
+        "changed": "Changed",
+        "changed_why": "Edits applied without review.",
+        "filed": "Filed",
+        "filed_why": "Deletes, merges and held edits now in your inbox.",
+        "skipped": "Skipped",
+        "skipped_why": "Notes opened and left alone, with reasons. Useful while tuning.",
+        "observations": "Noticed",
+        "observations_why": "Patterns across the collection. Long."
+      },
+      "boldness": {
+        "conservative": "Conservative",
+        "conservative_body": "Only clear-cut cases. Fewest proposals.",
+        "balanced": "Balanced",
+        "balanced_body": "Anything defensible in one line. Marginal cases skipped.",
+        "bold": "Bold",
+        "bold_body": "Everything the evidence supports. Most proposals, fewest missed."
+      },
+      "load_instructions_failed": "Could not load the instructions",
+      "curator_added": "Curator added",
+      "curator_added_detail": "Its safe edits now apply without waiting for you.",
+      "not_changed": "Not changed",
+      "change_profile_failed": "Could not change the profile",
+      "profile_saved": "Profile saved",
+      "profile_saved_detail": "Your assistants get it on their next load.",
+      "save_failed": "Could not save",
+      "add_profile_failed": "Could not add the profile",
+      "delete_profile_confirm": "Delete “{name}”? Assistants using it fall back to Standard.",
+      "delete_failed": "Could not delete",
+      "copy_failed": "Could not copy",
+      "copy_failed_detail": "Select the text and copy it by hand.",
+      "profiles_load_failed": "Maintenance instructions could not be loaded. Reload to try again.",
+      "prompt_failed": "The message could not be loaded. Reload to try again.",
+      "allow": "Make curator",
+      "remove_role": "Remove role",
+      "assign_title": "Choose a curator",
+      "assign_intro": "Choose one of your connected assistants to be a curator.",
+      "connections_failed": "Your connections could not be loaded.",
+      "last_run": "Last run",
+      "no_curator": "No curator selected.",
+      "connect_first": "Use Connect an assistant above to add one.",
+      "add_curator": "Add another assistant",
+      "connection_to_promote": "Assistant to make a curator",
+      "choose_connection": "Choose an assistant",
+      "never_loaded": "No curator has read the instructions yet. Send the message below to start.",
+      "profiles_title": "Curation profiles",
+      "profile": "Profile",
+      "add_profile": "Add profile",
+      "locked_note": "Built-in default profile can't be edited or deleted. Add a new profile to customise curation settings.",
+      "unlocked_note": "Assistants pointed at this profile are told all of it. None of it changes what they are allowed to do.",
+      "notes_per_pass": "Notes per pass",
+      "notes_per_pass_why": "How many notes one run curates.",
+      "recheck_interval": "Recheck interval",
+      "days": "days",
+      "recheck_interval_why": "Days before a note with no issues is reviewed again.",
+      "priority": "Priority",
+      "queue_default": "Whatever the queue ranks highest",
+      "priority_why": "Which notes to work first; flagged ones always lead.",
+      "protected_tags": "Protected tags",
+      "remove_tag": "Remove {tag}",
+      "tag_placeholder": "a tag name",
+      "add": "Add",
+      "protected_tags_why": "Notes with these tags are never edited.",
+      "threshold": "Suggestion threshold",
+      "threshold_why": "How readily merges, deletes and renames are proposed. All still wait for your review.",
+      "run_report": "Run report",
+      "run_report_why": "What the assistant tells you after a pass. Memex itself never reports — only the assistant does, in the chat you started it from.",
+      "discard": "Discard",
+      "delete_profile": "Delete this profile",
+      "prompt_title": "Start a maintenance pass",
+      "prompt_intro": "Copy this message into a chat with your curator. It will read the instructions and work through your notes.",
+      "copy_prompt": "Copy message",
+      "add_profile_dialog": "Add a profile",
+      "add_profile_intro": "A named set of curation settings that several assistants can share.",
+      "profile_name_placeholder": "Thorough, Weekly, Cautious…",
+      "assign_trust": "Curators can create and edit notes without review. Deletes and merges still need your approval.",
+      "assign_schedule": "To repeat this automatically, set up a task in {chatgpt} or {claude}.",
+      "assign_schedule_chatgpt": "ChatGPT",
+      "assign_schedule_claude": "Claude"
+    },
+    "provider_dialog": {
+      "key_verified": "Key verified and saved",
+      "key_ready": "{name} is ready to be used by an automation.",
+      "displayed_name": "Displayed name",
+      "name_placeholder": "Work account",
+      "choose_provider": "Choose a provider",
+      "api_key": "API key",
+      "the_provider": "the provider",
+      "stored_note": "memex calls {provider} with this key before storing it, so a key that does not work is never saved. It is stored encrypted and never shown again.",
+      "checking": "Checking...",
+      "save_and_verify": "Save and verify"
+    },
+    "embeddings": {
+      "title": "Search",
+      "intro": "Memex finds notes by topic as well as exact words. New and edited notes are prepared for search automatically.",
+      "allowance": "Add your OpenAI API key to remove these daily limits. OpenAI bills you for usage.",
+      "key_unused": "Search does not use this key yet. Once it does, OpenAI bills you for search and Memex's daily limits no longer apply.",
+      "use_key": "Use for search",
+      "key_adopted": "Search now uses this key.",
+      "adopt_failed": "Search could not switch to this key",
+      "where": "Where to get an OpenAI key",
+      "notes_limit": "Notes prepared for search",
+      "search_limit": "Searches beyond exact words",
+      "model_label": "Search model",
+      "model_local": "This server",
+      "model_local_note": "no key, no cost",
+      "model_openai": "OpenAI",
+      "model_openai_note": "your key; OpenAI bills you",
+      "model_needs_key": "add an OpenAI key below to choose it",
+      "switch_confirm": "Prepare every note for search again with {model}? Until that finishes, search by topic covers only the notes already prepared.",
+      "switched": "Search now uses {model}.",
+      "switch_failed": "Search could not switch",
+      "progress": "{embedded} of {notes} notes prepared for search.",
+      "not_ready": "Search matches exact words only: OpenAI has no key to prepare notes with. Add a key below, or choose this server."
+    },
+    "sponsored": {
+      "badge": "Sponsored",
+      "body": "Descriptions are running for you on this memex’s own key. Bring your own key below and it takes over."
+    },
+    "add_key": "Add personal key",
+    "quota": {
+      "left": "{left} of {daily} remaining today.",
+      "left_model": "{left} of {daily} remaining today; model: {model}.",
+      "own_key": "No Memex daily limit.",
+      "no_ceiling": "No daily limit."
+    },
+    "personal_key": "Personal API key",
+    "key_in_use": "Your personal key is in use. Your provider bills you for usage and its limits still apply."
+  },
+  "skills": {
+    "title": "Skills",
+    "intro": "Instructions you keep in Memex and reuse with your assistants.",
+    "new": "New skill",
+    "import": "Import",
+    "export_all": "Export all",
+    "load_failed": "Your skills could not be loaded. Reload to try again.",
+    "empty_filtered": "Nothing matches this filter.",
+    "never_loaded": "never",
+    "size_k": "{n}k",
+    "size": "{n}",
+    "filter": {
+      "label": "Status",
+      "all": "All",
+      "served": "Available now",
+      "paused": "Off",
+      "pending": "Waiting for review",
+      "built_in": "System",
+      "offered": "Not yet added"
+    },
+    "col": {
+      "skill": "Skill",
+      "served_as": "Served as",
+      "connections": "Connections",
+      "last_loaded": "Last loaded",
+      "size": "Tokens"
+    },
+    "served_as": {
+      "auto": "When relevant",
+      "command": "Command",
+      "none": "No way to load it"
+    },
+    "connections": {
+      "all": "all"
+    },
+    "state": {
+      "paused": "Off",
+      "pending": "Needs review",
+      "built_in": "System",
+      "offered": "not added"
+    },
+    "catalogue": {
+      "add": "Add",
+      "add_failed": "That skill could not be added. Try again."
+    },
+    "import_report": {
+      "created": "No skills imported. | One skill imported. | {count} skills imported.",
+      "ignored": "Not imported (memex holds markdown only): {files}"
+    },
+    "scaffold": "_When to use this: say what task this covers and the words that signal it._\n\n## Steps\n\n1. \n\n## Sources\n\n- ",
+    "dashboard": {
+      "title": "skills enabled",
+      "ready": "Ready for your assistants to use.",
+      "total_size": "Full instruction size",
+      "breakdown": "Instruction size by skill",
+      "built_in_count": "{count} built into Memex",
+      "built_in_help": "Always available · managed by Memex",
+      "personal_count": "{count} of your skills",
+      "personal_help": "Yours to edit or turn off",
+      "share": "{percent}% of total",
+      "budget": "Estimated skill budget",
+      "includes_system": "Includes {count} system skills",
+      "estimate": "Each segment shows a skill’s share of the full instructions. Skills load when requested.",
+      "over_budget": "{count} tokens over budget",
+      "percent": "{percent}% of budget",
+      "description": "Check a connection to see its skills and recent loads.",
+      "estimate_note": "Estimate for each skill: text size in bytes ÷ 4, rounded up. Actual tokens vary by assistant. Custom system instructions for a connection can change the size.",
+      "connection": "Connection",
+      "available": "Your skills available",
+      "available_help": "Approved and switched on. Built-ins included.",
+      "context": "Estimated skill text",
+      "context_help": "A token is a small piece of text. These are rough sizes of the full instructions, sent when a skill is loaded—not a measure of tokens used in your chats.",
+      "loads": "Loads · last 30 days",
+      "loads_help": "Loads count requests for the skills currently in this library. They do not tell us whether the assistant followed the instructions.",
+      "system": "System · always enabled",
+      "tokens": "tokens"
+    },
+    "cards": {
+      "every_connection": "All connections",
+      "on": "On",
+      "always_on": "Always enabled",
+      "switched_off": "Off in Settings › Personalization",
+      "toggle": "Enable {title}",
+      "open_help": "Switch a skill on or off, or open it to make changes.",
+      "no_description": "This note has no saved summary yet.",
+      "review_help": "Review this note before an assistant can use it.",
+      "add_help": "Add this as your own editable skill note.",
+      "paused_help": "Assistants cannot load this skill. Your note is kept.",
+      "tokens": "~{count} tokens",
+      "loads": "{count} loads in 30 days | {count} load in 30 days | {count} loads in 30 days",
+      "findings": "No suggestions | 1 suggestion | {count} suggestions",
+      "your_note": "Your note",
+      "details": "Open skill",
+      "system": "System",
+      "source": "About this card",
+      "note_source": "This card uses your note title and saved summary. Edit the note to change them; its full text is what the assistant reads.",
+      "system_source": "The title, description, and instructions come from the template bundled with Memex.",
+      "edit_note": "Edit title, summary, and instructions"
+    },
+    "panel": {
+      "serving": "Access",
+      "served": "Enable this skill",
+      "auto": "Allow automatic use",
+      "auto_help": "The assistant can pick it when useful.",
+      "command": "Add to command menu",
+      "command_help": "Pick this skill yourself in apps that support Memex commands.",
+      "pending_note": "Review and approve this note before turning it on.",
+      "slug": "Skill alias",
+      "how_to_use": "How to use this skill",
+      "rename": "Rename",
+      "slug_invalid": "Use 1–64 lowercase letters, digits and single hyphens.",
+      "connections": "Who can use this skill",
+      "save_connections": "Save connections",
+      "unsaved": "Unsaved changes",
+      "last_loaded": "Last loaded {when}",
+      "edit_note": "Edit this skill",
+      "all_connections": "All connected assistants",
+      "not_available": "Review this note and enable the skill to use it.",
+      "granted_to": "Available to {names} while served.",
+      "granted_all": "Available to every connection while served. Select connections and save to limit access.",
+      "origin_shipped": "Memex keeps this system skill up to date. It is always enabled for every connection.",
+      "load": "How an assistant loads it",
+      "load_tool": "Tool",
+      "load_resource": "Resource",
+      "load_command": "Command",
+      "load_command_note": "in Claude Code; the middle part is the name you gave the server",
+      "usage": "Loaded in the last 30 days",
+      "usage_none": "Not loaded in the last 30 days.",
+      "usage_line": "{name}: {count} times, last {when} | {name}: {count} time, last {when} | {name}: {count} times, last {when}",
+      "findings": "Suggestions",
+      "instructions": "Read the full instructions",
+      "download": "Download SKILL.md",
+      "open_note": "Open note",
+      "slug_help": "Use this skill slug in chat.",
+      "future_connections": "Includes new connections",
+      "choose_connection": "Choose at least one connection, or turn the skill off."
+    },
+    "what_title": "What can I do with a skill?",
+    "what_example": "Save your writing rules as a skill. In your next chat, ask: “Use my writing rules to rewrite this update.” Your assistant can read the same instructions from Memex in any connected app.",
+    "groups": {
+      "active": "Your enabled skills",
+      "active_help": "Your instructions. Open a skill to edit it, or switch it off here.",
+      "available": "Available skills",
+      "available_help": "Turn on a saved skill or add a template.",
+      "system": "Built into Memex",
+      "system_help": "Always available and updated by Memex; they cannot be edited. memex-writing can be switched off in Personalization.",
+      "catalogue": "Skills to add",
+      "catalogue_help": "Start with a template, then make its note your own."
+    },
+    "example": {
+      "title": "Usage example",
+      "help": "Copy this and add your task.",
+      "prompt": "Use my Memex skill {name} to [describe your task].",
+      "copy": "Copy prompt",
+      "copied": "Copied",
+      "copy_failed": "Could not copy. Select the example and copy it yourself.",
+      "auto_help": "The assistant can also choose this skill when your request matches its description.",
+      "command_hint": "Select {name} from the app’s command menu first.",
+      "command_help": "First select {name} from your app’s command menu, if it supports Memex commands."
+    }
+  },
+  "welcome": {
+    "header": "Let’s get you started",
+    "brand": "memex",
+    "progress_label": "Setup progress",
+    "rail": {
+      "you": "Your space",
+      "connect": "Connect",
+      "test": "Test it",
+      "ask": "First chat",
+      "profile": "Your profile"
+    },
+    "rail_locked": "Connect an assistant first.",
+    "leave": "Leave setup for now",
+    "launch": "Run setup again",
+    "switch_dark": "Switch to dark theme",
+    "switch_light": "Switch to light theme",
+    "go_to_memex": "Go to my memex",
+    "check_again": "Check again",
+    "copy_failed": "Couldn’t copy",
+    "finish_failed": "memex could not save that you are done. Try again.",
+    "open_failed": "memex could not be reached, so nothing here is up to date yet.",
+    "open_retry": "Try again",
+    "opens_new_tab": "(opens in a new tab)",
+    "open_provider": "Open {provider}",
+    "your_assistant": "your assistant",
+    "review_reminder": "You review what your assistant writes before it becomes a note.",
+    "review_reminder_curator": "A curator connection’s notes and edits apply at once; its deletions and merges wait for you.",
+    "you": {
+      "title": "Make yourself at home.",
+      "intro": "A name, a place for your notes, and a look you like.",
+      "name": "Your name",
+      "name_placeholder": "What should we call you?",
+      "name_hint": "Shown next to the notes you write.",
+      "memex_name": "Name of your memex",
+      "memex_hint": "Your assistant will know it by this name.",
+      "not_saved": "Not saved. Check the value and leave the field again to retry.",
+      "look": "Choose your look",
+      "light": "Light",
+      "dark": "Dark",
+      "theme_aria": "{name}, {kind} theme",
+      "mini_title": "Your notes",
+      "next": "Connect an assistant",
+      "note": "You can change these later."
+    },
+    "connect": {
+      "title": "Connect your first assistant.",
+      "intro": "Choose the one you use most. You can add others later.",
+      "choose": "Choose your assistant",
+      "other": "Other",
+      "in_provider": "In {provider}",
+      "position": "{at} of {total}",
+      "instructions": "Connection instructions",
+      "instruction_n": "Instruction {n}: {title}",
+      "address_copied": "Server address copied.",
+      "other_create": "1. Create a connection",
+      "other_create_body": "Give your agent a name so you can recognise it later.",
+      "other_name": "Connection name",
+      "other_name_placeholder": "e.g. My coding assistant",
+      "other_add": "2. Add it to your agent",
+      "other_add_body": "Use this MCP server address:",
+      "setups": "Or set up one of these, with your token in place of YOUR_TOKEN:",
+      "setup_terminal": "Run this in a terminal.",
+      "setup_file": "Add this to {file}.",
+      "setup_copy_failed": "Could not copy the setup",
+      "test_connection": "Test connection",
+      "skip": "Skip this step",
+      "note": "Keep this window open as you go.",
+      "note_token": "Keep your token private.",
+      "note_optional": "Default permissions work too."
+    },
+    "test": {
+      "title": "Let’s make sure it works.",
+      "intro": "Open a new chat in {provider} and send this short message.",
+      "intro_other": "Open a new chat with your assistant and send this short message.",
+      "intro_gemini_before": "In Gemini, choose",
+      "switch_to_spark": "Switch to Spark",
+      "intro_gemini_after": "and send this short message.",
+      "card_title": "A quick check with memex",
+      "card_hint": "Allow your assistant to use Memex if it asks.",
+      "copy_message": "Copy test message",
+      "copied": "Message copied. Paste it into a new chat.",
+      "send_in_agent": "Send this in your connected agent.",
+      "review_steps": "Review setup steps",
+      "ready": "Ready when you are",
+      "ready_body": "Send the message, then check the connection.",
+      "not_yet": "No reply from your assistant yet",
+      "not_yet_body": "Check that Memex is enabled in this chat, send the message again, then retry.",
+      "found": "{name} reached memex",
+      "found_body": "The connection works. Next, tell your assistant how to use it.",
+      "failed": "Couldn’t check the connection",
+      "failed_body": "Memex couldn’t check right now. Try again; you don’t need to reconnect.",
+      "check": "Check connection",
+      "give_instructions": "Give it instructions",
+      "note": "Send the message first.",
+      "note_done": "Connection confirmed."
+    },
+    "ask": {
+      "title": "Start using memex together.",
+      "intro_before": "Copy this into",
+      "intro_after": ". It tells your assistant to use memex and read the guide.",
+      "intro_other": "Copy this into your assistant’s chat. It tells your assistant to use memex and read the guide.",
+      "prompt_label": "Your first instruction",
+      "for_provider": "For {provider}",
+      "paste_first": "Paste these into your chat, then check that your assistant read the guide.",
+      "wait": "After your assistant replies, check that it read the guide.",
+      "read": "The guide has been read",
+      "read_body": "Your assistant opened the memex guide. You’re ready to start using memex together.",
+      "not_yet": "The guide hasn’t been read yet",
+      "not_yet_body": "Ask your assistant to read the memex guide in your memex, then check again.",
+      "failed": "Couldn’t check the guide",
+      "failed_body": "Memex couldn’t check right now. Try again in a moment.",
+      "copy": "Copy instructions",
+      "copied": "Instructions copied",
+      "copied_body": "Paste them into your assistant’s chat.",
+      "check": "Check guide read",
+      "finish": "Finish setup",
+      "note": "Paste these into your chat.",
+      "note_wait": "Wait for your assistant’s reply.",
+      "note_done": "Guide read. All set."
+    },
+    "finished": {
+      "title": "You’re ready.",
+      "body": "Your assistant can use your memex and has read the guide. Next time you settle something worth keeping, ask it to save a note.",
+      "account": "Account set up",
+      "connected": "Assistant connected",
+      "guide": "Guide read",
+      "note": "Your notes stay under your control."
+    },
+    "paused": {
+      "title": "Pick this up when you’re ready.",
+      "body": "You can connect an assistant from Settings → Assistants. Your memex is also a place to write notes yourself.",
+      "resume": "Resume setup",
+      "note": "Nothing else changes. Run the setup again from Settings whenever you like."
+    },
+    "profile": {
+      "title": "Choose a few preferences",
+      "intro": "Your profile is a note about you that your connected assistants can read. Start with your preferences. You can change them anytime.",
+      "choose": "These choices are saved in your profile.",
+      "groups": {
+        "answers": "How detailed should answers be?",
+        "personal": "Save sensitive details in notes?"
+      },
+      "existing": "Your profile:",
+      "several": "You have several profile notes. Which one should these lines go into?",
+      "choose_target": "Choose a note",
+      "pending": "awaiting your review",
+      "adds": "Adds {n} line | Adds {n} lines",
+      "removes": "removes {n} line | removes {n} lines",
+      "save": "Save and continue",
+      "saved": "Saved to your profile",
+      "not_saved": "Your profile could not be saved",
+      "load_failed": "memex could not read your profile just now. Try again in a moment.",
+      "continue": "Continue",
+      "skip": "Skip profile setup",
+      "options": {
+        "answers": {
+          "short": "Keep them short",
+          "full": "Include explanations"
+        },
+        "personal": {
+          "allow": "When relevant",
+          "keep_out": "Only when I ask"
+        }
+      },
+      "sensitive_hint": "For example, details about your health, family, or finances.",
+      "review_changes": "Review changes",
+      "adding": "Add to your profile",
+      "removing": "Remove from your profile"
+    },
+    "profile_ask": {
+      "title": "Let your assistant add more",
+      "intro": "An assistant you’ve used before may already know about your work and preferences. Send it a message like this:",
+      "prompt_label": "Example message",
+      "copy": "Copy message",
+      "copied": "Message copied",
+      "copied_body": "Paste it into your assistant’s chat.",
+      "explain": "This is an example. You can ask in your own words anytime.",
+      "later": "Prefer to do this later?",
+      "where": "Settings → Personalization → About you"
+    }
+  },
+  "not_found": {
+    "code": "404",
+    "title": "Page not found",
+    "body": "The page you’re looking for doesn’t exist or has moved.",
+    "back": "Back to memex"
+  }
+}

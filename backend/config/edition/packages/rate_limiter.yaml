@@ -1,0 +1,8 @@
+framework:
+    rate_limiter:
+        # Password guesses from one address: signing in, first run and changing it.
+        owner_password:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '15 minutes'
+            lock_factory: null

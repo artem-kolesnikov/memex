@@ -1,0 +1,1 @@
+-- Version 3 made only tables that are now in the edition schema.

@@ -1,0 +1,48 @@
+security:
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Directory\Account
+                property: email
+                manager_name: directory
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        # Called by an assistant, never on a person's behalf: a browser's
+        # session cookie riding along must not become the request's principal.
+        oauth_client:
+            pattern: ^/oauth/(token|register)$
+            security: false
+        main:
+            lazy: true
+            provider: app_user_provider
+            # Bearer tokens (agents) + the provider-signed-in session (SPA) on
+            # one firewall; the token authenticator doubles as the JSON 401
+            # entry point.
+            custom_authenticators:
+                - App\Security\ApiTokenAuthenticator
+                # Authenticates no request (supports() is always false). It is
+                # on the firewall so Security::login() can find it by name, and
+                # the session then records that a person signed in.
+                - App\Security\SignInAuthenticator
+            entry_point: App\Security\ApiTokenAuthenticator
+            logout:
+                path: /api/logout
+
+    access_control:
+        - { path: ^/api/health$, roles: PUBLIC_ACCESS }
+        # Social sign-in happens before anyone is signed in, so the whole
+        # round trip has to be reachable without a session. It lives under
+        # /api only because that is what nginx already routes to PHP.
+        # /api/me/identities is NOT covered: it is below this prefix in the
+        # URL space but not below it here, because the rule matches on the
+        # literal path and that one starts /api/me.
+        - { path: ^/api/auth/, roles: PUBLIC_ACCESS }
+        # Installed interface languages and their files. Public because the
+        # sign-in page wants the language a returning person chose before there
+        # is a session to ask; a translation file holds only the words on the
+        # screen.
+        - { path: ^/api/locales, roles: PUBLIC_ACCESS }
+        - { path: ^/(api|mcp), roles: ROLE_USER }

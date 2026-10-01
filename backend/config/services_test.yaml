@@ -1,0 +1,109 @@
+# Test-environment overrides. Loaded only when APP_ENV=test (MicroKernelTrait
+# picks up services_{env}.yaml), so none of this can follow the code onto the
+# box — and the deploy installs with --no-dev, where App\Tests does not exist.
+parameters:
+    # The suite installs and removes languages; a directory the kernel owns
+    # keeps that out of var/locales on a developer machine.
+    app.locales_dir: '%kernel.cache_dir%/locales'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # The suite's single answer to every outbound HTTP call. MockHttpClient
+    # opens no socket, so binding it here is what makes it STRUCTURALLY
+    # impossible for a test run to spend money at OpenAI — not a
+    # convention someone has to remember when adding the next test.
+    App\Tests\Support\MockMlResponder:
+        public: true
+    App\Storage\VaultFiles:
+        public: true
+    App\Storage\VaultScope:
+        public: true
+    App\Storage\DataDir:
+        public: true
+    App\Storage\VaultContext:
+        public: true
+    App\Tests\Support\UnbindAroundRequests:
+        autoconfigure: true
+    App\Tests\Support\ConnectionProbe: ~
+    App\Tests\Support\ConnectionProbeArming: ~
+    App\Tests\Support\DoorHeldOpen:
+        decorates: App\Service\AccountDoor
+    App\Tests\Support\ServiceHealthRecorder:
+        decorates: App\Service\ServiceHealth
+        public: true
+
+    test.mock_http_client:
+        class: Symfony\Component\HttpClient\MockHttpClient
+        arguments:
+            $responseFactory: '@App\Tests\Support\MockMlResponder'
+
+    App\Service\MlClient:
+        arguments:
+            $httpClient: '@test.mock_http_client'
+            $mlProcessorHost: '%env(ML_PROCESSOR_HOST)%'
+
+    # Key verification calls OpenAI, Anthropic and Google directly from the
+    # backend rather than through ml-processor, so this client needs the same
+    # muzzle: without it, adding a key in a test would post someone's key to a
+    # real provider.
+    App\Service\ProviderGateway:
+        arguments:
+            $httpClient: '@test.mock_http_client'
+
+    # Social sign-in talks to Google, GitHub and Microsoft directly. Same
+    # muzzle: without it a test would post a client secret to a real token
+    # endpoint, and the suite would depend on somebody else's uptime.
+    App\Service\SocialIdentityGateway:
+        arguments:
+            $httpClient: '@test.mock_http_client'
+
+    # All four providers configured, so the suite exercises the offered path
+    # rather than the not-offered one. Fake credentials by construction: the
+    # mock client above is the only thing that ever sees them.
+    App\Service\SocialProviders:
+        arguments:
+            $googleClientId: 'test-google-client'
+            $googleClientSecret: 'test-google-secret'
+            $githubClientId: 'test-github-client'
+            $githubClientSecret: 'test-github-secret'
+            $microsoftClientId: 'test-microsoft-client'
+            $microsoftClientSecret: 'test-microsoft-secret'
+            $appleClientId: 'test-apple-client'
+
+    # Apple's is the one client secret that is signed rather than configured, so
+    # the suite needs a real EC key to sign with. tests/bootstrap.php generates
+    # one into var/ on first run; nothing key-shaped is committed.
+    App\Service\AppleClientSecret:
+        arguments:
+            $appleTeamId: 'TESTTEAM01'
+            $appleKeyId: 'TESTKEY001'
+            $applePrivateKey: '%kernel.project_dir%/var/test-apple-key.p8'
+
+    # Reached directly by SearchSpendTest, which has to fill a 300-request
+    # window and cannot afford 300 HTTP round trips per test to do it. Calling
+    # the limiter itself is also the only exhaustion that CANNOT be vacuous:
+    # a helper that filled the window some other way would be asserting against
+    # a key it had chosen, rather than the one the code uses.
+    App\Service\SpendLimiter:
+        public: true
+
+    # The spend limiters' storage, reachable so ApiTestCase can empty it before
+    # each test. Without this a limit reached in one test is still reached in
+    # the next, and which tests pass depends on the order they ran in.
+    test.cache.rate_limiter:
+        alias: cache.rate_limiter
+
+    test.cache.curation_leases:
+        alias: cache.curation_leases
+        public: true
+
+    # The spend counters, in a pool of their own since the limits stopped being
+    # yaml constants. Same reason as the two above: a limit reached in one test
+    # is still reached in the next, and the default tier's numbers are low
+    # enough that one suite reaches them twice.
+    test.cache.spend_limits:
+        alias: cache.spend_limits
+        public: true

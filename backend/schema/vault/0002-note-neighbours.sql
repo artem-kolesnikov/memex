@@ -1,0 +1,7 @@
+CREATE TABLE note_neighbours (note_id INTEGER NOT NULL, neighbour_id INTEGER NOT NULL, distance REAL NOT NULL, PRIMARY KEY (note_id, neighbour_id), CONSTRAINT fk_note_neighbours_note FOREIGN KEY (note_id) REFERENCES notes (id) ON DELETE CASCADE, CONSTRAINT fk_note_neighbours_neighbour FOREIGN KEY (neighbour_id) REFERENCES notes (id) ON DELETE CASCADE) WITHOUT ROWID;
+CREATE INDEX idx_note_neighbours_neighbour ON note_neighbours (neighbour_id);
+CREATE TABLE note_neighbours_stale (note_id INTEGER NOT NULL PRIMARY KEY, CONSTRAINT fk_note_neighbours_stale_note FOREIGN KEY (note_id) REFERENCES notes (id) ON DELETE CASCADE);
+CREATE TRIGGER notes_neighbours_forget BEFORE DELETE ON notes BEGIN INSERT OR IGNORE INTO note_neighbours_stale (note_id) SELECT note_id FROM note_neighbours WHERE neighbour_id = OLD.id AND note_id <> OLD.id; END;
+CREATE TRIGGER note_embeddings_neighbours_insert AFTER INSERT ON note_embeddings BEGIN INSERT OR IGNORE INTO note_neighbours_stale (note_id) VALUES (NEW.note_id); END;
+CREATE TRIGGER note_embeddings_neighbours_delete AFTER DELETE ON note_embeddings BEGIN INSERT OR IGNORE INTO note_neighbours_stale (note_id) SELECT note_id FROM note_neighbours WHERE neighbour_id = OLD.note_id AND note_id <> OLD.note_id AND note_id IN (SELECT id FROM notes); DELETE FROM note_neighbours WHERE note_id = OLD.note_id OR neighbour_id = OLD.note_id; END;
+INSERT INTO note_neighbours_stale (note_id) SELECT note_id FROM note_embeddings;

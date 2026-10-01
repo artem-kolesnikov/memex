@@ -1,0 +1,59 @@
+{
+  "standalone": {
+    "sign_in": {
+      "title": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "signing_in": "Signing in...",
+      "or": "or",
+      "forgotten": "Forgot the password? Whoever runs this server sets a new one with {command}."
+    },
+    "setup": {
+      "title": "Create your memex",
+      "intro": "This server has no account yet. Creating it now takes the setup code, which proves you run the server: {command} prints it.",
+      "intro_open": "This server has no account yet. The account you create here is its only one.",
+      "code": "Setup code",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Create account",
+      "creating": "Creating..."
+    },
+    "errors": {
+      "credentials": "That email and password do not match.",
+      "code": "That is not the setup code.",
+      "code_needed": "Ten minutes have passed since memex started, so creating the account now takes the setup code.",
+      "email": "That is not an email address.",
+      "password_empty": "Type a password.",
+      "password_long": "That password is too long.",
+      "owner_exists": "This memex already has its account. Sign in instead.",
+      "one_owner": "This memex has one account, and it signs in with its password. Sign in, then add the provider in Settings › Account.",
+      "throttled": "Too many attempts. Wait a few minutes and try again.",
+      "current": "That is not your current password.",
+      "unreachable": "The server did not answer. Try again in a moment."
+    },
+    "password": {
+      "title": "Password",
+      "intro": "Changing it signs out every other browser.",
+      "current": "Current password",
+      "new": "New password",
+      "submit": "Change password",
+      "saving": "Changing...",
+      "changed": "Password changed."
+    },
+    "footer": {
+      "source": "Source code"
+    }
+  },
+  "app": {
+    "brand": {
+      "name": "memex"
+    },
+    "shell": {
+      "home": "memex home"
+    },
+    "footer": {
+      "copyright": "© {year} memex"
+    }
+  }
+}

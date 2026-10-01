@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$(id -u)" = 0 ]; then
+    exec setpriv --reuid=www-data --regid=www-data --init-groups /usr/local/bin/php "$@"
+fi
+exec /usr/local/bin/php "$@"

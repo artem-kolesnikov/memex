@@ -1,0 +1,5 @@
+standalone:
+    resource:
+        path: ../../../src/Standalone/Controller/
+        namespace: App\Standalone\Controller
+    type: attribute

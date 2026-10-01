@@ -1,0 +1,77 @@
+framework:
+    cache:
+        # Unique name of your app: used to compute stable namespaces for cache keys.
+        #prefix_seed: your_vendor_name/app_name
+
+        # The "app" cache stores to the filesystem by default.
+        # The data in this cache should persist between deploys.
+        # Other options include:
+
+        # Redis
+        #app: cache.adapter.redis
+        #default_redis_provider: redis://localhost
+
+        # APCu (not recommended with heavy random-write workloads as memory fragmentation can cause perf issues)
+        #app: cache.adapter.apcu
+
+        # Namespaced pools use the above "app" backend by default
+        pools:
+            # Curation leases: which notes a curation run
+            # has been handed, so a second run beside it gets different ones.
+            #
+            # A cache and not a table on purpose — every entry is worthless in
+            # half an hour by construction, so the storage that forgets on its
+            # own is the honest one, and a deploy clearing the pool costs
+            # exactly one duplicated pass. Nothing here can ever block a WRITE:
+            # see App\Service\CurationLeases for why that separation matters.
+            #
+            # Filesystem rather than the default array adapter for the same
+            # reason the rate limiter is: the array adapter is reset between
+            # requests, and a lease that does not outlive the call that made it
+            # is not a lease.
+            cache.curation_leases:
+                adapter: cache.adapter.filesystem
+
+            # The spend counters behind App\Service\SpendLimiter.
+            #
+            # Filesystem, and that is the requirement rather than a default: a
+            # counter that does not outlive the request is not a limit. It is
+            # its own pool because these bound the OPERATOR's money and nothing
+            # else in the box should be able to clear them as a side effect.
+            #
+            # **Its own pool means its own namespace**, which is derived from
+            # the pool name — so the counters that were in `cache.rate_limiter`
+            # are not read here. Moving to this pool hands every team one fresh
+            # hour and one fresh day, once. That is the cost of the move and it
+            # is paid deliberately: sharing the framework's pool meant a
+            # reference by hand resolved to a namespace the tests did not clear,
+            # and a limit reached in one test survived into the next.
+            cache.spend_limits:
+                adapter: cache.adapter.filesystem
+
+when@test:
+    framework:
+        cache:
+            pools:
+                # The rate limiters' storage, on the filesystem and NOT the
+                # array adapter that looks right for a test.
+                #
+                # `cache.adapter.array` carries the `kernel.reset` tag, and the
+                # test client resets services after every request — so limiter
+                # state would vanish between the requests of a single test and
+                # no limit could ever be reached. Filesystem state persists,
+                # which is what a limit test needs; `ApiTestCase::setUp()`
+                # clears it so it does not persist between TESTS as well and
+                # make the order they run in matter.
+                cache.rate_limiter:
+                    adapter: cache.adapter.filesystem
+                # Same reasoning, and the same clearing in ApiTestCase::setUp():
+                # a lease left behind by one test would silently empty another
+                # test's queue.
+                cache.curation_leases:
+                    adapter: cache.adapter.filesystem
+                # And the spend counters, cleared in ApiTestCase::setUp() for
+                # the same reason: a limit one test reached would stay reached
+                # for every test after it, and for the next run of the suite.
+                cache.spend_limits:
+                    adapter: cache.adapter.filesystem

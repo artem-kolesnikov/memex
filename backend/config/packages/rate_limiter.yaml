@@ -1,0 +1,39 @@
+framework:
+    rate_limiter:
+        # Dynamic client registration, counted per client address.
+        #
+        # /oauth/register is unauthenticated and open by design — RFC 7591, and
+        # claude.ai expects to register itself without being invited. Open
+        # registration is right; UNBOUNDED open registration is just a public
+        # INSERT: every call adds an `oauth_clients` row that nothing removes
+        # short of closing the account that never owned it.
+        #
+        # Filed as a finding by three consecutive audits (2026-08-21 twice,
+        # 2026-08-24) and never fixed, each time because the damage ceiling is
+        # only table growth. That is true and it is also why the fix should
+        # have taken ten minutes: the pattern was already here.
+        #
+        # Twenty an hour, not five. Registration is not a rare human act like
+        # asking for an invite — a developer wiring up a client, hitting
+        # a redirect_uri mistake and re-registering can honestly spend several
+        # in a row, and an operator connecting a few assistants in one sitting
+        # is the normal first day of using this product. Twenty is well above
+        # any of that and still turns "a public INSERT" into "480 rows a day
+        # from one address", which the sweeper below then clears.
+        oauth_register:
+            policy: 'sliding_window'
+            limit: 20
+            interval: '1 hour'
+            # As invite_request: no lock. A burst slipping one or two past
+            # the boundary does not matter for a limit whose job is stopping a
+            # script rather than stopping a race.
+            lock_factory: null
+
+        # ------------------------------------------------------------------
+        # The SPEND limiters are not here. Their numbers are the edition's
+        # (App\Service\AccountLimits), and App\Service\SpendLimiter builds a
+        # sliding window per request from them.
+        #
+        # The pool those counters live in is `cache.rate_limiter`, created by
+        # this file's limiters above and named for SpendLimiter in
+        # config/services.yaml.

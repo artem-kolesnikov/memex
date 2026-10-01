@@ -1,0 +1,115 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    env(MEMEX_DATA_DIR): '%kernel.project_dir%/var/data'
+    env(TRUSTED_PROXIES): ''
+    # How long a browser session lives without being used, in seconds — thirty
+    # days (operator, 2026-08-21). It is ONE number: framework.yaml gives it to
+    # the cookie and to the session handler's garbage collector, and
+    # App\Service\SessionRegistry stamps `user_sessions.expires_at` with it,
+    # so the browser's copy and the server's cannot come to disagree.
+    #
+    # It replaces what Debian's defaults were deciding for us: 1440 seconds of
+    # idle plus a sweep every thirty minutes, and a cookie that died with the
+    # browser window. Nobody had chosen that; it was simply what a php.ini
+    # nobody in this repo can see happened to say.
+    app.session_lifetime: 2592000
+    # Where operator-installed interface languages live. Under var/ because
+    # deploy.yml rsyncs the backend with --delete and excludes var/, so a
+    # language uploaded from Settings survives the next merge.
+    app.locales_dir: '%kernel.project_dir%/var/locales'
+    # The embedding models Settings offers, a new vault's first
+    # (App\Service\EmbeddingModel), and whether this server holds an OpenAI
+    # key for a vault that has none of its own.
+    memex.embedding_models: ['nomic-embed-text-v1.5', 'text-embedding-3-large']
+    memex.embedding_server_key: false
+    # Whether this edition is only ever a public service, so assistants that
+    # call from their own servers can always reach it; otherwise APP_BASE_URL
+    # decides (App\Service\PublicAddress).
+    memex.always_public: false
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        bind:
+            # The localhost Node service (see services/ in the monorepo).
+            string $mlProcessorHost: '%env(ML_PROCESSOR_HOST)%'
+            # Skills that ship with the application, overridden per vault by a
+            # note tagged `skill` with the same slug (App\Service\SkillLibrary).
+            string $skillDefaultsDir: '%kernel.project_dir%/config/skills'
+            string $shippedSkillsDir: '%kernel.project_dir%/config/skills-shipped'
+            string $welcomeNotesDir: '%kernel.project_dir%/config/welcome'
+            string $curationCanonFile: '%kernel.project_dir%/config/curation/canon.md'
+            string $localesDir: '%app.locales_dir%'
+            string $projectDir: '%kernel.project_dir%'
+            # Key material for App\Service\CredentialCipher, which encrypts the
+            # one secret we hold for a user: their own AI provider key. Derived
+            # from APP_SECRET so the box needs no second secret — rotating it
+            # makes stored provider keys unreadable and they are re-entered.
+            string $appSecret: '%kernel.secret%'
+            # Social sign-in (App\Service\SocialProviders). A provider with no
+            # client id or secret is simply not offered, which is what makes
+            # this safe to deploy before anything is registered at Google,
+            # GitHub or Microsoft. Real values live in .env.local — on BOTH machines, and on
+            # the box that is `.env.local` too, never `.env`: deploy.yml rsyncs
+            # the tracked backend/.env over the box's copy on every merge and
+            # excludes only *.local, so a secret in .env works until the next
+            # deploy and then vanishes.
+            string $googleClientId: '%env(GOOGLE_OAUTH_CLIENT_ID)%'
+            string $googleClientSecret: '%env(GOOGLE_OAUTH_CLIENT_SECRET)%'
+            string $githubClientId: '%env(GITHUB_OAUTH_CLIENT_ID)%'
+            string $githubClientSecret: '%env(GITHUB_OAUTH_CLIENT_SECRET)%'
+            string $microsoftClientId: '%env(MICROSOFT_OAUTH_CLIENT_ID)%'
+            string $microsoftClientSecret: '%env(MICROSOFT_OAUTH_CLIENT_SECRET)%'
+            # Apple's Services ID. The other three values it needs are the
+            # signer's, below: Apple is the one provider whose client secret is
+            # made rather than stored.
+            string $appleClientId: '%env(APPLE_OAUTH_CLIENT_ID)%'
+            # App\Service\AppleClientSecret. The private key is a PATH on the
+            # box, not a value in .env.local: a .p8 is multi-line PEM and this
+            # file is single-line, and the key belongs with the other secrets
+            # outside the deploy tree either way.
+            string $appleTeamId: '%env(APPLE_OAUTH_TEAM_ID)%'
+            string $appleKeyId: '%env(APPLE_OAUTH_KEY_ID)%'
+            string $applePrivateKey: '%env(APPLE_OAUTH_PRIVATE_KEY)%'
+            # The origin an OAuth redirect URI is built from. It must match what is registered with
+            # the provider character for character. Empty falls back to the
+            # request's own host, which is right for a dev box and wrong behind
+            # anything that rewrites Host.
+            string $appBaseUrl: '%env(APP_BASE_URL)%'
+            # Session lifetime, for the two classes that have to agree with
+            # framework.yaml about it (App\Service\SessionRegistry and
+            # App\EventListener\SessionListener).
+            int $lifetime: '%app.session_lifetime%'
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Directory/'
+            - '../src/Kernel.php'
+
+    # The edition's hooks, each with the core's own answer until an edition's
+    # config/edition/services.yaml points it elsewhere.
+    App\Service\AccountDoor: '@App\Service\OpenDoor'
+    App\Service\AccountLimits: '@App\Service\NoLimits'
+    App\Service\ServiceHealth: '@App\Service\HealthLog'
+
+    App\Service\CurationLeases:
+        arguments:
+            # The dedicated pool from config/packages/cache.yaml, not the app
+            # cache: a lease is short-lived, per-vault state that a deploy may
+            # freely drop, and it should never share a namespace with anything
+            # that must survive.
+            $pool: '@cache.curation_leases'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones

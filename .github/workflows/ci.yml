@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend · tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: 'ctype, curl, iconv, intl, mbstring, sqlite3'
+          tools: 'composer:v2'
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
+        working-directory: backend
+      - run: tools/sqlite-vec.sh
+        working-directory: backend
+      - run: php -d sqlite3.extension_dir="$PWD/var/sqlite-vec" vendor/bin/phpunit
+        working-directory: backend
+
+  frontend:
+    name: Frontend · type-check and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build && npm run check-i18n
+        working-directory: frontend
+
+  ml-processor:
+    name: ml-processor · tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --omit=optional && npm test
+        working-directory: services/ml-processor
+
+  image:
+    name: Image · build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t memex:ci .
+      - run: docker/smoke-test.sh memex:ci

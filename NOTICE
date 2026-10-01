@@ -1,0 +1,37 @@
+memex
+Copyright (C) 2026 Artem Kolesnikov
+
+This program is free software: you can redistribute it and/or modify it under the terms
+of the GNU Affero General Public License as published by the Free Software Foundation,
+version 3. It is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See LICENSE.
+
+The name memex, its wordmark and its logo are not covered by that licence; TRADEMARKS.md
+says how they may be used.
+
+Third-party material in this repository
+
+- frontend/public/logos/: the marks of AI assistants and providers, offered in the icon
+  picker for a connection. Each is a trademark of its owner, named with its source in
+  frontend/public/logos/NOTICE.md. They are used only to name the service a connection
+  reaches; no owner endorses memex or is connected with it.
+- frontend/public/onboarding/: screenshots of the interfaces of ChatGPT (OpenAI), Claude
+  (Anthropic) and Gemini (Google), shown only to guide a person connecting that assistant
+  to memex. Those interfaces and their marks belong to their owners. memex-approve.jpg
+  shows memex itself.
+- Font Awesome Free (@fortawesome/fontawesome-free): icons under CC BY 4.0, fonts under
+  the SIL Open Font License 1.1, code under the MIT License.
+  https://fontawesome.com/license/free
+- Inter (@fontsource-variable/inter): SIL Open Font License 1.1.
+- Every package Composer and npm install keeps its own licence, recorded in
+  backend/composer.lock, frontend/package-lock.json and
+  services/ml-processor/package-lock.json.
+
+Fetched when the image is built
+
+- nomic-embed-text-v1.5 by Nomic AI: Apache License 2.0. From Hugging Face, at the
+  revision and checksums pinned in services/ml-processor/tools/fetch-model.js.
+- sqlite-vec by Alex Garcia: MIT License or Apache License 2.0. The release and checksums
+  are pinned in backend/tools/sqlite-vec.sh.
+- ONNX Runtime by Microsoft (onnxruntime-node): MIT License.

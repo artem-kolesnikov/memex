@@ -1,0 +1,21 @@
+{
+  "name": "memex-ml-processor",
+  "version": "1.0.0",
+  "description": "memex.tools AI enrichment service — summaries, tag suggestions, embeddings (port 8201)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test 'tests/**/*.test.js'",
+    "fetch-model": "node tools/fetch-model.js"
+  },
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "sanitize-html": "^2.11.0"
+  },
+  "optionalDependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "onnxruntime-node": "1.30.0"
+  }
+}

@@ -1,0 +1,13 @@
+# The lock store behind the SPEND limiters (C-1, 2026-08-22), and nothing else
+# yet. `config/packages/rate_limiter.yaml` explains why those two need one and
+# `recovery_request` does not: there the threat is a patient script, here it is
+# an agent loop opening twenty connections at once, every one of them reading
+# the counter before any of them writes it.
+#
+# **flock is correct for exactly one box.** memex.tools is one Lightsail
+# instance with one php-fpm pool, so a file lock in the system temp directory is
+# shared by every worker that could race. It would silently stop being a lock on
+# the day there are two machines. Worth changing at the same moment as
+# anything else that assumes one box, not before.
+framework:
+    lock: '%env(LOCK_DSN)%'

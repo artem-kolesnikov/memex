@@ -1,0 +1,57 @@
+# see https://symfony.com/doc/current/reference/configuration/framework.html
+framework:
+    secret: '%env(APP_SECRET)%'
+    annotations: false
+    http_method_override: false
+    handle_all_throwables: true
+
+    # Behind a TLS proxy, its X-Forwarded-* headers are the visitor's scheme,
+    # host and address: the OAuth metadata advertises https, the session cookie
+    # stays Secure, and per-address limits are per visitor (.env, TRUSTED_PROXIES).
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host', 'x-forwarded-port']
+
+    # Needed by the OAuth consent page, which authorizes on the strength of the
+    # browser session.
+    # That makes it forgeable: /oauth/register is public, so anyone can register
+    # a client pointing at their own server, and an auto-submitting form on any
+    # site would otherwise mint a code for whoever is signed in here. PKCE does
+    # not help, because the attacker generates the challenge. `cookie_samesite:
+    # lax` below is a second layer rather than the answer: Lax withholds the
+    # cookie from cross-site POSTs, but it is a browser behaviour with
+    # grace-period edges, and only the token is ours to rely on.
+    csrf_protection: true
+
+    # Sessions live in the directory, not in files on the box, and last thirty
+    # days of not being used rather than twenty-four minutes.
+    #
+    # `handler_id: null` meant PHP's own file handler, which on Ubuntu means
+    # Debian's defaults: session.gc_maxlifetime 1440 and phpsessionclean.timer
+    # sweeping every half hour, so memex signed people out after roughly half an
+    # hour of not touching it, and cookie_lifetime 0 signed them out again when
+    # they closed the browser. Nobody had decided that — it was a php.ini
+    # nothing in this repository can see. Moving the store here makes the
+    # lifetime a reviewable number and gives `user_sessions` something real to
+    # point at, so that a person can see where they are signed in and end it.
+    #
+    # cookie_lifetime is only half of "thirty days idle": PHP sends the cookie
+    # when the session id changes and not otherwise, so on its own it would mean
+    # thirty days from SIGNING IN. App\EventListener\SessionListener renews it
+    # while memex is in use, which is what makes the two halves agree.
+    session:
+        handler_id: App\Session\DirectorySessionHandler
+        cookie_secure: auto
+        cookie_samesite: lax
+        cookie_lifetime: '%app.session_lifetime%'
+        gc_maxlifetime: '%app.session_lifetime%'
+
+    #esi: true
+    #fragments: true
+    php_errors:
+        log: true
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file

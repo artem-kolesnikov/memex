@@ -1,0 +1,4329 @@
+/* The shared desktop application layer: semantic tokens, the workspace shell,
+   and the `app-*` primitives every route assembles from.
+
+   This file is the only owner of those materials. A route may size or
+   position a primitive; it may not restyle its base material, and it may not
+   define a second button, panel, field, notice, dialog, tag, status or danger
+   treatment.
+
+   The palette is NOT here. It is set on <html> by public/theme-boot.js before
+   the app mounts, per theme, and the tokens
+   below are aliases onto that — so this file has one light appearance and one
+   dark one without knowing either. A literal colour here is a colour the theme
+   cannot reach. */
+
+:root {
+    --app-sidebar-expanded: 232px;
+    --app-sidebar-collapsed: 72px;
+    --app-control-height: 38px;
+    --app-control-radius: 8px;
+
+    --app-hairline: var(--mm-line);
+    --app-hairline-strong: var(--mm-line-strong);
+    --app-paper: var(--mm-surface);
+    --app-panel-border: var(--mm-line-strong);
+    --app-focus: 0 0 0 3px rgba(var(--mm-primary-rgb), .24);
+
+    /* Atmosphere. Cyan and gold are the brand's own two and are never a
+       meaning: they warm the canvas and edge the paper, and nothing reads
+       state from them. */
+    --app-brand-cyan: #00bdf2;
+    --app-warm-gold: #d9b657;
+    --app-paper-edge: linear-gradient(90deg, var(--app-brand-cyan), #85d8e8 64%, var(--app-warm-gold));
+
+    /* The top highlight that makes a small object read as raised. Held in two
+       tiers because it is drawn in white, and there is no white to draw with
+       on charcoal — thirteen literals meant thirteen bevels that survived the
+       dark theme. Consolidating them moves the light theme by at most .04 of
+       alpha on a 1px inset, which is the price of the concept having one
+       owner. */
+    --app-edge-light: rgba(255, 255, 255, .9);
+    --app-edge-light-soft: rgba(255, 255, 255, .84);
+
+    /* The primary button's TOP surface, which is the accent everywhere the
+       accent is a mark. It is separate only because a filled button has a
+       label on it: Midnight Workshop's #31a9d3 under the ivory label the study
+       draws is 2.61:1, and the same spec requires AA on control labels. The
+       accent itself is untouched — as a rail, ring, icon or link on charcoal
+       it scores 5.8:1 and higher. */
+    --mm-primary-fill: var(--mm-primary);
+
+    --app-shadow-small: 0 1px 1px rgba(255, 255, 255, .9) inset, 0 2px 7px rgba(43, 65, 78, .10);
+    --app-shadow-raised: 0 1px 0 rgba(255, 255, 255, .95) inset, 0 1px 1px rgba(36, 58, 72, .08), 0 9px 26px rgba(42, 62, 75, .11);
+    --app-shadow-inset: inset 0 1px 2px rgba(31, 49, 61, .13), 0 1px 0 rgba(255, 255, 255, .86);
+    --app-shadow-pressed: inset 0 2px 5px rgba(21, 66, 88, .17), 0 1px 0 rgba(255, 255, 255, .75);
+}
+
+/* Depth is drawn with white, and there is no white to draw with on a dark
+   page: the same insets and highlights that make a control feel raised in
+   light make it look scratched in dark. */
+[data-bs-theme="dark"] {
+    --app-edge-light: rgba(255, 255, 255, .055);
+    --app-edge-light-soft: rgba(255, 255, 255, .035);
+    /* Ivory reads at 4.73:1 here, and the button still holds 3.17:1 against
+       the paper it sits on. */
+    --mm-primary-fill: #0c79a1;
+
+    --app-shadow-small: 0 1px 3px rgba(0, 0, 0, .34);
+    --app-shadow-raised: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px rgba(0, 0, 0, .38);
+    --app-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, .4);
+    --app-shadow-pressed: inset 0 2px 5px rgba(0, 0, 0, .45);
+    --app-focus: 0 0 0 3px rgba(var(--mm-primary-rgb), .38);
+}
+
+/* ── the workspace shell ──────────────────────────────────────────────── */
+
+/* The shell is the viewport. Only the stage scrolls, so the sidebar and the
+   canvas gradient stay put — a sidebar that scrolls away takes the navigation
+   and the account control with it, and a gradient that scrolls turns into a
+   band halfway down a long page. */
+.app-shell {
+    display: grid;
+    grid-template-columns: var(--app-sidebar-width, var(--app-sidebar-expanded)) minmax(0, 1fr);
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.app-shell.is-collapsed {
+    --app-sidebar-width: var(--app-sidebar-collapsed);
+}
+
+.app-sidebar {
+    position: relative;
+    z-index: 1030;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    /* Never scrolls at an ordinary height, and that is deliberate:
+       `overflow-y: auto` gives the 72px rail a horizontal scrollbar of its own
+       and, being a clipping context, cuts the account menu and the collapsed
+       tooltips in half. Four destinations do not need a scroller — see the
+       max-height rule below for the one case that does. */
+    overflow: visible;
+    padding: 14px 12px 12px;
+    border-right: 1px solid var(--app-hairline);
+    background: var(--mm-chrome);
+}
+
+.app-sidebar-head {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    margin: 0 0 16px;
+}
+
+.app-sidebar-head .app-pane-toggle { margin-left: auto; }
+
+.app-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    height: 44px;
+    margin: 0 4px;
+    color: var(--mm-ink);
+    text-decoration: none;
+}
+
+.app-brand-mark { flex: 0 0 auto; width: 28px; height: 28px; }
+
+.app-brand-word {
+    font-size: 1.12rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+}
+
+.app-brand:hover,
+.app-brand:hover .app-brand-word { text-decoration: none; }
+
+.is-collapsed .app-sidebar-head { justify-content: center; }
+.is-collapsed .app-sidebar-head .app-pane-toggle { margin-left: 0; }
+.is-collapsed .app-brand { display: none; }
+
+.app-nav { display: grid; gap: 2px; }
+
+.app-nav-link {
+    position: relative;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 36px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mm-ink-soft);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* A destination is a surface, not a sentence: hover lights the row rather
+   than underlining its label. The app's dashed-underline convention is for
+   links in prose, and it has to be turned off explicitly here because `a`
+   carries it globally. */
+.app-nav-link:hover {
+    background: var(--mm-hover);
+    color: var(--mm-ink);
+}
+
+.app-nav-link:hover,
+.app-nav-link:hover .app-nav-label,
+.app-account-menu a:hover { text-decoration: none; }
+
+.app-nav-link.is-active {
+    background: rgba(var(--mm-primary-rgb), .1);
+    color: var(--mm-primary);
+}
+
+.app-nav-link.is-active .app-nav-label { font-weight: 600; }
+
+/* A glyph, not a tile (operator, 2026-09-02): the row it sits in is the
+   object. The box stays because the count badge is positioned against it and
+   the collapsed rail centres on it. */
+.app-nav-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    color: var(--mm-muted);
+    font-size: .88rem;
+}
+
+.is-active .app-nav-icon { color: var(--mm-primary); }
+
+.app-nav-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .86rem;
+    font-weight: 500;
+}
+
+.app-nav-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    display: grid;
+    place-items: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 5px;
+    border: 2px solid var(--mm-chrome);
+    border-radius: 999px;
+    background: #b64b42;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(82, 29, 25, .25);
+    font-size: .62rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* The inbox count: a pill at the row's end. Collapsed, there is no row end,
+   so the count takes the icon's place and the icon returns once the inbox is
+   empty. */
+.app-nav-count {
+    justify-self: end;
+    display: grid;
+    place-items: center;
+    min-width: 22px;
+    height: 18px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--mm-primary);
+    color: var(--mm-on-primary);
+    font-size: .66rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 992px) {
+    .is-collapsed .app-nav-link.has-count .app-nav-icon i { display: none; }
+
+    .is-collapsed .app-nav-link .app-nav-count {
+        position: absolute;
+        top: 50%;
+        left: 6px;
+        width: 36px;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        transform: translateY(-50%);
+    }
+}
+
+.app-nav-tooltip { display: none; }
+.app-sidebar-spacer { flex: 1 1 auto; min-height: 0; }
+
+
+/* ── saved filters ──────────────────────────────────────────────────── */
+
+.app-presets { margin-top: 22px; min-height: 0; }
+
+.app-presets-head {
+    margin: 0 0 6px 12px;
+    color: var(--mm-muted);
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.app-presets-list {
+    display: grid;
+    gap: 0;
+    max-height: 38vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.app-preset {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* A saved filter is a shortcut, not a destination: hover and selection name
+   it, the row draws no surface. */
+.app-preset .app-preset-link:hover,
+.app-preset .app-preset-link.is-active { background: transparent; }
+
+.app-preset-link {
+    grid-template-columns: 24px auto;
+    width: auto;
+    max-width: 100%;
+    min-height: 30px;
+    padding-block: 2px;
+}
+
+.app-preset-link .app-nav-label { font-size: .8rem; }
+
+.app-preset-more {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mm-muted);
+    font-size: .8rem;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.app-preset:hover .app-preset-more,
+.app-preset.is-menu-open .app-preset-more,
+.app-preset-more:focus-visible { opacity: 1; }
+
+.app-preset-more:hover { background: var(--mm-hover); color: var(--mm-ink); }
+
+.app-preset-menu {
+    position: fixed;
+    z-index: 1045;
+    width: 190px;
+    padding: 6px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 9px;
+    background: var(--mm-surface);
+    box-shadow: var(--app-shadow-raised);
+}
+
+.app-preset-menu button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 9px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mm-ink-soft);
+    font-size: .78rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.app-preset-menu button:hover { background: var(--mm-hover); color: var(--mm-ink); }
+
+/* Collapsed, the heading keeps its box so nothing below it moves, and reads
+   as a rule through it rather than a word there is no room for. */
+.is-collapsed .app-presets-head {
+    position: relative;
+    margin-left: 6px;
+    width: 36px;
+    color: transparent;
+}
+
+.is-collapsed .app-presets-head::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto;
+    border-top: 1px solid var(--mm-line);
+}
+.is-collapsed .app-preset-more { display: none; }
+.is-collapsed .app-presets-list { overflow: visible; max-height: none; }
+
+.mm-preset-form .form-label { margin-bottom: 4px; }
+.mm-preset-name-row { display: flex; gap: 8px; }
+.mm-preset-name-row .form-control { flex: 1 1 auto; }
+.mm-preset-name-row .mm-icon-box { height: 100%; }
+.mm-preset-icons { max-height: 16rem; }
+.mm-preset-icons-group {
+    flex: 0 0 100%;
+    margin: 4px 0 0;
+    color: var(--mm-muted);
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.mm-preset-icons-group:first-child { margin-top: 0; }
+.mm-preset-form .form-label:not(:first-child) { margin-top: 14px; }
+.mm-preset-added-by { margin-top: 14px; }
+
+/* The sidebar needs about 363px and cannot shrink past it, so under that the
+   account control — and with it Settings, Deleted Notes and Sign out — fell
+   below the viewport with nothing able to scroll to it. A phone in landscape
+   reaches this. Clipped tooltips are the better trade against an unreachable
+   way out, and only here. */
+@media (max-height: 420px) {
+    .app-sidebar { overflow-y: auto; overflow-x: hidden; }
+    .app-brand { height: 40px; margin-bottom: 12px; }
+}
+
+/* Collapsed: the label is removed from the flow rather than hidden, so the
+   grid is one column and the icon centres in it. A `display: none` label
+   would leave the icon column and shove every glyph left of centre. */
+.is-collapsed .app-nav-link {
+    grid-template-columns: 36px;
+    width: 48px;
+    padding: 4px 6px;
+}
+
+.is-collapsed .app-nav-icon { width: 36px; }
+
+.is-collapsed .app-nav-label,
+.is-collapsed .app-account-summary .app-account-copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+
+
+
+/* The name of the destination, for the one state where the label is gone.
+   A `title` would do it, but not for a keyboard user and not for anybody who
+   does not hover for a second first. */
+.is-collapsed .app-nav-tooltip {
+    position: absolute;
+    z-index: 30;
+    left: calc(100% + 12px);
+    top: 50%;
+    display: block;
+    width: max-content;
+    max-width: 190px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    background: #202a33;
+    color: #fff;
+    box-shadow: 0 6px 15px rgba(20, 30, 36, .22);
+    font-size: .72rem;
+    font-weight: 650;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-4px, -50%);
+    transition: opacity .12s ease, transform .12s ease;
+}
+
+.is-collapsed .app-nav-link:hover .app-nav-tooltip,
+.is-collapsed .app-nav-link:focus-visible .app-nav-tooltip {
+    opacity: 1;
+    transform: translate(0, -50%);
+}
+
+/* The account row and its menu are one blue surface: hovered, the row is lit;
+   opened, the same box grows upward out of it and carries the menu. The fill
+   is opaque, so the menu covers the saved filters above it and the row drawn
+   over the menu does not double the tint. */
+.app-account {
+    --app-account-row: 44px;
+    /* The selected destination's tint, made opaque. */
+    --app-account-fill: linear-gradient(rgba(var(--mm-primary-rgb), .1), rgba(var(--mm-primary-rgb), .1)), var(--mm-chrome);
+    --app-account-shadow: 0 1px 2px rgba(36, 58, 72, .08), 0 6px 18px rgba(42, 62, 75, .15);
+    /* Pale blue under grey type washed out in Sunrise: the light theme draws
+       the box's edge and sets its words and glyphs a step darker. */
+    --app-account-line: rgba(var(--mm-primary-rgb), .26);
+    --app-account-text: var(--mm-ink);
+    --app-account-icon: var(--mm-ink-soft);
+    position: relative;
+    flex: 0 0 auto;
+}
+
+[data-bs-theme="dark"] .app-account {
+    --app-account-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px rgba(0, 0, 0, .42);
+    --app-account-line: transparent;
+    --app-account-text: var(--mm-ink-soft);
+    --app-account-icon: var(--mm-muted);
+}
+
+.app-account-summary {
+    position: relative;
+    z-index: 1041;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--app-account-row);
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mm-ink);
+    cursor: pointer;
+}
+
+.app-account-summary:hover,
+.app-account.is-open .app-account-summary {
+    background: var(--app-account-fill);
+    box-shadow: inset 0 0 0 1px var(--app-account-line);
+}
+
+/* Open, the row is the bottom of the menu's box and draws nothing itself. */
+.app-shell:not(.is-collapsed) .app-account.is-open .app-account-summary { background: transparent; box-shadow: none; }
+
+.is-collapsed .app-account-summary { grid-template-columns: 36px; width: 48px; padding: 6px; }
+.is-collapsed .app-account-avatar { justify-self: center; }
+
+.app-account-avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    color: var(--mm-primary);
+    font-size: 1.15rem;
+}
+
+.app-account-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.app-account-copy { display: grid; min-width: 0; text-align: left; }
+.app-account-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; font-weight: 600; }
+.app-account-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--app-account-icon); font-size: .68rem; }
+
+.app-account-menu {
+    position: absolute;
+    z-index: 1040;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    padding-bottom: var(--app-account-row);
+    border: 1px solid var(--app-account-line);
+    border-radius: 10px;
+    background: var(--app-account-fill);
+    box-shadow: var(--app-account-shadow);
+}
+
+.app-account-menu-body { flex: none; padding: 4px 4px 2px; }
+
+/* Anchored at its bottom edge, and so is what it holds: the box starts as the
+   account row and grows upward out of it, Sign out first. App.vue sets the
+   heights; these carry the timing. */
+.app-account-menu-enter-active,
+.app-account-menu-leave-active { transition: height .22s cubic-bezier(.2, .8, .2, 1); }
+
+.app-account-menu-enter-active .app-account-menu-body,
+.app-account-menu-leave-active .app-account-menu-body { transition: opacity .16s ease; }
+
+.app-account-menu-enter-from .app-account-menu-body,
+.app-account-menu-leave-to .app-account-menu-body { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    .app-account-menu-enter-active,
+    .app-account-menu-leave-active,
+    .app-account-menu-enter-active .app-account-menu-body,
+    .app-account-menu-leave-active .app-account-menu-body { transition: none; }
+}
+
+/* Who is signed in, only where the trigger cannot say: the collapsed rail
+   shows an avatar alone. Expanded, the row under the menu already says it. */
+.app-account-identity { display: none; }
+
+.is-collapsed .app-account-identity {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 4px;
+    padding: 8px 8px 10px;
+    border-bottom: 1px solid rgba(var(--mm-primary-rgb), .22);
+}
+
+.is-collapsed .app-account-identity .app-account-avatar { width: 32px; height: 32px; font-size: 1.3rem; }
+
+.is-collapsed .app-account-menu { left: calc(100% + 6px); right: auto; bottom: 0; width: 220px; padding-bottom: 0; }
+
+.app-account-menu a,
+.app-account-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--app-account-text);
+    font-size: .8rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.app-account-menu a > i,
+.app-account-menu button > i {
+    flex: none;
+    width: 20px;
+    color: var(--app-account-icon);
+    font-size: .8rem;
+    text-align: center;
+}
+
+.app-account-menu a:hover,
+.app-account-menu button:hover { background: rgba(var(--mm-primary-rgb), .12); color: var(--mm-ink); }
+.app-account-menu a:hover > i,
+.app-account-menu button:hover > i { color: var(--app-account-text); }
+.app-account-menu a.is-active { color: var(--mm-primary); }
+.app-account-menu a.is-active > i { color: var(--mm-primary); }
+.app-account-menu hr { border: 0; border-top: 1px solid rgba(var(--mm-primary-rgb), .22); margin: 4px 4px; opacity: 1; }
+
+/* Settings and the theme share a row: two glyphs at its end, the chosen one
+   lit the way an active destination is. */
+.app-account-split { display: flex; align-items: center; gap: 6px; }
+.app-account-split > a { flex: 1 1 auto; width: auto; }
+
+.app-account-segments {
+    display: inline-flex;
+    flex: none;
+    gap: 2px;
+    margin-right: 4px;
+    padding: 2px;
+    border-radius: 6px;
+    background: rgba(var(--mm-primary-rgb), .1);
+}
+
+.app-account-menu .app-account-segments button {
+    justify-content: center;
+    width: 24px;
+    min-height: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 4px;
+}
+
+.app-account-segments button > i { width: auto; font-size: .72rem; }
+.app-account-segments button:hover { background: transparent; }
+.app-account-segments button:hover > i { color: var(--mm-ink); }
+.app-account-segments button.is-on { background: var(--mm-surface); box-shadow: 0 1px 2px rgba(36, 58, 72, .12); }
+.app-account-segments button.is-on > i { color: var(--mm-primary); }
+.app-account-segments button:focus-visible { outline: 0; box-shadow: var(--app-focus); }
+
+/* ── menus ────────────────────────────────────────────────────────────── */
+
+/* One menu treatment, the account menu's, on a Bootstrap dropdown. A menu
+   opened from a table head inherits that head's typography — .69rem, uppercase,
+   letter-spaced — while Bootstrap's own 1rem wins on the item, so the select
+   menu came out as large uppercase prose. Every inherited property is stated
+   here rather than left to whatever the trigger happens to sit in. */
+.app-menu.dropdown-menu {
+    min-width: 190px;
+    padding: 6px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 9px;
+    background: var(--mm-surface);
+    box-shadow: var(--app-shadow-raised);
+}
+
+.app-menu .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 34px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    color: var(--mm-ink-soft);
+    font-size: .78rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.3;
+    text-align: left;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.app-menu .dropdown-item:hover,
+.app-menu .dropdown-item:focus-visible {
+    background: var(--mm-hover);
+    color: var(--mm-ink);
+}
+
+.app-menu .dropdown-item:focus-visible { outline: 0; box-shadow: var(--app-focus); }
+.app-menu .dropdown-item i { width: 15px; color: var(--mm-muted); font-size: .8rem; }
+.app-menu .dropdown-item:hover i { color: var(--mm-ink-soft); }
+.app-menu hr { border: 0; border-top: 1px solid var(--app-hairline); margin: 5px 4px; opacity: 1; }
+
+/* The canvas. Cool at one corner, warm at the other, with the scanline the
+   references carry — enough to keep a full-width page from reading as a blank
+   sheet, quiet enough to sit under a table of text. */
+.app-stage {
+    position: relative;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(circle at 89% 7%, rgba(0, 189, 242, .14), transparent 29rem),
+        radial-gradient(circle at 55% -5%, rgba(0, 189, 242, .075), transparent 23rem),
+        radial-gradient(circle at 5% 96%, rgba(217, 182, 87, .16), transparent 31rem),
+        var(--mm-bg);
+}
+
+/* Midnight Workshop's canvas: cyan is the dominant light and gold a smaller,
+   warmer, quieter one. Fixed with the shell rather than the content, so a long
+   page never reveals a second gradient start. */
+[data-bs-theme="dark"] .app-stage {
+    background:
+        radial-gradient(circle at 68% -5%, rgba(0, 189, 242, .13), transparent 30%),
+        radial-gradient(circle at 96% 12%, rgba(230, 200, 100, .075), transparent 22%),
+        linear-gradient(135deg, #101617, #192326);
+}
+
+.app-stage::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, .14) 1px, transparent 1px);
+    background-size: 100% 8px;
+    opacity: .14;
+    mix-blend-mode: soft-light;
+}
+
+/* Finer and fainter on charcoal: the light theme's 8px pitch at .14 reads as
+   banding over a dark gradient rather than as texture. */
+[data-bs-theme="dark"] .app-stage::after {
+    background-image: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(255, 255, 255, .012) 4px);
+    background-size: auto;
+    opacity: .19;
+    mix-blend-mode: normal;
+}
+
+.app-stage > * { position: relative; z-index: 1; }
+.app-stage > main { z-index: 2; }
+.app-stage > .footer { z-index: 1; }
+
+/* The content measure. Every route still lays out inside a Bootstrap
+   `.container`, so the measure is set here once rather than in each of them:
+   the reference's 1160px column with a 64px gutter, centred on the canvas. */
+.app-stage .container {
+    width: min(1160px, 100% - 64px);
+    max-width: none;
+    margin-inline: auto;
+    padding-inline: 0;
+}
+
+@media (max-width: 991.98px) {
+    .app-stage .container { width: min(100%, 100% - 32px); }
+}
+
+.app-stage > main { padding: 36px 0 50px; }
+
+.app-stage .footer {
+    margin-top: auto;
+    border-top: 1px solid var(--app-hairline);
+    background: transparent;
+}
+
+/* ── page header ──────────────────────────────────────────────────────── */
+
+.app-page-head { margin-bottom: 24px; }
+.app-page-head h1 { margin: 0; color: var(--mm-ink); font-size: 1.78rem; line-height: 1.15; letter-spacing: -.035em; }
+.app-page-head .app-page-lede { margin: 5px 0 0; color: var(--mm-muted); font-size: .78rem; }
+
+.app-head-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+
+.app-eyebrow {
+    margin: 0 0 5px;
+    color: var(--mm-primary);
+    font-size: .67rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+/* ── surfaces ─────────────────────────────────────────────────────────── */
+
+.app-paper,
+.app-tray,
+.app-ledger,
+.app-panel {
+    position: relative;
+    border: 1px solid var(--app-panel-border);
+    background: var(--app-paper);
+}
+
+.app-paper,
+.app-tray,
+.app-ledger { overflow: hidden; box-shadow: var(--app-shadow-raised); }
+
+.app-paper { border-radius: 12px; }
+.app-tray,
+.app-ledger,
+.app-panel { border-radius: 10px; }
+
+/* The spectral edge. Only on a dominant object — a panel is subordinate and
+   does not get one, or every surface on the page claims to be the subject. */
+.app-paper::before,
+.app-tray::before,
+.app-ledger::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 3;
+    height: 3px;
+    background: var(--app-paper-edge);
+}
+
+/* A signature, not a neon stripe: at full strength on charcoal the edge is the
+   brightest thing on the page and reads as a progress bar. */
+[data-bs-theme="dark"] .app-paper::before,
+[data-bs-theme="dark"] .app-tray::before,
+[data-bs-theme="dark"] .app-ledger::before { opacity: .55; }
+
+.app-panel {
+    background: var(--mm-surface);
+    box-shadow: var(--app-shadow-small);
+}
+
+/* ── dialogs ──────────────────────────────────────────────────────────── */
+
+.app-dialog .modal-dialog { max-width: min(620px, calc(100vw - 48px)); }
+
+.app-dialog .modal-content {
+    overflow: hidden;
+    border: 1px solid var(--app-panel-border);
+    border-radius: 12px;
+    background: var(--app-paper);
+    box-shadow: var(--app-shadow-raised);
+}
+
+.app-dialog .modal-header,
+.app-dialog .modal-footer {
+    gap: 16px;
+    padding: 14px 17px;
+    border-color: var(--app-hairline);
+    background: var(--mm-chrome);
+}
+
+.app-dialog .modal-body { padding: 18px; }
+.app-dialog .modal-title { color: var(--mm-ink); letter-spacing: -.02em; }
+
+/* ── notices ──────────────────────────────────────────────────────────── */
+
+.app-notice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 11px;
+    padding: 12px 14px;
+    border: 1px solid #b7ccd4;
+    border-radius: 9px;
+    background: linear-gradient(180deg, rgba(245, 251, 252, .98), rgba(228, 241, 244, .94));
+    color: #4d626a;
+    box-shadow: var(--app-shadow-small);
+    font-size: .78rem;
+    line-height: 1.45;
+}
+
+.app-notice p { margin: 0; }
+.app-notice p + p { margin-top: .5rem; }
+.app-notice strong { color: var(--mm-ink); font-weight: 700; }
+
+.app-notice-mark {
+    display: grid;
+    place-items: center;
+    width: 29px;
+    height: 29px;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .44);
+    box-shadow: 0 1px 0 white inset;
+    font-size: .8rem;
+}
+
+.app-notice-warning { border-color: #d9b84f; background: linear-gradient(180deg, rgba(255, 251, 229, .98), rgba(247, 232, 181, .94)); color: #5b4d26; }
+.app-notice-warning .app-notice-mark { color: #8e6100; }
+.app-notice-pending { border-color: #b9a6dc; background: linear-gradient(#faf8ff, #eee9fa); color: #574a76; }
+.app-notice-danger { border-color: #d9aaa5; background: linear-gradient(#fff8f7, #f4dfdc); color: #6f3934; }
+.app-notice-success { border-color: #a9cdb5; background: linear-gradient(#f6fcf7, #e3f1e6); color: #386247; }
+
+[data-bs-theme="dark"] .app-notice { border-color: var(--mm-line-strong); background: var(--mm-hover); color: var(--mm-ink-soft); }
+[data-bs-theme="dark"] .app-notice-mark { background: rgba(255, 255, 255, .06); box-shadow: none; }
+[data-bs-theme="dark"] .app-notice-warning { border-color: #6d5a24; background: #33301f; color: #e2ceA0; }
+[data-bs-theme="dark"] .app-notice-pending { border-color: #4c3f6b; background: #2b2635; color: #cbbcE6; }
+[data-bs-theme="dark"] .app-notice-danger { border-color: #6d3a34; background: #33262a; color: #e6b8b2; }
+[data-bs-theme="dark"] .app-notice-success { border-color: #35573f; background: #24302a; color: #a9d3b6; }
+
+/* ── status marks ─────────────────────────────────────────────────────── */
+
+.app-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 999px;
+    background: var(--mm-tag-bg);
+    color: var(--mm-on-tag);
+    box-shadow: 0 1px 0 var(--app-edge-light-soft) inset;
+    font-size: .68rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.app-status-verified { border-color: #bdd3c5; background: linear-gradient(#f5fbf6, #e4f1e7); color: #376d50; }
+.app-status-pending { border-color: #c4b6df; background: linear-gradient(#faf8ff, #eee9fa); color: #7456b8; }
+.app-status-flagged { border-color: #dcc16b; background: linear-gradient(#fffdf4, #f6e9c4); color: #b66a00; }
+.app-status-danger { border-color: #d9aaa5; background: linear-gradient(#fff8f7, #f4dfdc); color: #9a4037; }
+
+[data-bs-theme="dark"] .app-status-verified { border-color: #35573f; background: #24302a; color: #a9d3b6; }
+[data-bs-theme="dark"] .app-status-pending { border-color: #4c3f6b; background: #2b2635; color: #cbbcE6; }
+[data-bs-theme="dark"] .app-status-flagged { border-color: #6d5a24; background: #33301f; color: #e2ceA0; }
+[data-bs-theme="dark"] .app-status-danger { border-color: #6d3a34; background: #33262a; color: #e6b8b2; }
+
+/* ── danger zone ──────────────────────────────────────────────────────── */
+
+.app-danger-zone {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 18px;
+    border: 1px solid #dfc1bd;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255, 252, 249, .96), rgba(250, 241, 236, .94));
+    box-shadow: 0 1px 0 white inset;
+}
+
+[data-bs-theme="dark"] .app-danger-zone { border-color: #6d3a34; background: #2c2426; box-shadow: none; }
+
+.app-danger-zone h2,
+.app-danger-zone h4 { margin: 0 0 3px; color: #713b36; font-size: .85rem; font-weight: 700; letter-spacing: normal; }
+.app-danger-zone p { margin: 0; color: var(--mm-muted); font-size: .72rem; }
+[data-bs-theme="dark"] .app-danger-zone h2,
+[data-bs-theme="dark"] .app-danger-zone h4 { color: #e6b8b2; }
+
+/* ── loading, empty and error states ──────────────────────────────────── */
+
+.app-state {
+    display: grid;
+    justify-items: start;
+    gap: 7px;
+    min-height: 118px;
+    padding: 18px;
+    border: 1px dashed var(--app-hairline-strong);
+    border-radius: 10px;
+    background: rgba(255, 254, 250, .72);
+}
+
+[data-bs-theme="dark"] .app-state { background: var(--mm-hover); }
+
+.app-state h1,
+.app-state h4 { margin: 0; color: var(--mm-ink); font-size: .88rem; font-weight: 650; letter-spacing: normal; }
+.app-state p { max-width: 30rem; margin: 0; color: var(--mm-ink-soft); font-size: .75rem; line-height: 1.5; }
+.app-state-blank {
+    justify-items: center;
+    align-content: center;
+    gap: 12px;
+    min-height: 340px;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.app-state-blank h4 { font-size: 1.05rem; }
+.app-state-blank p { max-width: 46ch; font-size: .82rem; }
+
+.app-state-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.app-state-error { border-style: solid; border-color: #d9aaa5; background: #fff7f5; }
+[data-bs-theme="dark"] .app-state-error { border-color: #6d3a34; background: #33262a; }
+
+.app-skeleton {
+    overflow: hidden;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--mm-hover) 20%, var(--mm-surface) 45%, var(--mm-hover) 70%);
+    background-size: 220% 100%;
+    animation: app-skeleton 1.5s linear infinite;
+}
+
+@keyframes app-skeleton { to { background-position: -220% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .app-skeleton { animation: none; }
+    .is-collapsed .app-nav-tooltip { transition: none; }
+}
+
+/* ── narrow ───────────────────────────────────────────────────────────── */
+
+/* Below `lg` the sidebar is not a rail but a sheet: 232px of chrome beside a
+   390px page leaves 158px for the page. It slides in over the canvas from the
+   toggle in the top bar, and the shell becomes one column. */
+@media (max-width: 991.98px) {
+    .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+
+    .app-sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: var(--app-sidebar-expanded);
+        transform: translateX(-100%);
+        transition: transform .2s ease;
+    }
+
+    .app-shell.is-open .app-sidebar { transform: translateX(0); }
+
+    /* Collapsing is a wide-screen affordance. On a phone the sheet is either
+       open or absent, and a 72px rail permanently eating a fifth of the width
+       is the thing this breakpoint exists to prevent. */
+    .app-shell.is-collapsed .app-sidebar { width: var(--app-sidebar-expanded); }
+    .app-shell.is-collapsed .app-nav-link { grid-template-columns: 24px minmax(0, 1fr) auto; width: 100%; padding: 4px 8px; }
+    .app-shell.is-collapsed .app-nav-icon { width: 24px; }
+    .app-shell.is-collapsed .app-nav-label,
+    .app-shell.is-collapsed .app-account-summary .app-account-copy { position: static; width: auto; height: auto; clip: auto; }
+    .app-shell.is-collapsed .app-account-summary { grid-template-columns: 28px minmax(0, 1fr); width: 100%; padding: 6px 8px; }
+
+    .app-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 1029;
+        background: rgba(24, 34, 41, .42);
+    }
+}
+
+/* Narrow only, and spanning both columns: as an ordinary grid item it took
+   the sidebar's cell and pushed the whole shell one column right. */
+.app-topbar {
+    display: none;
+    grid-column: 1 / -1;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--app-hairline);
+    background: var(--mm-chrome);
+}
+
+.app-topbar .app-brand { height: 34px; margin: 0; }
+.app-topbar .app-brand svg { width: 128px; }
+
+@media (max-width: 991.98px) {
+    .app-topbar { display: flex; }
+}
+
+/* ── the notes list ───────────────────────────────────────────────────── */
+
+/* One note per row: title and description, then when, by whom and tags in a
+   column beside them. Below `lg` the column moves under the title. */
+.app-note-list { --app-note-meta: 380px; }
+
+.app-note-list-head,
+.app-note-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) var(--app-note-meta);
+    gap: 0 10px;
+    padding: 10px 14px 11px 10px;
+}
+
+.app-note-list-head {
+    align-items: center;
+    padding-block: 7px;
+    border-bottom: 1px solid var(--app-hairline-strong);
+    background: var(--mm-table-head);
+    color: var(--mm-muted);
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+.app-note-list-head .dropdown { justify-self: center; }
+.app-note-list-title { display: flex; align-items: center; gap: 6px; }
+
+.app-note-row {
+    align-items: start;
+    border-bottom: 1px solid var(--app-hairline);
+}
+
+.app-note-row:last-child { border-bottom: 0; }
+.app-note-row:hover { background: var(--mm-hover); }
+.app-note-row.is-selected { background: var(--mm-highlight); }
+
+.app-note-check { display: grid; place-items: center; height: 24px; margin: 0; }
+.app-note-check .form-check-input { margin: 0; }
+
+/* The checkbox is there when a pointer can reach it. On a phone there is no
+   hover, so it stays. */
+@media (hover: hover) {
+    .app-note-check { opacity: .3; transition: opacity .1s ease; }
+    .app-note-row:hover .app-note-check,
+    .app-note-row.is-selected .app-note-check,
+    .app-note-check:focus-within { opacity: 1; }
+}
+
+.app-note-main { display: grid; gap: 3px; min-width: 0; color: inherit; text-decoration: none; }
+.app-note-main:hover { text-decoration: none; }
+
+.app-note-title {
+    display: block;
+    overflow-wrap: anywhere;
+    color: var(--mm-ink);
+    font-size: .92rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.app-note-row:hover .app-note-title { color: var(--mm-primary); }
+.app-note-mark { margin-right: 7px; font-size: .8em; vertical-align: 1px; }
+
+.app-note-summary {
+    display: block;
+    max-width: 72ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mm-ink-soft);
+    font-size: .8rem;
+    line-height: 1.4;
+}
+
+.app-note-summary-none { color: var(--mm-muted); font-style: italic; }
+
+.app-note-meta {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 4px 10px;
+    align-items: center;
+    min-width: 0;
+    padding-top: 2px;
+    color: var(--mm-ink-soft);
+    font-size: .78rem;
+}
+
+.app-note-date { color: var(--mm-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.app-note-tags { grid-column: 1 / -1; min-width: 0; }
+
+@media (max-width: 1199.98px) {
+    .app-note-list { --app-note-meta: 300px; }
+}
+
+@media (max-width: 991.98px) {
+    .app-note-list-head,
+    .app-note-row { grid-template-columns: 40px minmax(0, 1fr); }
+    .app-note-list-modified { display: none; }
+    .app-note-meta { grid-column: 2; grid-template-columns: auto minmax(0, 1fr); padding-top: 5px; }
+}
+
+/* ── tables on a tray ─────────────────────────────────────────────────── */
+
+/* The one table treatment. Carried on the TABLE rather than descended from
+   its wrapper, so a table that has to scroll inside a scroller still gets it
+   and a nested table inside an expanded row does not. */
+.app-table {
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.app-table > thead {
+    background: var(--mm-table-head);
+    box-shadow: 0 1px 0 var(--app-edge-light-soft) inset;
+}
+
+.app-table > thead th {
+    height: 42px;
+    padding: 8px 11px;
+    border-bottom: 1px solid var(--app-hairline-strong);
+    color: var(--mm-ink-soft);
+    font-size: .69rem;
+    font-weight: 750;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.app-table > tbody > tr > td {
+    padding: 9px 11px;
+    border-bottom: 1px solid var(--app-hairline);
+    vertical-align: middle;
+}
+
+.app-table > tbody > tr:last-child > td { border-bottom: 0; }
+
+/* The hover rail. Bootstrap's `table-hover` paints a flat fill; the rail says
+   which row without changing how light the row is. */
+.app-table > tbody > tr > td:first-child { border-left: 3px solid transparent; }
+
+.app-table.table-hover > tbody > tr:hover > td:first-child {
+    border-left-color: rgba(var(--mm-primary-rgb), .45);
+}
+
+/* A tray clips to its own rounding, so a table wider than the column scrolls
+   INSIDE this rather than pushing the page sideways — and the footer, which
+   is a sibling, stays put while it does. */
+.app-tray-scroll { overflow-x: auto; }
+
+.app-tray-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-height: 58px;
+    padding: 9px 14px;
+    border-top: 1px solid var(--app-hairline-strong);
+    background: var(--mm-table-head);
+    color: var(--mm-ink-soft);
+    box-shadow: 0 1px 0 var(--app-edge-light) inset;
+    font-size: .75rem;
+}
+
+/* ── settings ─────────────────────────────────────────────────────────── */
+
+/* Settings is a fixed box over the workspace rather than a page (operator,
+   2026-09-01): a menu that never scrolls, and one pane that does. Bootstrap's
+   `fade` is deliberately absent — an animated modal defers its teardown to
+   `transitionend`, which a route change unmounts it before it can fire, and
+   the backdrop is left over the app. */
+.app-settings-modal {
+    --bs-modal-margin: 24px;
+}
+
+.app-settings-modal .modal-dialog {
+    width: min(1100px, 100vw - 48px);
+    max-width: none;
+    margin: 24px auto;
+}
+
+.app-settings-modal .modal-content {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: min(760px, 100vh - 48px);
+    overflow: hidden;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 14px;
+    background: var(--mm-surface);
+    box-shadow: 0 26px 70px rgba(21, 38, 50, .30);
+    animation: app-settings-in .16s ease-out;
+}
+
+@keyframes app-settings-in {
+    from { opacity: 0; transform: translateY(6px) scale(.994); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-settings-modal .modal-content { animation: none; }
+}
+
+.app-settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px 13px 22px;
+    border-bottom: 1px solid var(--app-hairline);
+    background: var(--mm-surface);
+}
+
+.app-settings-head h1 {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+
+.app-settings-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+}
+
+.app-settings-nav { display: none; }
+.app-settings-select { width: calc(100% - 32px); margin: 14px 16px 0; }
+
+@media (min-width: 992px) {
+    .app-settings-layout { grid-template-columns: 260px minmax(0, 1fr); }
+    .app-settings-select { display: none; }
+
+    .app-settings-nav {
+        display: block;
+        overflow-y: auto;
+        padding: 10px 9px 14px;
+        border-right: 1px solid var(--app-hairline);
+        background: var(--mm-bg);
+    }
+}
+
+/* Full-bleed below the breakpoint: no fixed box survives a 390px screen, and
+   the menu is the select above the pane there. */
+@media (max-width: 991.98px) {
+    .app-settings-modal { --bs-modal-margin: 0px; }
+    .app-settings-modal .modal-dialog { width: 100vw; margin: 0; }
+
+    .app-settings-modal .modal-content {
+        height: 100dvh;
+        border: 0;
+        border-radius: 0;
+    }
+}
+
+/* Anything a pane opens sits over the box, not under it: Bootstrap gives every
+   modal the same z-index, so the second backdrop would otherwise dim the
+   dialog that raised it from underneath.
+
+   Three deep is real — Settings, Deleted notes, and the purge confirmation —
+   so each layer gets its own pair. With one pair for everything above
+   Settings, the third backdrop sat below the second dialog and separated
+   nothing. Every dialog here is `v-if`, so a layer exists only while it is
+   open and the sibling count is the depth. */
+body.app-settings-open .modal-backdrop ~ .modal-backdrop { z-index: 1070; }
+body.app-settings-open .modal-backdrop ~ .modal-backdrop ~ .modal-backdrop { z-index: 1090; }
+
+/* Two backdrops stack when a pane opens a dialog over Settings, and Bootstrap's
+   .5 twice is .75 of black. On charcoal that crushes the whole page, dialog
+   included — a backdrop separates layers, it does not black the app out. The
+   second one only has to lift the dialog off the box beneath it, so it is much
+   weaker than the first. */
+[data-bs-theme="dark"] .modal-backdrop { --bs-backdrop-opacity: .42; }
+[data-bs-theme="dark"] .modal-backdrop ~ .modal-backdrop { --bs-backdrop-opacity: .2; }
+body.app-settings-open .modal:not(.app-settings-modal) { z-index: 1075; }
+body.app-settings-open .modal:not(.app-settings-modal) ~ .modal:not(.app-settings-modal) { z-index: 1095; }
+
+/* The stage is the app's scroll container, so Bootstrap's lock on <body> does
+   not reach it. */
+body.app-settings-open,
+body.app-settings-open .app-stage { overflow: hidden; }
+
+.mm-settings-themes .mm-wiz-theme-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.app-settings-nav-group + .app-settings-nav-group { margin-top: 28px; }
+.app-settings-group-title {
+    margin: 8px 10px 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--app-hairline);
+    color: var(--mm-ink);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.app-settings-nav-item {
+    display: block;
+    margin: 2px 0;
+    padding: 9px 10px;
+}
+
+.app-settings-nav-item b { font-size: .86rem; font-weight: 500; }
+.app-settings-nav-item.is-active b { font-weight: 600; }
+.app-settings-nav-item:focus-visible { outline: 0; box-shadow: var(--app-focus); }
+
+/* The pane is the dialog's dominant object, so its sections are rules inside
+   one sheet rather than a stack of separate cards. */
+.app-settings-pane {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--mm-surface);
+    /* Every pane loads its own data after it paints. Scroll anchoring keeps
+       the element under the viewport still as those blocks arrive, which on a
+       pane that starts at the top means being pushed down — Services landed
+       at its own bottom. */
+    overflow-anchor: none;
+}
+
+.app-settings-pane .mm-pane { padding: 0; }
+
+/* A visible step per level of nesting: the pane's own name, the blocks under
+   it, and the headings inside a block. Anything deeper is a label rather than
+   a fourth size competing with the three. */
+.app-settings-pane-title {
+    margin: 0 0 24px;
+    padding: 0;
+    font-size: 1.55rem;
+    font-weight: 720;
+    letter-spacing: -.022em;
+    line-height: 1.15;
+}
+
+.app-settings-pane h3.mm-block-title {
+    font-size: 1.18rem;
+    font-weight: 680;
+}
+
+.app-settings-pane h4.mm-block-title,
+.app-settings-pane .mm-role-title,
+.app-settings-pane .mm-panel-title {
+    font-size: .92rem;
+    font-weight: 720;
+    letter-spacing: 0;
+}
+
+/* Separates two sections that share one block. */
+.mm-block-rule {
+    margin: 20px 0 18px;
+    border: 0;
+    border-top: 1px solid var(--app-hairline-strong);
+    opacity: 1;
+}
+
+/* Circle-cropped, and the same size wherever a person's face appears. */
+.mm-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 50%;
+    background: var(--mm-surface);
+    overflow: hidden;
+    color: var(--mm-muted);
+    font-size: 2rem;
+}
+
+.mm-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mm-avatar-initial {
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--mm-ink-soft);
+}
+
+.mm-avatar-well { position: relative; display: inline-flex; flex: none; }
+
+.mm-file-input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.mm-file-picker-button { position: relative; }
+.mm-file-picker-button:focus-within { text-decoration: underline dashed; text-underline-offset: .2em; }
+.mm-file-picker-button.disabled .mm-file-input { cursor: default; }
+
+.mm-avatar-button {
+    padding: 0;
+    background: var(--mm-hover);
+    cursor: pointer;
+}
+
+.mm-avatar-button:hover { border-color: var(--mm-primary); }
+
+/* The transparent input owns the pointer hit as well as focus, avoiding
+   browser-dependent delegation to a separate clipped input. */
+.mm-avatar-well:focus-within .mm-avatar-button {
+    outline: 2px solid var(--mm-primary);
+    outline-offset: 2px;
+}
+
+.mm-avatar-clear {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 50%;
+    background: var(--mm-surface);
+    color: var(--mm-muted);
+    font-size: .85rem;
+    line-height: 1;
+    z-index: 2;
+}
+
+.mm-avatar-clear:hover { color: var(--mm-ink); border-color: var(--mm-ink-soft); }
+
+.mm-curator-add {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-top: .75rem;
+}
+
+.mm-served-skill {
+    margin-top: 1rem;
+    padding-top: .9rem;
+    border-top: 1px solid var(--app-hairline);
+}
+
+.mm-served-skill + .mm-served-skill { margin-top: .9rem; }
+
+.mm-curator-points {
+    margin: 0 0 .75rem;
+    padding-left: 1.1rem;
+}
+
+.mm-curator-points li + li { margin-top: .2rem; }
+
+.mm-system-skills {
+    display: grid;
+    gap: .9rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
+.mm-system-skills .mm-served-skill,
+.mm-system-skills .mm-served-skill + .mm-served-skill {
+    margin-top: 0;
+    padding: .9rem 1rem;
+    border: 1px solid var(--app-hairline);
+    border-radius: var(--mm-radius-sm);
+    background: var(--mm-surface);
+}
+
+/* What is left of today on one Services section. A bar rather than a number
+   alone: the shape of "most of it" is read faster than the arithmetic. */
+.mm-quota-bar {
+    height: 5px;
+    margin-bottom: 5px;
+    max-width: 320px;
+    border-radius: 999px;
+    background: var(--mm-hover);
+    overflow: hidden;
+}
+
+.mm-quota-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--mm-primary);
+}
+
+.app-settings-label {
+    margin: 0 0 6px;
+    color: var(--mm-muted);
+    font-size: .68rem;
+    font-weight: 850;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.app-settings-pane .mm-block {
+    margin: 0;
+    padding: 24px 0;
+    border: 0;
+    border-bottom: 1px solid var(--app-hairline);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.app-settings-pane .mm-block:last-child { border-bottom: 0; }
+
+/* Curation is a different system from the two above it, run by different
+   software on somebody else's account. A heavier rule says so without making
+   it a separate page. */
+.app-settings-pane .mm-automation-curation {
+    border-top: 4px solid var(--app-hairline-strong);
+    box-shadow: 0 1px 0 var(--app-edge-light) inset;
+}
+
+.app-settings-pane .mm-block-title {
+    margin: 0 0 4px;
+    color: var(--mm-ink);
+    font-size: 1.02rem;
+    font-weight: 650;
+    letter-spacing: -.01em;
+}
+
+.app-settings-pane .mm-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.app-settings-pane .mm-note {
+    max-width: 62ch;
+    color: var(--mm-muted);
+    font-size: .8rem;
+    line-height: 1.5;
+    /* Keeps a lone word off the last line where the measure allows it. */
+    text-wrap: pretty;
+}
+
+/* For the handful of sentences the 62ch measure orphans a word from. */
+.app-settings-pane .mm-note-wide { max-width: 86ch; }
+
+.mm-import-queue {
+    margin: .75rem 0 0;
+    padding: 0;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 8px;
+    list-style: none;
+    overflow: hidden;
+}
+
+.mm-import-queue > li + li { border-top: 1px solid var(--app-hairline); }
+
+.mm-import-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .7rem;
+    font-size: .82rem;
+}
+
+.mm-import-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+
+.mm-import-state {
+    margin-left: auto;
+    color: var(--mm-muted);
+    font-size: .76rem;
+    text-align: right;
+}
+
+.mm-import-state.is-good { color: var(--mm-success, #1a7f4b); }
+.mm-import-state.is-bad { color: var(--mm-danger, #b3261e); }
+.mm-import-state a + a::before { content: ", "; }
+
+.mm-import-retired {
+    padding: 0 .7rem .6rem 2rem;
+    border-top: 1px dashed var(--app-hairline);
+}
+
+/* ── deleted notes ────────────────────────────────────────────────────── */
+
+.mm-deleted-list {
+    margin: .75rem 0 0;
+    padding: 0;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 8px;
+    list-style: none;
+    background: var(--mm-surface);
+}
+
+.mm-deleted-list > li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--app-hairline);
+}
+
+.mm-deleted-list > li:last-child { border-bottom: 0; }
+
+.mm-deleted-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mm-deleted-title {
+    overflow: hidden;
+    color: var(--mm-ink);
+    font-size: .85rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-deleted-meta {
+    color: var(--mm-muted);
+    font-size: .74rem;
+}
+
+.mm-deleted-why {
+    display: -webkit-box;
+    overflow: hidden;
+    max-width: 62ch;
+    color: var(--mm-muted);
+    font-size: .74rem;
+    line-height: 1.4;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.mm-deleted-left {
+    flex: 0 0 auto;
+    color: var(--mm-muted);
+    font-size: .74rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.mm-deleted-left.is-urgent { color: var(--mm-danger, #b3261e); font-weight: 600; }
+
+.mm-deleted-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Purge is destruction with no undo, so it is a word rather than a button —
+   present for the credential case, never the thing a hand lands on. */
+.mm-deleted-purge { color: var(--mm-muted); text-decoration: none; }
+.mm-deleted-purge:hover:not(:disabled) { color: var(--mm-danger, #b3261e); }
+
+.mm-deleted-list.is-tombstones .mm-deleted-title { color: var(--mm-muted); font-weight: 500; }
+
+@media (max-width: 575.98px) {
+    .mm-deleted-list > li { flex-wrap: wrap; }
+    .mm-deleted-copy { flex: 1 1 100%; }
+    .mm-deleted-actions { margin-left: auto; }
+}
+
+/* ── the notes map ────────────────────────────────────────────────────── */
+
+/* The map is the notes page's second view, and it takes the page's whole
+   width: what it has to say about one note floats over it rather than
+   narrowing it. Its height is set from where it starts (NotesMap.vue), so the
+   page never scrolls for a map. */
+.mm-notes-map {
+    display: flex;
+    flex-direction: column;
+    min-height: 460px;
+    padding: 12px 14px 14px;
+}
+
+.mm-notes-map-stage {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.mm-notes-map-stage > .mm-map {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.mm-notes-map-stage .mm-map-canvas { flex: 1 1 auto; min-height: 0; }
+
+@media (max-width: 991.98px) {
+    .mm-notes-map { min-height: 0; }
+    .mm-notes-map-stage .mm-map-canvas { flex: 0 0 auto; height: min(66vh, 640px); }
+}
+
+.mm-map-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    margin-bottom: 10px;
+}
+
+.mm-map-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mm-map-settings-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-left: auto;
+}
+
+.mm-map-window { width: auto; }
+
+.mm-map-renderer .app-segment { min-height: 26px; padding: 0 10px; font-size: .74rem; }
+
+/* List or map, beside the title it switches: icons alone, named on hover. */
+.mm-notes-title { display: flex; align-items: center; gap: 14px; }
+.mm-notes-views .app-segment { min-height: 28px; padding: 0 10px; }
+
+.mm-map-find {
+    position: relative;
+    flex: 1 1 200px;
+    min-width: 0;
+    max-width: 320px;
+}
+
+.mm-map-find > i {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    color: var(--mm-muted);
+    font-size: .78rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.mm-map-find > input { padding-left: 30px; }
+
+/* The line under the toolbar that says why a mode is worth looking at. It sits
+   above the canvas rather than in a tip, because a mode nobody understands is
+   a mode nobody presses twice. */
+.mm-map-why {
+    margin: -2px 0 8px;
+    color: var(--mm-ink-soft);
+    font-size: .8rem;
+    line-height: 1.45;
+    max-width: 74ch;
+}
+
+.mm-map-lens {
+    padding: 3px 10px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 999px;
+    background: var(--mm-surface);
+    color: var(--mm-ink-soft);
+    font-size: .74rem;
+    line-height: 1.5;
+}
+
+.mm-map-lens:hover:not(:disabled) { border-color: var(--mm-primary); color: var(--mm-ink); }
+.mm-map-lens:disabled { opacity: .45; }
+
+.mm-map-lens.is-on {
+    border-color: var(--mm-primary);
+    background: var(--mm-primary-fill);
+    color: var(--mm-on-primary);
+}
+
+.mm-map-suggest { margin: 0; }
+.mm-map-suggest .form-check-label { color: var(--mm-ink-soft); }
+
+/* One floating box: the note picked, or the list the mode draws. It opens in
+   the top right corner, moves by its bar, and stays where it was put until it
+   is closed. */
+.mm-map-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    width: min(320px, calc(100% - 24px));
+    max-height: calc(100% - 24px);
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 10px;
+    background: var(--mm-surface);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .16), 0 2px 6px rgba(15, 23, 42, .08);
+}
+
+[data-bs-theme="dark"] .mm-map-panel { box-shadow: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .35); }
+
+.mm-map-panel-bar {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 34px;
+    padding: 4px 6px 4px 14px;
+    border-bottom: 1px solid var(--app-hairline);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.mm-map-panel-bar:active { cursor: grabbing; }
+
+.mm-map-panel-kicker,
+.mm-map-panel-back {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--mm-ink-soft);
+    font-size: .69rem;
+    font-weight: 750;
+    letter-spacing: .035em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.mm-map-panel-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--mm-link, var(--mm-primary));
+    cursor: pointer;
+}
+
+.mm-map-panel-back:hover { color: var(--mm-ink); }
+
+.mm-map-panel-kicker > b { margin-left: 8px; font-variant-numeric: tabular-nums; font-weight: 650; }
+
+.mm-map-panel-close {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--mm-muted);
+    cursor: pointer;
+}
+
+.mm-map-panel-close:hover { background: var(--mm-highlight); color: var(--mm-ink); }
+.mm-map-panel-close:focus-visible,
+.mm-map-panel-back:focus-visible { outline: 2px solid var(--app-focus); outline-offset: 2px; }
+
+.mm-map-panel-body {
+    min-height: 0;
+    padding: 10px 14px 12px;
+    overflow-y: auto;
+}
+
+.mm-map-panel-body > .mm-map-panel-links:first-child { margin-top: 2px; }
+
+.mm-map-panel-title {
+    margin: 0 0 6px;
+    color: var(--mm-ink);
+    font-size: 1.02rem;
+    font-weight: 650;
+    letter-spacing: -.01em;
+    text-wrap: pretty;
+}
+
+.mm-map-panel-note {
+    margin: 0 0 8px;
+    color: var(--mm-muted);
+    font-size: .8rem;
+    line-height: 1.5;
+    text-wrap: pretty;
+}
+
+.mm-map-panel-note.is-empty { font-style: italic; }
+
+.mm-map-panel-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+
+.mm-map-panel-flags { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+
+.mm-map-panel-flag {
+    padding: 1px 8px;
+    border: 1px solid var(--mm-map-defect);
+    border-radius: 999px;
+    color: var(--mm-map-defect);
+    font-size: .7rem;
+}
+
+/* Yellow words on a white box cannot be read, so the flag is a yellow chip
+   with ordinary ink in it. */
+.mm-map-panel-flag.is-flag {
+    border-color: var(--mm-map-flag);
+    background: color-mix(in srgb, var(--mm-map-flag) 22%, transparent);
+    color: var(--mm-ink);
+}
+
+.mm-map-panel-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 4px;
+    color: var(--mm-ink-soft);
+    font-size: .69rem;
+    font-weight: 750;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+}
+
+.mm-map-panel-label > span { font-variant-numeric: tabular-nums; font-weight: 650; }
+
+.mm-map-panel-links { margin-top: 14px; }
+.mm-map-panel-links ul { margin: 0; padding: 0; list-style: none; }
+
+.mm-map-panel-links li > button {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 0;
+    border: 0;
+    border-bottom: 1px solid var(--app-hairline);
+    background: none;
+    color: var(--mm-link, var(--mm-primary));
+    font-size: .8rem;
+    text-align: left;
+}
+
+.mm-map-panel-links li:last-child > button { border-bottom: 0; }
+.mm-map-panel-links li > button:hover:not(:disabled) { color: var(--mm-ink); }
+.mm-map-panel-links li > button:disabled { color: var(--mm-muted); }
+.mm-map-panel-links li > button > b { color: var(--mm-muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.mm-map-island-list li > button { justify-content: flex-start; color: var(--mm-ink); }
+.mm-map-island-list li > button > span { flex: 1 1 auto; }
+.mm-map-island-list li > button.is-on { color: var(--mm-primary); font-weight: 650; }
+
+.mm-map-island-key {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+/* The whole of limbo in its own box: the list scrolls, the pager and the count
+   below it do not. */
+.mm-deleted-dialog .modal-dialog { max-width: min(760px, calc(100vw - 48px)); }
+.mm-deleted-dialog .modal-header { align-items: flex-start; gap: 24px; padding: 22px 24px 16px; }
+.mm-deleted-dialog .modal-body { padding: 0 24px 8px; }
+.mm-deleted-dialog .btn-close { width: 36px; height: 36px; margin: 0; }
+
+.mm-deleted-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+}
+
+.mm-deleted-scroll {
+    max-height: min(52vh, 460px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.mm-deleted-list > li.is-tombstone .mm-deleted-title { color: var(--mm-muted); font-weight: 500; }
+
+.mm-deleted-footer {
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 24px;
+}
+
+.mm-deleted-pager { display: flex; align-items: center; gap: 9px; }
+
+/* ── segmented control ────────────────────────────────────────────────── */
+
+.app-segmented {
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 8px;
+    background: var(--mm-highlight);
+    box-shadow: var(--app-shadow-inset);
+}
+
+.app-segment {
+    min-height: 30px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mm-ink-soft);
+    font-size: .78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Pressed rather than merely recoloured: the selected segment is a raised
+   surface, so which one is chosen survives a colour-blind reader and a
+   grayscale screenshot. */
+.app-segment.is-active {
+    background: var(--mm-surface);
+    color: var(--mm-primary);
+    box-shadow: 0 1px 4px rgba(45, 61, 64, .18), 0 1px 0 var(--app-edge-light) inset;
+}
+
+/* ── ledger ───────────────────────────────────────────────────────────── */
+
+
+.app-section-title {
+    margin: 0 0 4px;
+    color: var(--mm-ink);
+    font-size: 1.02rem;
+    font-weight: 650;
+    letter-spacing: -.01em;
+}
+
+/* ── review inbox ─────────────────────────────────────────────────────── */
+
+/* One raised tray holding the queue, and inside it one card per waiting item.
+   The queue is one object and its order is the information; the cards are
+   bounded rather than uniform, so a one-word correction stays short and a
+   long title may take a second line without any card becoming a document. */
+
+.mm-inbox-breadcrumbs { margin-bottom: 18px; }
+
+.mm-inbox-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.mm-inbox-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+.mm-kind-filter { width: 180px; }
+
+.mm-inbox-state { margin-bottom: 24px; }
+.mm-inbox-report { margin-bottom: 16px; }
+.mm-inbox-report .btn-link { margin-top: 6px; }
+
+.mm-batch { margin-bottom: 16px; padding: 13px 15px; }
+.mm-batch-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.mm-batch-line > strong { margin-right: 4px; color: var(--mm-ink); font-size: .82rem; white-space: nowrap; }
+
+/* The comment takes the slack, which is what pushes the two verdict buttons to
+   the right edge without a spacer between them. */
+.mm-batch-comment { flex: 1 1 200px; min-width: 0; }
+.mm-batch-note { margin: 9px 0 0; color: var(--mm-muted); font-size: .72rem; line-height: 1.45; }
+
+.mm-review-tray { display: flex; flex-direction: column; }
+
+.mm-review-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 11px 15px 9px;
+    border-bottom: 1px solid var(--app-hairline);
+    background: var(--mm-table-head);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(0, 0, 0, .022));
+}
+
+[data-bs-theme="dark"] .mm-review-head { background-image: none; }
+
+.mm-review-body {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding: 11px;
+    list-style: none;
+}
+
+.mm-review-filtered { margin: 4px; }
+
+.mm-review-card {
+    overflow: hidden;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 9px;
+    background: var(--mm-surface);
+    box-shadow: var(--app-shadow-small);
+}
+
+.mm-review-card:hover { border-color: var(--mm-line-strong); }
+
+/* The open card carries the accent as a rail rather than a fill, so which one
+   is being reviewed survives a grayscale screenshot. */
+.mm-review-card.is-open {
+    border-color: rgba(var(--mm-primary-rgb), .5);
+    box-shadow: 3px 0 0 var(--mm-primary) inset, var(--app-shadow-raised);
+}
+
+.mm-review-summary {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    min-height: 82px;
+    /* No cap. The row carries the proposer's reason in full and never clamps
+       it (operator, 2026-09-07): a reason worth writing is worth reading
+       before deciding, and the height this costs is a long reason, which is
+       exactly the case where the height is earned. */
+    padding: 11px 12px;
+    cursor: pointer;
+}
+
+.mm-review-check { width: 15px; height: 15px; margin: 3px 0 0; cursor: pointer; }
+.mm-review-copy { min-width: 0; }
+.mm-review-title-line { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+
+.mm-review-kind {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 7px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 999px;
+    background: var(--mm-tag-bg);
+    color: var(--mm-on-tag);
+    box-shadow: 0 1px 0 var(--app-edge-light-soft) inset;
+    font-size: .57rem;
+    font-weight: 850;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+}
+
+/* The type chips take the status palette the rest of the app already reads:
+   violet for work waiting, green for something new, red for a deletion. A
+   report is the one that proposes no change, so it is the one with no hue —
+   grey asks for attention without claiming the note is about to move. */
+.mm-review-kind.is-edit { border-color: #b7cfda; background: linear-gradient(#f5fbfd, #e1eff3); color: #21657f; }
+.mm-review-kind.is-new { border-color: #bdd4c4; background: linear-gradient(#f6fcf7, #e4f1e7); color: #376d50; }
+.mm-review-kind.is-delete { border-color: #dcbbb7; background: linear-gradient(#fff8f7, #f1dfdc); color: #8e3d36; }
+.mm-review-kind.is-merge { border-color: #dcc16b; background: linear-gradient(#fffdf4, #f6e9c4); color: #8a5300; }
+.mm-review-kind.is-report { border-color: #c3cbd1; background: linear-gradient(#fafcfd, #e7ecef); color: #4d5a63; }
+
+[data-bs-theme="dark"] .mm-review-kind.is-edit { border-color: #2f5566; background: #1f2c33; color: #a8d3e4; }
+[data-bs-theme="dark"] .mm-review-kind.is-new { border-color: #35573f; background: #24302a; color: #a9d3b6; }
+[data-bs-theme="dark"] .mm-review-kind.is-delete { border-color: #6d3a34; background: #33262a; color: #e6b8b2; }
+[data-bs-theme="dark"] .mm-review-kind.is-merge { border-color: #6d5a24; background: #33301f; color: #e2cea0; }
+[data-bs-theme="dark"] .mm-review-kind.is-report { border-color: #4a545c; background: #272d31; color: #c3ccd3; }
+
+.mm-review-title {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+    color: var(--mm-primary);
+    font-size: .82rem;
+    font-weight: 700;
+    line-height: 1.34;
+}
+
+.mm-review-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+    color: var(--mm-ink-soft);
+    font-size: .72rem;
+    font-weight: 650;
+}
+
+.mm-review-meta .mm-agent { gap: 5px; }
+
+/* The REVIEW ITEM's number, leading the row. The note ids beside a title are a
+   different numbering space and are labelled as notes, because two bare `#`
+   numbers on one card read as one sequence (operator, 2026-09-07). */
+.mm-review-id { flex: 0 0 auto; color: var(--mm-muted); font-size: .72rem; font-weight: 750; }
+/* The separator is drawn, not written: a literal "|" inside a translation
+   string is vue-i18n's plural delimiter and fails to compile. */
+.mm-review-noteref { flex: 0 0 auto; color: var(--mm-muted); font-size: .7rem; font-weight: 600; }
+.mm-review-noteref::before { content: '|'; margin-right: 6px; opacity: .55; }
+
+/* What the proposal does to a SECOND note, and what that costs — the whole of
+   the destructive warning, on the row rather than inside the panel, so it is
+   read before anything is opened (operator, 2026-09-07). */
+.mm-review-relation {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 5px 0 0;
+    overflow-wrap: anywhere;
+    color: var(--mm-ink-soft);
+    font-size: .74rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.mm-relation-merge { color: var(--mm-ink); }
+.mm-relation-delete { color: var(--mm-danger, #b3261e); }
+
+/* Never clamped: a reason worth writing is worth reading before deciding. */
+.mm-review-reason {
+    margin: 5px 0 0;
+    overflow-wrap: anywhere;
+    color: var(--mm-ink);
+    font-size: .78rem;
+    line-height: 1.45;
+}
+
+.mm-review-reason > b { margin-right: .3em; color: var(--mm-muted); font-weight: 700; }
+
+.mm-reason-md > *:last-child { margin-bottom: 0; }
+
+.mm-reason-md p,
+.mm-reason-md ul,
+.mm-reason-md ol {
+    margin: 0 0 .25rem;
+}
+
+.mm-reason-md ul,
+.mm-reason-md ol {
+    padding-left: 1.05rem;
+}
+
+/* The feed's own rows are list items, so a bullet list inside a card counts as
+   a nested one and browsers draw it hollow. Nesting is an accident of the
+   markup here, not a level of anything. */
+.mm-reason-md ul {
+    list-style: disc;
+}
+
+.mm-reason-md code {
+    font-size: .95em;
+}
+
+.mm-review-preview {
+    display: -webkit-box;
+    margin: 5px 0 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+    color: var(--mm-ink);
+    font-size: .78rem;
+    line-height: 1.45;
+}
+
+.mm-review-signals { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+.mm-signal {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--mm-hover);
+    color: var(--mm-muted);
+    font-size: .63rem;
+    font-weight: 650;
+}
+
+.mm-signal.is-risk { background: #f7e8e5; color: #8b3a34; }
+[data-bs-theme="dark"] .mm-signal.is-risk { background: #33262a; color: #e6b8b2; }
+
+.mm-review-expand { min-width: 96px; align-self: center; }
+.mm-review-chevron { transition: transform .15s ease; }
+.is-open .mm-review-chevron { transform: rotate(180deg); }
+
+.mm-review-detail-error {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding: 9px 13px;
+    border-top: 1px solid var(--app-hairline);
+    color: var(--mm-ink-soft);
+    font-size: .74rem;
+}
+
+.mm-review-panel { border-top: 1px solid var(--app-hairline); }
+.mm-review-intro { padding: 13px 16px 12px; }
+.mm-review-alert { margin-bottom: 11px; }
+.mm-review-alert strong { display: block; }
+.mm-review-alert p { margin: 2px 0 0; }
+
+/* Label and reason on one line at one size: the reason is the sentence, and
+   breaking it onto a second line under a bold heading made the label look
+   like a section of its own.
+
+   A flex row rather than inline text, because the comment carries its own
+   two-line clamp and a `-webkit-box` cannot sit inside a run of text. This
+   keeps the clamp and its Show more, which is what stops a five-thousand
+   character comment from becoming the card. */
+.mm-rationale {
+    display: flex;
+    align-items: baseline;
+    gap: .4em;
+    margin: 0 0 4px;
+    color: var(--mm-ink);
+    font-size: .86rem;
+    line-height: 1.5;
+}
+
+.mm-rationale > b { flex: 0 0 auto; color: var(--mm-ink); }
+
+.mm-loading-evidence { padding: 14px 2px; color: var(--mm-muted); font-size: .76rem; }
+
+/* The document a proposal leaves behind: one heading and three fields, in the
+   same order for every kind of proposal. */
+.mm-doc-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 0 0 10px;
+    font-size: .72rem;
+    letter-spacing: normal;
+}
+
+/* The label is the shouty half. A note's own title is not — it is the note's
+   name, and uppercasing it would misquote it. */
+.mm-doc-what { color: var(--mm-muted); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.mm-doc-title { color: var(--mm-ink); font-size: .8rem; font-weight: 700; }
+.mm-doc-was { color: var(--mm-muted); font-weight: 500; }
+
+/* One box per field: the three questions a document answers, told apart at a
+   glance rather than by reading the labels (operator, 2026-09-07). */
+.mm-doc-field { margin-bottom: 10px; padding: 9px 11px; }
+.mm-doc-field:last-child { margin-bottom: 0; }
+
+.mm-doc-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--mm-muted);
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+}
+
+.mm-doc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+/* The same greens and reds the diff lines wear, so an added tag and an added
+   line of text read as the same kind of thing. */
+.mm-doc-tag.is-added { background: rgba(26, 138, 79, .16); color: #14532d; }
+.mm-doc-tag.is-removed { background: rgba(192, 57, 43, .16); color: #7f1d1d; text-decoration: line-through; }
+
+[data-bs-theme='dark'] .mm-doc-tag.is-added { background: rgba(26, 138, 79, .32); color: #b7f0cd; }
+[data-bs-theme='dark'] .mm-doc-tag.is-removed { background: rgba(192, 57, 43, .3); color: #f5b7b1; }
+.mm-doc-none { color: var(--mm-muted); font-size: .72rem; font-style: italic; }
+.mm-doc-summary { margin: 0; color: var(--mm-ink); font-size: .76rem; line-height: 1.5; }
+/* Prose, not markdown: the description diff wears the same green and red as
+   the body but not its monospace. */
+.mm-diff-summary { font-family: inherit; font-size: .76rem; }
+.mm-doc-refusal { margin-bottom: 12px; }
+.mm-doc-refusal strong { display: block; }
+.mm-doc-refusal p { margin: 2px 0 0; }
+
+/* The note a merge destroys, inside the body it is folded into: the removal it
+   already looks like, set off by a rule rather than by a heading that would
+   name the note a third time. */
+.mm-doc-destroyed { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--app-hairline); }
+
+.mm-review-scale {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 11px 0 6px;
+    color: var(--mm-muted);
+    font-size: .68rem;
+    font-weight: 700;
+}
+
+/* One bounded viewer, and only one: the diff inside it gives up its own
+   scroller, or a long body puts two nested scrollbars on the same evidence. */
+/* No height of its own. It was capped at 46vh with its own scroller, which put
+   a second scrollbar inside a page that already scrolls and hid the end of any
+   document a little over the cap (operator, 2026-09-07). The card is as tall as
+   what it is showing; the page scrolls. */
+.mm-evidence {
+    padding: 11px 12px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 8px;
+    background: var(--mm-bg);
+    box-shadow: var(--app-shadow-inset);
+}
+
+.mm-evidence:focus-visible { outline: none; box-shadow: var(--app-focus), var(--app-shadow-inset); }
+.mm-evidence .mm-diff-body { max-height: none; overflow: visible; background: transparent; padding: 0; }
+
+.mm-summary-evidence {
+    max-height: 132px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    overflow-y: auto;
+}
+
+.mm-summary-evidence h4 { margin: 0 0 5px; color: var(--mm-ink); font-size: .72rem; font-weight: 700; letter-spacing: normal; }
+.mm-summary-evidence p { margin: 0; color: var(--mm-ink-soft); font-size: .74rem; line-height: 1.5; }
+
+.mm-stale-anchor { margin-bottom: 10px; }
+.mm-stale-anchor strong { display: block; }
+.mm-stale-anchor p { margin: 2px 0 0; }
+
+.mm-reason { margin: 0 16px 12px; }
+.mm-reason textarea { resize: vertical; }
+.mm-reason-count { margin-top: 4px; color: var(--mm-muted); font-size: .68rem; text-align: right; }
+.mm-reason-precedent { margin-top: 9px; }
+.mm-reason-precedent .form-check-label { color: var(--mm-ink-soft); font-size: .75rem; }
+.mm-reason-precedent .form-check-input:disabled ~ .form-check-label { color: var(--mm-muted); }
+
+.mm-amend { margin: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+.mm-note-form { display: flex; flex-direction: column; gap: 8px; }
+.mm-amend .form-label,
+.mm-note-form .form-label { margin: 0; color: var(--mm-ink-soft); font-size: .75rem; }
+/* The editor's own 400px floor is sized for a full-height writing desk; inside
+   a review card it pushes the verdict buttons off the screen. */
+.mm-amend .mm-cm .cm-scroller,
+.mm-note-form .mm-cm .cm-scroller { min-height: 240px; }
+
+/* The card scrolls nowhere, unlocked as well as locked. `.mm-cm .cm-editor`
+   carries `max-height: 70vh` (main.css) — right for the note editor, which
+   owns a whole page, and wrong here, where it put the inner scrollbar straight
+   back into a card that had just lost its outer one.
+   Only the cap. The scroller keeps its `overflow: auto`, which now has nothing
+   to scroll vertically and is still what carries a long line sideways. */
+.mm-note-form .mm-cm .cm-editor { max-height: none; }
+.mm-amend .mm-note,
+.mm-note-form .mm-note { color: var(--mm-muted); font-size: .72rem; }
+/* An editor inside a 46vh scroll box nests one scrollbar in another. When the
+   evidence IS the note being typed, the editor owns its own height. */
+/* Kept as an explicit floor: the locked and unlocked panes must scroll the
+   same way, which is to say neither of them does. */
+.mm-evidence.is-editing { max-height: none; overflow: visible; }
+
+/* The unlocked pane's own before/after. A one-line field and a chip row have
+   nowhere to draw a diff, so what they replaced goes underneath. */
+.mm-amend-toggle i { margin-right: 6px; }
+.mm-amend-toggle[aria-pressed='true'] { border-color: var(--mm-editor-accent); color: var(--mm-ink); }
+
+.mm-was { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; color: var(--mm-muted); font-size: .72rem; }
+.mm-was del { color: inherit; }
+
+/* Track changes in the body, coloured off the same pair the read-only diffs
+   use, so a change reads the same whether it is being read or edited.
+
+   Every selector here carries `.cm-merge-b` or `.cm-deletedChunk` under
+   `.mm-cm` on purpose. CodeMirror's own merge theme is injected at runtime as
+   `.ͼ1.cm-merge-b .cm-changedLine` — three classes — so the obvious
+   `.mm-note-form .cm-changedLine` is a class short and loses to it silently,
+   which is how this shipped once already. */
+.mm-note-form .mm-cm .cm-merge-b .cm-changedLine { background: rgba(26, 138, 79, 0.16); }
+.mm-note-form .mm-cm .cm-merge-b .cm-changedText { background: rgba(26, 138, 79, 0.3); }
+.mm-note-form .mm-cm .cm-deletedChunk { background: rgba(192, 57, 43, 0.14); color: #7f1d1d; }
+.mm-note-form .mm-cm .cm-deletedChunk .cm-deletedText { background: rgba(192, 57, 43, 0.3); }
+.mm-note-form .mm-cm .cm-changedLineGutter { background: rgba(26, 138, 79, 0.22); }
+.mm-note-form .mm-cm .cm-deletedLineGutter { background: rgba(192, 57, 43, 0.2); }
+
+[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-merge-b .cm-changedLine { background: rgba(26, 138, 79, 0.3); }
+[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-merge-b .cm-changedText { background: rgba(26, 138, 79, 0.45); }
+[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-deletedChunk { background: rgba(192, 57, 43, 0.26); color: #f5b7b1; }
+[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-deletedChunk .cm-deletedText { background: rgba(192, 57, 43, 0.42); }
+[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-changedLineGutter { background: rgba(26, 138, 79, 0.38); }
+[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-deletedLineGutter { background: rgba(192, 57, 43, 0.36); }
+
+.mm-revision-amended {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border: 1px solid var(--mm-line);
+    border-radius: 999px;
+    color: var(--mm-muted);
+    font-size: .68rem;
+    white-space: nowrap;
+}
+
+.mm-decision-error { margin: 0 16px 12px; }
+.mm-decision-error strong { display: block; }
+.mm-decision-error p { margin: 2px 0 0; }
+
+.mm-decision-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    min-height: 59px;
+    padding: 10px 13px;
+    border-top: 1px solid var(--app-hairline);
+    background: var(--mm-table-head);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(0, 0, 0, .022));
+}
+
+[data-bs-theme="dark"] .mm-decision-footer { background-image: none; }
+.mm-decision-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mm-decision-actions .btn { min-width: 104px; }
+
+.mm-review-card.is-skeleton .mm-review-summary { cursor: default; }
+.mm-skeleton-count { display: block; width: 74px; height: 22px; border-radius: 999px; }
+.mm-skeleton-check { display: block; width: 15px; height: 15px; margin-top: 3px; border-radius: 4px; }
+.mm-skeleton-title { display: block; width: min(58%, 380px); height: 13px; }
+.mm-skeleton-meta { display: block; width: 190px; height: 9px; margin-top: 9px; }
+.mm-skeleton-preview { display: block; width: min(84%, 560px); height: 9px; margin-top: 9px; }
+.mm-skeleton-action { display: block; width: 96px; height: 32px; align-self: center; border-radius: 7px; }
+
+.mm-batch-consequence { margin: 0 0 8px; color: var(--mm-ink); font-size: .86rem; line-height: 1.5; }
+.mm-batch-unread { margin: 0; color: var(--mm-muted); font-size: .76rem; }
+
+/* Narrow: the same one-column ledger, with the Review control and the verdict
+   actions becoming full-width rows rather than moving to a detail route. */
+@media (max-width: 575.98px) {
+    .mm-inbox-tools { width: 100%; }
+    .mm-kind-filter { flex: 1 1 auto; width: auto; }
+
+    .mm-review-summary {
+        grid-template-columns: 22px minmax(0, 1fr);
+        row-gap: 10px;
+    }
+
+    .mm-review-expand { grid-column: 2; width: 100%; min-height: 44px; }
+    .mm-decision-footer { align-items: stretch; flex-direction: column; }
+    .mm-decision-actions .btn { flex: 1 1 0; min-height: 44px; }
+    .mm-batch-comment { max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mm-review-chevron { transition: none; }
+}
+
+/* ── breadcrumbs ──────────────────────────────────────────────────────── */
+
+.app-breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--mm-muted);
+    font-size: .75rem;
+}
+
+.app-breadcrumbs strong,
+.app-breadcrumbs [aria-current="page"] { color: var(--mm-ink); font-weight: 650; }
+
+.mm-note-breadcrumbs,
+.mm-editor-breadcrumbs { margin-bottom: 24px; }
+
+/* The sidebar's switch sits on the sidebar and fills while it shows; a
+   rail's sits on the paper beside it and fills while the rail is away, an
+   offer of the pane rather than a report of it. */
+.app-pane-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--mm-radius-sm);
+    background: transparent;
+    color: var(--mm-muted);
+    cursor: pointer;
+}
+
+.app-pane-toggle:hover {
+    background: var(--mm-hover);
+    color: var(--mm-ink);
+}
+
+.app-pane-toggle svg { width: 16px; height: 16px; }
+.app-pane-toggle .app-pane-frame { fill: none; stroke: currentColor; stroke-width: 1.5; }
+.app-pane-toggle .app-pane-fill { fill: currentColor; opacity: .2; }
+.app-pane-toggle[aria-pressed="true"] .app-pane-fill { opacity: 1; }
+
+.mm-desk-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+}
+
+@media (max-width: 991.98px) {
+    .app-pane-toggle { display: none; }
+}
+
+/* ── the reading desk ─────────────────────────────────────────────────── */
+
+.mm-note-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) fit-content(50%);
+    gap: 28px;
+    align-items: start;
+    margin-bottom: 22px;
+}
+
+.mm-note-eyebrow { margin-bottom: 7px; }
+
+.mm-note-heading .mm-note-title,
+.mm-note-heading .mm-title-input {
+    max-width: 900px;
+    margin: 0;
+    color: var(--mm-ink);
+    font-size: 1.8rem;
+    line-height: 1.14;
+    letter-spacing: -.035em;
+}
+
+/* The editor's title is the same line in the same place, so opening the
+   editor changes what the title DOES and not where it sits. */
+.mm-note-heading .mm-title-input {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    font-family: inherit;
+    font-weight: 700;
+    outline: 0;
+    overflow: hidden;
+    resize: none;
+}
+
+.mm-note-heading .mm-title-input::placeholder { color: var(--mm-muted); font-weight: 500; }
+.mm-note-heading .mm-title-input:focus-visible { box-shadow: 0 3px 0 var(--mm-primary); }
+
+.mm-note-subline {
+    display: flex;
+    /* The height of the status pill, held whether or not there is a pill in
+       it, so Note View and the editor put the paper at the same y. */
+    min-height: 1.65rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 9px;
+    margin-top: 12px;
+    color: var(--mm-muted);
+    font-size: .74rem;
+}
+
+.mm-note-subline .mm-agent { gap: .3rem; font-size: .74rem; }
+
+.mm-note-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 18px;
+}
+
+.mm-note-actions .btn { font-weight: 700; }
+
+/* The rail is a column only above `lg`; below it the panels are the note's
+   own details and hiding them would take content away, not widen anything. */
+@media (min-width: 992px) {
+    .mm-reading-desk.is-wide { grid-template-columns: minmax(0, 1fr); }
+    .mm-reading-desk.is-wide .mm-note-context { display: none; }
+}
+
+/* ── the notice strips above the desk ─────────────────────────────────── */
+
+.mm-flag-notice,
+.mm-flag-editor,
+.mm-proposal-notice { margin-bottom: 18px; }
+
+.mm-flag-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.mm-flag-meta { margin-left: 6px; opacity: .78; }
+.mm-flag-comment { margin: 7px 0 0; white-space: pre-wrap; }
+
+.mm-flag-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mm-flag-editor .form-label { display: block; margin-bottom: 8px; }
+
+/* ── the desk itself ──────────────────────────────────────────────────── */
+
+.mm-reading-desk {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+    gap: 22px;
+    align-items: start;
+}
+
+.mm-note-paper { min-height: 620px; padding: 38px 52px 46px; }
+
+/* The summary reads as an editorial abstract rather than as the first
+   paragraph of the note: inset, cooler, and cut off from the reader's own
+   typeface, which belongs to the note's text and not to what memex says
+   about it. */
+.mm-note-abstract {
+    margin: 0 0 8px;
+    padding: 14px 17px;
+    border: 1px solid var(--app-hairline);
+    border-left: 4px solid var(--mm-primary);
+    border-radius: 7px;
+    background: var(--mm-hover);
+    color: var(--mm-ink-soft);
+    box-shadow: var(--app-shadow-inset);
+    font-size: .86rem;
+    line-height: 1.58;
+}
+
+.mm-summary-toggle { margin: 0; }
+.mm-note-paper > .note-body { margin-top: 20px; }
+
+/* ── the context rail ─────────────────────────────────────────────────── */
+
+.mm-note-context {
+    position: sticky;
+    top: 18px;
+    display: grid;
+    /* An `auto` track takes its min-content width, and one long unbroken
+       caption in the graph panel then widens the whole rail past the column it
+       is meant to sit in. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 13px;
+}
+
+.mm-context-panel { padding: 16px; }
+
+.mm-context-title {
+    margin: 0 0 12px;
+    color: var(--mm-ink);
+    font-size: .86rem;
+    font-weight: 650;
+    letter-spacing: -.01em;
+}
+
+.mm-note-facts {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    /* The values carry actor marks and the labels do not, so the two columns
+       are aligned on their text rather than on the top of their boxes. */
+    align-items: baseline;
+    gap: 8px 10px;
+    margin: 0;
+    font-size: .73rem;
+    line-height: 1.35;
+}
+
+/* A flex container takes its baseline from its FIRST item, and the actor mark's
+   first item is an image whose baseline is its bottom edge — so the whole mark
+   floated above the date beside it. Taking the mark out of the baseline group
+   hands the baseline back to the name. */
+.mm-note-byline .mm-agent,
+.mm-note-subline .mm-agent,
+.mm-revision-by .mm-agent { align-items: baseline; }
+
+.mm-note-byline .mm-agent > :first-child,
+.mm-note-subline .mm-agent > :first-child,
+.mm-revision-by .mm-agent > :first-child { align-self: center; }
+
+.mm-note-facts dt { font-weight: 400; color: var(--mm-muted); }
+.mm-note-facts dd { margin: 0; min-width: 0; color: var(--mm-ink-soft); }
+.mm-note-context .mm-agent { gap: .3rem; font-size: .73rem; }
+.mm-note-context .mm-tag { font-size: .64rem; }
+
+.mm-note-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 14px 0 0;
+}
+
+.mm-map-blank {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 10px;
+    min-height: 300px;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.mm-map-blank p { max-width: 44ch; color: var(--mm-ink-soft); font-size: .8rem; }
+.mm-map-blank p:first-child { color: var(--mm-ink); font-size: .95rem; font-weight: 650; }
+
+/* The preview is a drafting sheet: enough grid to read as a plan, never enough
+   to compete with the nodes drawn on it. */
+.mm-map.is-compact .mm-map-canvas {
+    min-height: 0;
+    border-color: var(--app-hairline);
+    border-radius: 8px;
+    background-image:
+        linear-gradient(rgba(73, 127, 143, .07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(73, 127, 143, .07) 1px, transparent 1px);
+    background-size: 16px 16px;
+    box-shadow: var(--app-shadow-inset);
+}
+
+.mm-map.is-compact .mm-map-caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    margin-top: 10px;
+    color: var(--mm-muted);
+    font-size: .64rem;
+}
+
+.mm-map-caption-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-open-map {
+    flex: 0 0 auto;
+    padding: 0;
+    font-size: .64rem;
+    font-weight: 750;
+}
+
+.mm-backlink-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.mm-backlink-list li {
+    display: grid;
+    grid-template-columns: 13px minmax(0, 1fr);
+    gap: 6px;
+    align-items: baseline;
+    font-size: .7rem;
+    line-height: 1.38;
+}
+
+.mm-backlink-list i { color: var(--app-warm-gold); font-size: .62rem; }
+.mm-backlink-list a { min-width: 0; overflow-wrap: anywhere; }
+
+.mm-dangling {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--mm-line);
+}
+
+.mm-dangling-head {
+    margin: 0 0 6px;
+    font-size: .62rem;
+    font-weight: 750;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--mm-muted);
+}
+
+.mm-dangling-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.mm-dangling-list li {
+    display: grid;
+    grid-template-columns: 13px minmax(0, 1fr);
+    gap: 6px;
+    align-items: baseline;
+    font-size: .7rem;
+    line-height: 1.38;
+    color: var(--mm-muted);
+}
+
+.mm-dangling-list i { color: var(--mm-muted); font-size: .62rem; }
+.mm-dangling-list span { min-width: 0; overflow-wrap: anywhere; }
+
+/* ── the writing desk ─────────────────────────────────────────────────── */
+
+.mm-save-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 4px;
+    color: var(--mm-muted);
+    font-size: .72rem;
+    white-space: nowrap;
+}
+
+.mm-save-state.is-warn { color: #8e6100; }
+.mm-save-state.is-error { color: #9a4037; }
+[data-bs-theme="dark"] .mm-save-state.is-warn { color: #e2cea0; }
+[data-bs-theme="dark"] .mm-save-state.is-error { color: #e6b8b2; }
+
+.mm-shortcut {
+    margin-left: 3px;
+    padding: 1px 4px;
+    border: 1px solid rgba(255, 255, 255, .36);
+    border-radius: 4px;
+    font-size: .58rem;
+    font-weight: 600;
+    opacity: .82;
+}
+
+/* ── bringing something in ────────────────────────────────────────────── */
+
+.mm-intake-dock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 11px 12px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 9px;
+    background: var(--mm-surface);
+    box-shadow: var(--app-shadow-small);
+}
+
+.mm-intake-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: #9a4037;
+    font-size: .72rem;
+}
+
+[data-bs-theme="dark"] .mm-intake-error { color: #e6b8b2; }
+
+.mm-conflict-notice,
+.mm-save-error { margin-bottom: 15px; }
+
+.mm-conflict-notice p,
+.mm-save-error p { margin: 3px 0 0; }
+
+.mm-conflict-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+/* ── the sheet ────────────────────────────────────────────────────────── */
+
+.mm-writing-desk {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+    gap: 22px;
+    align-items: stretch;
+}
+
+@media (min-width: 992px) {
+    .mm-writing-desk.is-wide { grid-template-columns: minmax(0, 1fr); }
+    .mm-writing-desk.is-wide .mm-editor-rail { display: none; }
+    .mm-mode-toggle { margin-right: 32px; }
+}
+
+/* The sheet fills whichever column is taller, so an expanded assistant makes
+   the editor taller rather than giving the rail a scrollbar of its own.
+   Everything below the title is `flex-basis: 0`, so the draft's own length
+   never sets the sheet's height — the floor below and the rail beside it do. */
+.mm-writing-paper {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: max(620px, calc(100vh - 260px));
+}
+
+.mm-paper-body {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.mm-paper-body .mm-editor {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.mm-paper-body .mm-cm { flex: 1 1 0; min-height: 0; overflow: hidden; }
+
+.mm-field-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    color: var(--mm-muted);
+    font-size: .67rem;
+    font-weight: 800;
+    letter-spacing: .085em;
+    text-transform: uppercase;
+}
+
+.mm-field-note {
+    color: var(--mm-muted);
+    font-size: .62rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.mm-field-note.is-over { color: #b66a00; }
+[data-bs-theme="dark"] .mm-field-note.is-over { color: #e2cea0; }
+
+.mm-field-error {
+    margin: 6px 0 0;
+    color: #9a4037;
+    font-size: .72rem;
+}
+
+[data-bs-theme="dark"] .mm-field-error { color: #e6b8b2; }
+.mm-body-error { margin: 0; padding: 8px 27px 0; }
+
+/* The formatting rail is the sheet's own instrument panel, so the editor's
+   border, radius and focus ring come off — the paper already draws them. */
+.mm-writing-paper .mm-editor-bar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    min-height: 43px;
+    padding: 5px 8px;
+    border: 0;
+    border-bottom: 1px solid var(--app-hairline-strong);
+    border-radius: 0;
+    background: var(--mm-chrome);
+    box-shadow: 0 1px 0 var(--app-edge-light-soft) inset;
+}
+
+.mm-writing-paper .mm-cm {
+    border: 0;
+    border-radius: 0;
+    background: var(--mm-surface);
+}
+
+.mm-writing-paper .mm-cm:focus-within { border-color: transparent; box-shadow: none; }
+
+/* The body scrolls inside the sheet, so the title, the formatting rail and the
+   statistics edge stay put however long the draft is. */
+.mm-writing-paper .mm-cm .cm-editor { height: 100%; max-height: none; }
+
+.mm-writing-paper .mm-cm .cm-scroller {
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+}
+.mm-writing-paper .mm-cm .cm-line { padding: 0 19px; }
+.mm-writing-desk.is-preview .mm-cm { display: none; }
+.mm-writing-desk.is-preview .mm-paper-body .mm-editor { flex: 0 0 auto; }
+
+.mm-mode-toggle { margin-left: auto; }
+.mm-mode-toggle .app-segment { min-height: 27px; padding: 0 9px; font-size: .67rem; }
+
+.mm-paper-preview {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 18px 27px 24px;
+}
+
+.mm-paper-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 15px;
+    min-height: 36px;
+    padding: 9px 16px;
+    border-top: 1px solid var(--app-hairline);
+    background: var(--mm-chrome);
+    color: var(--mm-muted);
+    font-size: .65rem;
+}
+
+.mm-paper-stats span { white-space: nowrap; }
+
+/* ── the editorial rail ───────────────────────────────────────────────── */
+
+.mm-editor-rail {
+    position: sticky;
+    top: 89px;
+    align-self: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+.mm-editor-panel { overflow: visible; padding: 14px; }
+
+/* Tags carry no length limit, so in a 310px rail one long unbroken word has to
+   wrap inside its pill rather than take the panel with it. */
+.mm-editor-panel .mm-taginput,
+.mm-editor-panel .mm-taginput-field { min-width: 0; }
+
+.mm-editor-panel .mm-tag-pill {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.mm-editor-panel .mm-field-label { margin-bottom: 6px; }
+
+.mm-editor-panel .mm-summary-input {
+    /* Tall enough to hold the whole 350-character target without scrolling.
+       Scoped to the panel because Bootstrap's own `.form-control-sm` sets a
+       min-height on a bare class and is loaded after this file. */
+    min-height: 250px;
+    color: var(--mm-ink-soft);
+    font-size: .74rem;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.mm-source-input { font-size: .68rem; }
+
+.mm-assistant {
+    border-color: #a9cbd1;
+    background: linear-gradient(155deg, rgba(244, 252, 252, .98), rgba(255, 251, 238, .98));
+}
+
+[data-bs-theme="dark"] .mm-assistant { border-color: var(--mm-line-strong); background: var(--mm-hover); }
+
+.mm-assistant-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mm-assistant-mark {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 7px;
+    background: var(--mm-highlight);
+    color: var(--mm-primary);
+    box-shadow: 0 1px 0 var(--app-edge-light) inset;
+    font-size: .74rem;
+}
+
+.mm-assistant-head h2 { margin: 0; color: var(--mm-ink); font-size: .8rem; font-weight: 650; letter-spacing: -.01em; }
+.mm-assistant-head small { display: block; margin-top: 2px; color: var(--mm-muted); font-size: .6rem; }
+
+.mm-assistant-lede {
+    margin: 0 0 10px;
+    color: var(--mm-ink-soft);
+    font-size: .68rem;
+    line-height: 1.5;
+}
+
+.mm-assistant-error,
+.mm-assistant-stale {
+    margin: 0 0 10px;
+    color: #9a4037;
+    font-size: .68rem;
+    line-height: 1.45;
+}
+
+.mm-assistant-stale { color: #8e6100; }
+[data-bs-theme="dark"] .mm-assistant-stale { color: #e2cea0; }
+
+[data-bs-theme="dark"] .mm-assistant-error { color: #e6b8b2; }
+
+.mm-finding {
+    padding: 9px 0;
+    border-top: 1px solid var(--app-hairline);
+}
+
+.mm-finding:first-of-type { border-top: 0; }
+
+.mm-finding-label {
+    margin: 0 0 5px;
+    color: var(--mm-muted);
+    font-size: .61rem;
+    font-weight: 800;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+}
+
+.mm-finding-row + .mm-finding-row { margin-top: 8px; }
+.mm-finding-row a { font-size: .71rem; line-height: 1.35; }
+.mm-finding-row p,
+.mm-finding-text { margin: 3px 0 0; color: var(--mm-ink-soft); font-size: .66rem; line-height: 1.45; }
+
+.mm-similarity {
+    margin-left: 5px;
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: var(--mm-hover);
+    color: var(--mm-muted);
+    font-size: .57rem;
+    font-weight: 800;
+}
+
+.mm-finding-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+
+.mm-finding-actions .btn {
+    min-width: 0;
+    min-height: 27px;
+    max-width: 100%;
+    padding: 4px 8px;
+    gap: 5px;
+    font-size: .64rem;
+    white-space: normal;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.mm-finding-row a,
+.mm-finding-text { overflow-wrap: anywhere; }
+
+.mm-assistant-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 5px;
+    padding-top: 10px;
+    border-top: 1px solid var(--app-hairline);
+    color: var(--mm-muted);
+    font-size: .6rem;
+}
+
+.mm-assistant-foot .btn-link { padding: 0; font-size: .64rem; font-weight: 800; }
+
+.mm-editor-danger { margin-top: 22px; }
+
+.mm-editor-failure { margin-bottom: 40px; }
+.mm-editor-failure-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+
+.mm-delete-name { margin: 0 0 8px; color: var(--mm-ink); font-size: .96rem; font-weight: 650; }
+.mm-delete-copy { margin: 0; color: var(--mm-ink-soft); font-size: .78rem; line-height: 1.5; }
+
+/* ── the loading sheet ────────────────────────────────────────────────── */
+
+.mm-writing-skeleton { padding-top: 4px; }
+.mm-skeleton-header { height: 71px; margin-bottom: 17px; border-radius: 10px; }
+.mm-skeleton-paper { height: 560px; border-radius: 12px; }
+.mm-skeleton-rail { display: grid; gap: 12px; }
+.mm-skeleton-panel { height: 168px; border-radius: 10px; }
+
+@media (max-width: 991.98px) {
+    .mm-writing-desk,
+    .mm-skeleton-rail { grid-template-columns: minmax(0, 1fr); }
+
+    .mm-editor-rail { position: static; }
+
+    .mm-writing-paper .mm-cm .cm-line { padding: 0 12px; }
+    .mm-paper-preview { padding: 14px 16px 18px; }
+    .mm-body-error { padding-inline: 16px; }
+}
+
+/* The rail runs out of room before its controls do, so it wraps rather than
+   pushing the mode toggle off the sheet. */
+@media (max-width: 767.98px) {
+    .mm-intake-dock .btn { width: 100%; }
+}
+
+/* ── the history ledger ───────────────────────────────────────────────── */
+
+.mm-history-ledger { margin-top: 24px; }
+
+.mm-history-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 21px 24px 14px;
+}
+
+.mm-history-heading h2 { margin: 0 0 4px; color: var(--mm-ink); font-size: 1.08rem; font-weight: 650; }
+.mm-history-heading p { margin: 0; color: var(--mm-muted); font-size: .69rem; }
+.mm-history-count { color: var(--mm-muted); font-size: .69rem; white-space: nowrap; }
+
+.mm-revision-entry { border-top: 1px solid var(--app-hairline); }
+
+.mm-revision-row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 170px minmax(0, 160px) 84px;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 24px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: .78rem;
+    text-align: left;
+}
+
+.mm-revision-row:hover { background: var(--mm-hover); }
+.mm-revision-row:focus-visible { outline: none; box-shadow: var(--app-focus); }
+
+.mm-revision-disclosure {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    color: var(--mm-primary);
+    transition: transform .16s ease;
+}
+
+.is-open > .mm-revision-row .mm-revision-disclosure { transform: rotate(90deg); }
+
+.mm-revision-title {
+    overflow: hidden;
+    color: var(--mm-primary);
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-revision-date,
+.mm-revision-by { color: var(--mm-muted); }
+.mm-revision-by .mm-agent { gap: .3rem; font-size: .78rem; }
+
+.mm-revision-delta {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .7rem;
+}
+
+.mm-revision-delta .mm-diff-del { margin-left: 0; }
+
+.mm-revision-detail {
+    margin: 0 24px 17px 56px;
+    padding: 13px;
+    border: 1px solid var(--app-hairline);
+    border-radius: 8px;
+    background: var(--mm-hover);
+    box-shadow: var(--app-shadow-inset);
+}
+
+.mm-revision-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 8px;
+    color: var(--mm-muted);
+    font-size: .7rem;
+}
+
+.mm-revision-meta strong { color: var(--mm-ink-soft); }
+
+.mm-revision-detail-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 12px;
+    padding-top: 11px;
+    border-top: 1px solid var(--app-hairline);
+}
+
+.mm-whole-version { padding: 0; font-size: .68rem; font-weight: 700; }
+
+.mm-history-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 24px 17px;
+    border-top: 1px solid var(--app-hairline);
+}
+
+.mm-forget-history { padding: 0; color: #a8443c; font-size: .69rem; font-weight: 700; }
+.mm-forget-history:hover { color: #8a3630; }
+[data-bs-theme="dark"] .mm-forget-history { color: #e6b8b2; }
+.mm-history-footer small { color: var(--mm-muted); font-size: .63rem; }
+
+/* Named for the map dialog that used to carry it; the deleted-notes dialog is
+   what still uses it. */
+.mm-map-dialog-note { margin: 5px 0 0; color: var(--mm-muted); font-size: .74rem; }
+
+/* ── below the desktop breakpoint ─────────────────────────────────────── */
+
+/* The rail stops being a column and hands its panels back to the page, in the
+   order the operator settled on a phone: what the note IS, then the note, then
+   what is around it. */
+@media (max-width: 991.98px) {
+    .mm-note-breadcrumbs { margin-bottom: 16px; }
+    .mm-note-heading { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .mm-note-actions { justify-content: flex-start; padding-top: 0; }
+
+    .mm-reading-desk { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .mm-note-context { display: contents; }
+    .mm-context-details { order: 1; }
+    .mm-note-paper { order: 2; min-height: 0; padding: 24px 20px 28px; }
+    .mm-context-map { order: 3; }
+    .mm-context-backlinks { order: 4; }
+
+    .mm-history-heading,
+    .mm-history-footer { flex-wrap: wrap; padding-inline: 16px; }
+
+    .mm-revision-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 10px;
+        padding: 10px 16px;
+    }
+
+    .mm-revision-title { flex: 1 1 auto; overflow: visible; white-space: normal; }
+    .mm-revision-delta { justify-content: flex-start; }
+    .mm-revision-detail { margin: 0 16px 14px; }
+}
+
+/* ── controls ─────────────────────────────────────────────────────────── */
+
+/* Bootstrap's own button and field classes are repainted here rather than
+   replaced across four thousand lines of markup. The contract is the
+   reference's: one 38px control height, one 8px radius, one focus ring, and
+   depth that comes from a highlight and a shallow shadow rather than from a
+   flat fill. */
+.btn {
+    --bs-btn-border-radius: var(--app-control-radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: var(--app-control-height);
+    padding: 0 14px;
+    border-radius: var(--app-control-radius);
+    font-size: .82rem;
+    font-weight: 650;
+    line-height: 1;
+}
+
+.btn-sm {
+    --bs-btn-border-radius: 7px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: .76rem;
+}
+
+.btn-lg { min-height: 46px; padding: 0 20px; font-size: .95rem; }
+
+.btn:focus-visible { outline: none; box-shadow: var(--app-focus), var(--app-shadow-small); }
+.btn:disabled, .btn.disabled { opacity: .55; }
+
+.btn:not(:disabled):not(.disabled):active { box-shadow: var(--app-shadow-pressed); transform: translateY(1px); }
+
+/* Neutral: the raised control the reference calls `app-button`.
+
+   The four `--bs-btn-*-color` variables and not just the `color` property:
+   Bootstrap paints hover, focus-visible, active and disabled from those, and
+   for `.btn-secondary` every one of them is #fff — a white made for the solid
+   grey fill this repaint does not use. Overriding only `color` left the label
+   white on near-white the moment the button was focused, held down or
+   disabled, which is invisible rather than merely wrong. */
+.btn-outline-secondary,
+.btn-secondary,
+.btn-light {
+    /* `--mm-ink-soft` on the pale end of this gradient measures 4.44:1 — a
+       hair under, and this is the most common control on the page. The
+       resting label takes the full ink; the softer one stays for text that is
+       not a control. */
+    --bs-btn-color: var(--mm-ink);
+    --bs-btn-hover-color: var(--mm-ink);
+    --bs-btn-active-color: var(--mm-ink);
+    --bs-btn-disabled-color: var(--mm-ink);
+    /* The backgrounds as well as the inks. Bootstrap's active and hover
+       selectors carry more specificity than this rule, so leaving the *-bg
+       variables alone let its own solid fill through underneath an ink chosen
+       for this one — a pressed button repainting itself in a colour the label
+       was never measured against. */
+    --bs-btn-hover-bg: var(--mm-highlight);
+    --bs-btn-hover-border-color: var(--mm-line-strong);
+    --bs-btn-active-bg: var(--mm-hover);
+    --bs-btn-active-border-color: var(--mm-line-strong);
+    --bs-btn-disabled-bg: var(--mm-hover);
+    --bs-btn-disabled-border-color: var(--app-hairline-strong);
+    border-color: var(--app-hairline-strong);
+    background: linear-gradient(180deg, var(--mm-surface), var(--mm-hover));
+    color: var(--mm-ink);
+    box-shadow: var(--app-shadow-small);
+}
+
+.btn-outline-secondary:hover,
+.btn-secondary:hover,
+.btn-light:hover {
+    border-color: var(--mm-line-strong);
+    background: linear-gradient(180deg, var(--mm-surface), var(--mm-highlight));
+    color: var(--mm-ink);
+}
+
+/* Primary: the route's one forward action. */
+.btn-primary {
+    border-color: var(--mm-primary-hover);
+    background: linear-gradient(180deg, var(--mm-primary-fill), var(--mm-primary-hover));
+    color: var(--mm-on-primary);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .3) inset, 0 2px 6px rgba(var(--mm-primary-rgb), .28);
+}
+
+.btn-primary:hover:not(:disabled) {
+    border-color: var(--mm-primary-hover);
+    background: linear-gradient(180deg, var(--mm-primary-fill), var(--mm-primary-fill));
+}
+
+.btn-success {
+    border-color: #35704f;
+    background: linear-gradient(180deg, #3d8159, #2f6544);
+    color: #fff;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .25) inset, 0 2px 6px rgba(47, 101, 68, .24);
+}
+
+.btn-danger {
+    border-color: #8c3a32;
+    background: linear-gradient(180deg, #b0554c, #8f3b33);
+    color: #fff;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .22) inset, 0 2px 6px rgba(143, 59, 51, .24);
+}
+
+.btn-outline-danger {
+    --bs-btn-color: #9a4037;
+    --bs-btn-hover-color: #7e332c;
+    --bs-btn-active-color: #7e332c;
+    --bs-btn-disabled-color: #9a4037;
+    --bs-btn-hover-bg: #f0dbd7;
+    --bs-btn-hover-border-color: #c08c86;
+    --bs-btn-active-bg: #e8cdc8;
+    --bs-btn-active-border-color: #c08c86;
+    --bs-btn-disabled-bg: #fdf6f4;
+    --bs-btn-disabled-border-color: #d9aaa5;
+    border-color: #d9aaa5;
+    background: linear-gradient(180deg, #fffcfb, #f7e9e6);
+    color: #9a4037;
+    box-shadow: var(--app-shadow-small);
+}
+
+.btn-outline-danger:hover:not(:disabled) { border-color: #c08c86; background: linear-gradient(180deg, #fff8f7, #f0dbd7); color: #7e332c; }
+
+/* Solid rather than the reference's pale tint (operator, 2026-08-31): flagging
+   is a decision of the same weight as Edit note and reads as one. */
+.btn-warning {
+    --bs-btn-color: #4a3000;
+    --bs-btn-hover-color: #3a2500;
+    --bs-btn-active-color: #3a2500;
+    --bs-btn-disabled-color: #4a3000;
+    --bs-btn-hover-bg: #c4931f;
+    --bs-btn-hover-border-color: #8f6408;
+    --bs-btn-active-bg: #b8891a;
+    --bs-btn-active-border-color: #8f6408;
+    --bs-btn-disabled-bg: #d3a12a;
+    --bs-btn-disabled-border-color: #a8770f;
+    border-color: #a8770f;
+    background: linear-gradient(180deg, #e9be4f, #d3a12a);
+    color: #4a3000;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset, 0 2px 6px rgba(168, 119, 15, .3);
+}
+
+.btn-warning:hover:not(:disabled) {
+    border-color: #8f6408;
+    background: linear-gradient(180deg, #e2b33c, #c4931f);
+    color: #3a2500;
+}
+
+/* A link-shaped button is a link and takes none of the above. */
+/* The charcoal of the selection bar, so that downloading one note and
+   downloading a selection of them are visibly the same action.
+
+   `.btn-charcoal` is not a Bootstrap variant, so its state variables are
+   undefined — and an undefined `var()` with no fallback makes the whole
+   declaration invalid, which drops `color` back to the inherited page ink on
+   a fill that is nearly the same colour. Focused or held down, the Export
+   label was 1.08:1 against its own button. Declared here rather than left to
+   a variant that does not exist. */
+.btn-charcoal {
+    --bs-btn-color: #f5f7f8;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-color: #fff;
+    --bs-btn-disabled-color: #f5f7f8;
+    --bs-btn-hover-bg: #26313b;
+    --bs-btn-hover-border-color: #0a1014;
+    --bs-btn-active-bg: #1b242c;
+    --bs-btn-active-border-color: #0a1014;
+    --bs-btn-disabled-bg: #202a33;
+    --bs-btn-disabled-border-color: #11191f;
+    border-color: #11191f;
+    background: linear-gradient(180deg, #2c3841, #202a33);
+    color: #f5f7f8;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 2px 6px rgba(28, 40, 48, .28);
+}
+
+.btn-charcoal:hover:not(:disabled) {
+    border-color: #0a1014;
+    background: linear-gradient(180deg, #35434e, #26313b);
+    color: #fff;
+}
+
+.btn-link {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    font-weight: 550;
+}
+
+.btn-link:active { transform: none !important; box-shadow: none !important; }
+
+/* Fields: inset, so a control you type into reads as a well rather than as
+   another raised surface competing with the buttons beside it. */
+.form-control,
+.form-select {
+    min-height: var(--app-control-height);
+    padding: 8px 11px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: var(--app-control-radius);
+    background-color: var(--mm-input-bg);
+    color: var(--mm-ink);
+    box-shadow: var(--app-shadow-inset);
+    font-size: .84rem;
+}
+
+.form-select { padding-right: 34px; background-color: var(--mm-select-bg); }
+.form-control-sm, .form-select-sm { min-height: 32px; padding: 5px 9px; border-radius: 7px; font-size: .78rem; }
+.form-select-sm { padding-right: 30px; }
+
+.form-control:focus,
+.form-select:focus {
+    border-color: rgba(var(--mm-primary-rgb), .55);
+    background-color: var(--mm-input-bg);
+    box-shadow: var(--app-focus), var(--app-shadow-inset);
+}
+
+.form-control:disabled,
+.form-select:disabled { background-color: var(--mm-hover); color: var(--mm-muted); opacity: .75; }
+.form-control[readonly] { background-color: var(--mm-hover); color: var(--mm-ink-soft); }
+
+.form-control.is-invalid,
+.form-control[aria-invalid="true"] {
+    border-color: #9a4037;
+    box-shadow: 0 0 0 3px rgba(154, 64, 55, .14), var(--app-shadow-inset);
+}
+
+.input-group > .form-control,
+.input-group > .form-select { box-shadow: var(--app-shadow-inset); }
+.input-group > .btn { min-height: var(--app-control-height); }
+
+/* ── tables ───────────────────────────────────────────────────────────── */
+
+/* Every table, including the ones inside a Settings pane that are not on a
+   tray of their own. The tray and ledger rules above add their own chrome on
+   top; this is the shared material underneath. */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--mm-ink);
+    --bs-table-border-color: var(--app-hairline);
+    --bs-table-striped-bg: var(--mm-row-alt);
+    --bs-table-striped-color: var(--mm-ink);
+    --bs-table-hover-bg: var(--mm-hover);
+    --bs-table-hover-color: var(--mm-ink);
+    color: var(--mm-ink);
+    font-size: .82rem;
+}
+
+.table > thead > tr > th {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--app-hairline-strong);
+    background: var(--mm-table-head);
+    color: var(--mm-ink-soft);
+    font-size: .69rem;
+    font-weight: 750;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.table > tbody > tr > td { padding: 9px 12px; border-bottom-color: var(--app-hairline); vertical-align: middle; }
+.table > tbody > tr:last-child > td { border-bottom: 0; }
+
+/* A bare table in a pane still needs an edge, or it floats on the paper with
+   its header stripe hanging in space. `overflow-x: auto` and not `hidden`:
+   rounding a wrapper is not a reason to take away the scroll Bootstrap put
+   there, and People clipped 125px of its own columns when it was. */
+.mm-pane .table-responsive,
+.app-settings-pane .table-responsive {
+    overflow-x: auto;
+    border: 1px solid var(--app-hairline);
+    border-radius: 9px;
+    background: var(--mm-surface);
+}
+
+.mm-pane .table-responsive > .table,
+.app-settings-pane .table-responsive > .table { margin: 0; }
+
+/* ── typography ───────────────────────────────────────────────────────── */
+
+/* Headings tighten as they grow, which is what stops a 1.78rem title from
+   reading as loose beside 0.82rem body text. Inter's own metrics assume it. */
+h1, .h1 { letter-spacing: -.035em; }
+h2, .h2 { letter-spacing: -.028em; }
+h3, .h3, h4, .h4 { letter-spacing: -.018em; }
+
+/* ── tags ─────────────────────────────────────────────────────────────── */
+
+/* A tag is a pill with an edge and a highlight, not a flat swatch: it sits in
+   a table cell beside status marks and actor marks, and a fill with no border
+   reads as a coloured background rather than as an object. */
+.mm-tag {
+    display: inline-block;
+    max-width: 180px;
+    padding: 3px 9px;
+    overflow: hidden;
+    border: 1px solid var(--app-hairline);
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--mm-surface), var(--mm-tag-bg));
+    color: var(--mm-on-tag);
+    box-shadow: 0 1px 0 var(--app-edge-light) inset;
+    font-size: .72rem;
+    font-weight: 560;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+[data-bs-theme="dark"] .mm-tag {
+    border-color: var(--mm-line-strong);
+    background: var(--mm-tag-bg);
+    box-shadow: none;
+}
+
+.mm-tag a { color: inherit; text-decoration: none; }
+.mm-tag:hover { background: linear-gradient(180deg, var(--mm-surface), var(--mm-tag-hover)); }
+
+/* The editable pill carries a control, so it lays its children out rather than
+   flowing them: inline-block above beats main.css's inline-flex on order, and
+   an unshrinkable label pushed the × past the 180px clip — the one control
+   that removes the tag. */
+.mm-tag.mm-tag-editable {
+    display: inline-flex;
+    align-items: center;
+    gap: .35em;
+}
+
+.mm-tag-editable > a {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mm-tag-editable > .mm-tag-x,
+.mm-tag-editable > .mm-tag-lock { flex: none; }
+
+/* ── gradients the reference carries ──────────────────────────────────── */
+
+/* Table heads are a warm band rather than a flat grey — the one place the
+   ivory side of the palette shows inside an otherwise cool object. */
+.table > thead > tr > th,
+.app-tray > .table > thead,
+.app-table > thead,
+.app-tray-footer {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(0, 0, 0, .022));
+}
+
+/* The same lift, drawn in the material dark has instead of white: the raised
+   surface over the paper, with a highlight thin enough to show the edge. A
+   header flattened just because the theme is dark loses the hierarchy. */
+[data-bs-theme="dark"] .table > thead > tr > th,
+[data-bs-theme="dark"] .app-tray > .table > thead,
+[data-bs-theme="dark"] .app-table > thead {
+    background-image: linear-gradient(180deg, var(--mm-highlight), var(--mm-surface));
+    box-shadow: inset 0 1px 0 var(--app-edge-light);
+}
+
+[data-bs-theme="dark"] .app-tray-footer {
+    background-image: none;
+    background-color: color-mix(in srgb, var(--mm-highlight) 62%, var(--mm-surface));
+    box-shadow: inset 0 1px 0 var(--app-edge-light-soft);
+}
+
+/* The two tags the server itself reads keep their filled treatment: they
+   change what connected assistants are served, so they are not the same kind
+   of thing as a word somebody chose. Declared after the base above, which
+   would otherwise repaint them. */
+.mm-tag.mm-tag-system {
+    border-color: var(--mm-primary-hover);
+    background: linear-gradient(180deg, var(--mm-primary-fill), var(--mm-primary-hover));
+    color: var(--mm-on-primary);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .22) inset;
+    font-weight: 640;
+}
+
+.mm-tag.mm-tag-system:hover { background: linear-gradient(180deg, var(--mm-primary-fill), var(--mm-primary-fill)); }
+.mm-tag.mm-tag-system a { color: inherit; }
+
+/* Outlined rather than filled on charcoal. A solid cyan pill is the action
+   colour at tag size, so it read as a button and was the loudest object in
+   its row — which is exactly what a tag may not be. */
+[data-bs-theme="dark"] .mm-tag.mm-tag-system {
+    border-color: rgba(var(--mm-primary-rgb), .58);
+    background: rgba(var(--mm-primary-rgb), .16);
+    color: var(--mm-ink);
+}
+
+[data-bs-theme="dark"] .mm-tag.mm-tag-system:hover {
+    background: rgba(var(--mm-primary-rgb), .26);
+}
+
+.mm-tag.mm-tag-retired {
+    border: 1px dashed var(--app-hairline-strong);
+    background: transparent;
+    color: var(--mm-muted);
+    box-shadow: none;
+}
+
+/* ── notes workspace ──────────────────────────────────────────────────── */
+
+.app-heading-line { display: flex; align-items: baseline; gap: 12px; }
+.app-heading-total { color: var(--mm-ink-soft); font-size: .82rem; font-weight: 650; }
+
+/* Three controls on one line: the query keeps the width, the two facets take
+   only what their longest label needs. */
+.app-notes-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+    .app-notes-toolbar { grid-template-columns: minmax(320px, 1fr) minmax(170px, 220px) minmax(150px, 180px); }
+}
+
+/* Stacked, the row IS the card, so the cell rule above — which outranks
+   main.css's `border: 0` on equal specificity and lands later — drew a hairline
+   under the checkbox and under every wrapped title line. */
+@media (max-width: 767.98px) {
+    .app-table.mm-stack-sm > tbody > tr > td,
+    .app-table.mm-stack-sm > tbody > tr > td:first-child {
+        padding: .15rem 0;
+        border: 0;
+    }
+}
+
+.app-tray-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.app-tray-range { white-space: nowrap; }
+.app-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.app-pagination > * { white-space: nowrap; }
+.app-rows-control { display: flex; align-items: center; gap: 7px; margin: 0; white-space: nowrap; }
+.app-rows-control .form-select,
+.app-rows-control .form-control { width: auto; min-width: 4.5rem; }
+
+/* ── selection bar ────────────────────────────────────────────────────── */
+
+/* Charcoal, and the one dark surface in the light theme: a bar that says how
+   many notes a click is about to act on should not read as more page. It is
+   pinned to the bottom of the STAGE rather than the window and offset by the
+   sidebar, so it never lies across the navigation. */
+.app-selection-bar {
+    position: fixed;
+    z-index: 1035;
+    left: var(--app-sidebar-width, var(--app-sidebar-expanded));
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 70px;
+    padding: 12px 24px;
+    border-top: 1px solid #11191f;
+    background: linear-gradient(180deg, #2c3841, #202a33);
+    color: #f5f7f8;
+    box-shadow: 0 -1px 0 rgba(255, 255, 255, .08) inset, 0 -7px 22px rgba(28, 40, 48, .18);
+}
+
+.is-collapsed .app-selection-bar { left: var(--app-sidebar-collapsed); }
+
+@media (max-width: 991.98px) {
+    .app-selection-bar { left: 0; flex-wrap: wrap; }
+}
+
+.app-selection-bar > span { margin-right: auto; font-size: .88rem; }
+.app-selection-bar > span strong { font-weight: 750; }
+
+.app-selection-bar .btn {
+    border-color: #dbe4e8;
+    background: linear-gradient(180deg, #fff, #e5ecef);
+    color: #263741;
+    box-shadow: var(--app-shadow-small);
+}
+
+.app-selection-bar .btn:hover { border-color: #c2ced4; background: linear-gradient(180deg, #fff, #d9e2e6); color: #1a2831; }
+
+.app-selection-bar .app-selection-clear {
+    border-color: #687983;
+    background: transparent;
+    color: #f0f4f6;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset;
+}
+
+.app-selection-bar .app-selection-clear:hover { border-color: #8b9ba4; background: rgba(255, 255, 255, .07); color: #fff; }
+
+/* The literals above make the bar the one dark surface in the LIGHT theme.
+   On charcoal they are a slab of a different grey with white buttons on it,
+   so dark draws the bar out of its own material instead: raised paper, a
+   cyan primary, and a neutral button that belongs to the same family as
+   every other neutral button. */
+[data-bs-theme="dark"] .app-selection-bar {
+    border-top: 1px solid var(--mm-line-strong);
+    background: linear-gradient(180deg, var(--mm-highlight), var(--mm-surface));
+    color: var(--mm-ink);
+    box-shadow: 0 -1px 0 rgba(255, 255, 255, .05) inset, 0 -8px 24px rgba(0, 0, 0, .38);
+}
+
+/* The download is the bar's one forward action, and in light it is white on
+   charcoal — the loudest thing there. A charcoal button on a charcoal bar
+   would not be, so in dark it takes the accent instead. */
+[data-bs-theme="dark"] .app-selection-bar .btn {
+    border-color: var(--mm-primary-hover);
+    background: linear-gradient(180deg, var(--mm-primary-fill), var(--mm-primary-hover));
+    color: var(--mm-on-primary);
+    box-shadow: var(--app-shadow-small);
+}
+
+[data-bs-theme="dark"] .app-selection-bar .btn:hover {
+    border-color: var(--mm-primary-hover);
+    background: linear-gradient(180deg, var(--mm-primary-fill), var(--mm-primary-fill));
+    color: var(--mm-on-primary);
+}
+
+[data-bs-theme="dark"] .app-selection-bar .app-selection-clear {
+    border-color: var(--mm-line-strong);
+    background: transparent;
+    color: var(--mm-ink-soft);
+    box-shadow: none;
+}
+
+[data-bs-theme="dark"] .app-selection-bar .app-selection-clear:hover {
+    border-color: var(--mm-muted);
+    background: var(--mm-hover);
+    color: var(--mm-ink);
+}
+
+/* No spacer under a selection. The 120px one this replaces was written for a
+   bar fixed to the WINDOW, over a page whose last row could end anywhere; the
+   bar is 70px and sits at the foot of the stage, where the stage's own 50px
+   and the footer beneath it already clear the tray. Reserving height as well
+   opened a hole between the two that only appeared once something was
+   selected — the list moved when the bar arrived. The bar covers the footer,
+   which is what an action bar is for. */
+.app-stage .mm-has-report-bar { padding-bottom: 0; }
+
+/* The semantic buttons in dark. Their light palettes are near-white gradients,
+   which on a dark page read as blocks of paper rather than as controls. Dark
+   is not designed yet; this only keeps it from being broken. */
+[data-bs-theme="dark"] .btn-outline-secondary,
+[data-bs-theme="dark"] .btn-secondary,
+[data-bs-theme="dark"] .btn-light {
+    border-color: var(--mm-line-strong);
+    background: var(--mm-hover);
+    color: var(--mm-ink);
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary,
+[data-bs-theme="dark"] .btn-secondary,
+[data-bs-theme="dark"] .btn-light {
+    --bs-btn-hover-bg: var(--mm-highlight);
+    --bs-btn-active-bg: var(--mm-hover);
+    --bs-btn-disabled-bg: var(--mm-hover);
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover,
+[data-bs-theme="dark"] .btn-secondary:hover,
+[data-bs-theme="dark"] .btn-light:hover { background: var(--mm-highlight); }
+
+[data-bs-theme="dark"] .btn-success { border-color: #2f6544; background: #2a4a37; color: #d6e8dc; }
+[data-bs-theme="dark"] .btn-danger { border-color: #7e332c; background: #4a2b27; color: #f0d5d1; }
+/* The variable sets above are the LIGHT palette, and variables cascade — so a
+   dark pressed button was drawing a light-theme ink on a light-theme fill.
+   Each repainted variant restates them for dark. */
+[data-bs-theme="dark"] .btn-outline-danger {
+    --bs-btn-color: #e6b8b2;
+    --bs-btn-hover-color: #f0cdc8;
+    --bs-btn-active-color: #f0cdc8;
+    --bs-btn-disabled-color: #e6b8b2;
+    --bs-btn-hover-bg: #3d2c30;
+    --bs-btn-hover-border-color: #8a4a42;
+    --bs-btn-active-bg: #472f33;
+    --bs-btn-active-border-color: #8a4a42;
+    --bs-btn-disabled-bg: #33262a;
+    --bs-btn-disabled-border-color: #6d3a34;
+    border-color: #6d3a34;
+    background: #33262a;
+    color: #e6b8b2;
+}
+
+[data-bs-theme="dark"] .btn-outline-danger:hover { border-color: #8a4a42; background: #3d2c30; color: #f0cdc8; }
+[data-bs-theme="dark"] .btn-charcoal {
+    --bs-btn-hover-border-color: #5e707c;
+    --bs-btn-active-border-color: #5e707c;
+    --bs-btn-disabled-border-color: #4a5a65;
+    border-color: #4a5a65;
+}
+[data-bs-theme="dark"] .btn-charcoal:hover:not(:disabled) { border-color: #5e707c; }
+
+/* Flag amber, not the brand's gold. Solid stays — flagging is a decision of
+   the same weight as Edit note (operator, 2026-08-31) — but on charcoal the
+   brand gold beside a cyan primary read as a second, warmer primary, and gold
+   in Midnight Workshop is material rather than meaning. */
+[data-bs-theme="dark"] .btn-warning {
+    --bs-btn-color: #2a1a05;
+    --bs-btn-hover-color: #231505;
+    --bs-btn-active-color: #231505;
+    --bs-btn-disabled-color: #2a1a05;
+    --bs-btn-hover-bg: #d0913e;
+    --bs-btn-hover-border-color: #a67231;
+    --bs-btn-active-bg: #c48836;
+    --bs-btn-active-border-color: #a67231;
+    --bs-btn-disabled-bg: #c48836;
+    --bs-btn-disabled-border-color: #91642b;
+    border-color: #91642b;
+    background: linear-gradient(180deg, #e2a04b, #c48836);
+    color: #2a1a05;
+}
+[data-bs-theme="dark"] .btn-warning:hover:not(:disabled) { border-color: #a67231; background: linear-gradient(180deg, #e9ad5e, #d0913e); color: #231505; }
+
+/* ── toasts ───────────────────────────────────────────────────────────── */
+
+/* PrimeVue ships saga-blue, which is the one surface in the app still painted
+   by a vendor theme: a white card with its own blue and green. It is redrawn
+   here out of the same paper, hairline and shadow every other raised object
+   uses, with the severity carried by a rail down the leading edge rather than
+   by the whole card's colour. */
+.p-toast {
+    max-width: min(420px, calc(100vw - 32px));
+    opacity: 1;
+}
+
+/* PrimeVue positions the stack itself; these only keep it off the two edges
+   at every width the shell has. */
+.p-toast.p-toast-top-right { top: 18px; right: 18px; }
+
+.p-toast .p-toast-message {
+    margin: 0 0 12px;
+    border: 1px solid var(--app-panel-border);
+    border-left: 3px solid var(--mm-muted);
+    border-radius: 12px;
+    background: var(--app-paper);
+    color: var(--mm-ink);
+    box-shadow: var(--app-shadow-raised);
+}
+
+.p-toast .p-toast-message-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 13px 15px;
+    border: 0;
+}
+
+.p-toast .p-toast-message-icon { flex: 0 0 auto; margin-top: 1px; font-size: 1.05rem; }
+.p-toast .p-toast-message-text { flex: 1 1 auto; min-width: 0; margin: 0; }
+
+.p-toast .p-toast-summary {
+    color: var(--mm-ink);
+    font-size: .87rem !important;
+    font-weight: 650;
+}
+
+.p-toast .p-toast-detail {
+    margin-top: 3px;
+    color: var(--mm-ink-soft);
+    font-size: .78rem !important;
+    line-height: 1.45;
+    /* An error is usually something to read and often something to paste into
+       a report, so the text is selectable rather than decoration. */
+    user-select: text;
+    overflow-wrap: anywhere;
+}
+
+.p-toast .p-toast-icon-close {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--mm-muted);
+}
+
+.p-toast .p-toast-icon-close:hover { background: var(--mm-hover); color: var(--mm-ink); }
+.p-toast .p-toast-icon-close:focus-visible { outline: 0; box-shadow: var(--app-focus); }
+
+.p-toast .p-toast-message-success { border-left-color: #2f6544; }
+.p-toast .p-toast-message-success .p-toast-message-icon { color: #2f6544; }
+.p-toast .p-toast-message-error { border-left-color: #9a4037; }
+.p-toast .p-toast-message-error .p-toast-message-icon { color: #9a4037; }
+.p-toast .p-toast-message-warn { border-left-color: #b66a00; }
+.p-toast .p-toast-message-warn .p-toast-message-icon { color: #b66a00; }
+.p-toast .p-toast-message-info { border-left-color: var(--mm-primary); }
+.p-toast .p-toast-message-info .p-toast-message-icon { color: var(--mm-primary); }
+
+[data-bs-theme="dark"] .p-toast .p-toast-message-success { border-left-color: #6fbf8e; }
+[data-bs-theme="dark"] .p-toast .p-toast-message-success .p-toast-message-icon { color: #6fbf8e; }
+[data-bs-theme="dark"] .p-toast .p-toast-message-error { border-left-color: #d36d63; }
+[data-bs-theme="dark"] .p-toast .p-toast-message-error .p-toast-message-icon { color: #d36d63; }
+[data-bs-theme="dark"] .p-toast .p-toast-message-warn { border-left-color: #e2a04b; }
+[data-bs-theme="dark"] .p-toast .p-toast-message-warn .p-toast-message-icon { color: #e2a04b; }
+
+.mm-account-details { width: 100%; }
+.mm-account-name { flex: 1; min-width: 0; }
+.mm-maintenance-step { margin-top: 24px; }
+.mm-maintenance-title { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: .9rem; font-weight: 600; }
+.mm-maintenance-title > span { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--app-hairline); border-radius: 50%; color: var(--mm-muted); font-size: .75rem; }
+.mm-maintenance-step .mm-init-prompt-copy { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 6px 10px; font-size: .8rem; }
+.mm-curator-add { max-width: none; }
+.mm-curator-add > .form-select { min-width: 0; flex: 1; }
+.mm-curator-add > .btn { flex: none; }
+@media (max-width: 575.98px) {
+    .mm-curator-add { flex-wrap: wrap; }
+}
+
+.app-settings-content {
+    --settings-gap: 16px;
+    --settings-control-height: 38px;
+    width: 100%;
+    max-width: 768px;
+    padding: 24px;
+}
+.app-settings-content .mm-pane > .mm-block:first-child { padding-top: 0; }
+.app-settings-content .mm-block-title { margin-bottom: 8px; }
+.app-settings-content .mm-block-head { flex-wrap: wrap; gap: 8px 16px; margin-bottom: 8px; }
+.app-settings-content .mm-block-head .mm-block-title { margin-bottom: 0; }
+.app-settings-content .mm-note,
+.app-settings-content .mm-note-wide { max-width: none; margin-bottom: 16px; }
+.app-settings-content .form-label { display: block; margin-bottom: 8px; font-size: .85rem; font-weight: 500; }
+.app-settings-content .form-control,
+.app-settings-content .form-select { min-height: var(--settings-control-height); font-size: .85rem; }
+.app-settings-content .btn:not(.btn-link):not(.btn-close) { min-height: 34px; }
+.mm-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--settings-gap, 16px); }
+.mm-settings-grid > *,
+.mm-settings-field { min-width: 0; }
+.mm-settings-half { width: calc((100% - var(--settings-gap, 16px)) / 2); }
+.mm-settings-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px; }
+.mm-settings-input-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.app-settings-content .mm-settings-item {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--app-hairline);
+    border-radius: 8px;
+    background: var(--mm-input-bg);
+}
+.app-settings-content .mm-settings-item + .mm-settings-item { margin-top: 8px; }
+.app-settings-content .mm-settings-item > i { width: 24px; text-align: center; }
+.app-settings-content .mm-settings-item-details { min-width: 0; font-size: .85rem; line-height: 1.5; }
+.app-settings-content .mm-settings-item-details strong { font-weight: 600; }
+.app-settings-content .mm-settings-item > .btn { margin: 0; grid-column: 3; }
+.app-settings-content .mm-profile-settings > .mm-note { margin-bottom: 16px; }
+.app-settings-content .mm-profile-assistant-action { margin-top: 16px; }
+.app-settings-content .mm-profile-assistant-action .btn { font-size: .8rem; }
+.app-settings-content .mm-map-setting { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--settings-gap); }
+.app-settings-content .mm-curator-add { max-width: none; }
+.app-settings-content .mm-quota-bar { max-width: none; }
+.app-settings-content .mm-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--settings-gap); }
+.app-settings-content .mm-stat { min-width: 0; }
+.app-settings-content .mm-stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.app-settings-content .mm-system-skills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--settings-gap); }
+@media (max-width: 575.98px) {
+    .app-settings-content { padding: 20px; }
+    .mm-settings-grid,
+    .app-settings-content .mm-map-setting,
+    .app-settings-content .mm-system-skills { grid-template-columns: minmax(0, 1fr); }
+    .mm-settings-half { width: 100%; }
+    .app-settings-content .mm-settings-item { grid-template-columns: 24px minmax(0, 1fr); gap: 12px; }
+    .app-settings-content .mm-settings-item > .btn { grid-column: 2; justify-self: start; }
+}
+
+.mm-settings-identity { display: flex; align-items: center; gap: 12px; }
+.mm-settings-identity > :first-child:not(:only-child) { flex: none; width: 20px; text-align: center; }
+.mm-settings-identity > :only-child { margin-left: 32px; }
+.mm-settings-identity > span { min-width: 0; overflow-wrap: anywhere; }
+.mm-settings-table { width: 100%; }
+.mm-settings-table > thead > tr > th:last-child.text-end { width: 1%; }
+.mm-settings-table .mm-stack-actions { white-space: nowrap; }
+@media (max-width: 767.98px) {
+    .app-settings-content .table-responsive:has(> .mm-stack-sm) { border: 0; border-radius: 0; background: transparent; }
+    .app-settings-content .mm-stack-sm > tbody > tr { margin: 0 0 8px; padding: 16px; }
+    .app-settings-content .mm-stack-sm > tbody > tr:last-child { margin-bottom: 0; }
+}
+
+.app-settings-content .mm-ai-label { font-size: .875rem; font-weight: 600; margin: 0 0 8px; }
+.app-settings-content .mm-ai-usage { margin-bottom: 16px; }
+
+/* ── not found ─────────────────────────────────────────────────────────── */
+
+/* The sign-in door's layout on the stage: the mark, greyed and faint, over
+   the code and one line, centred both ways in whatever the stage leaves. */
+.mm-not-found {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    min-height: 24rem;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.mm-not-found-inner { width: 100%; max-width: 26rem; }
+
+.mm-not-found-mark {
+    display: block;
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 1.75rem;
+    filter: grayscale(1);
+    opacity: .2;
+}
+
+.mm-not-found-code {
+    margin: 0;
+    color: var(--mm-muted);
+    font-size: clamp(56px, 8vw, 88px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -.05em;
+    opacity: .45;
+}
+
+.mm-not-found-title {
+    margin: .9rem 0 .5rem;
+    color: var(--mm-ink);
+    font-size: clamp(22px, 2.4vw, 28px);
+    font-weight: 600;
+    letter-spacing: -.024em;
+}
+
+.mm-not-found-body { margin: 0 0 1.5rem; color: var(--mm-muted); }

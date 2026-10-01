@@ -1,0 +1,16 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\Controller
+    type: attribute
+
+# Logout is handled entirely by the security component — the route must still exist.
+#
+# POST only (2026-08-24). It accepted GET, and Symfony's logout listener fires
+# on the ROUTE, not on the method, so any page anywhere could sign the operator
+# out with `<img src="https://memex.tools/api/logout">`. Nuisance-grade rather
+# than dangerous — nothing is read or written — but the SPA has always used
+# POST, so GET was costing a CSRF hole to support a caller that does not exist.
+api_logout:
+    path: /api/logout
+    methods: [POST]

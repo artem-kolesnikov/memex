@@ -1,0 +1,80 @@
+doctrine:
+    dbal:
+        default_connection: vault
+        connections:
+            # Opens the bound vault's file ({@see App\Storage\VaultConnectionMiddleware});
+            # the path here is never used.
+            vault:
+                driver: sqlite3
+                wrapper_class: App\Storage\SqliteConnection
+                path: /nonexistent/the-vault-connection-opens-the-bound-vault
+                profiling_collect_backtrace: '%kernel.debug%'
+                # Raw-SQL tables and SQLite's own, which the ORM must never
+                # propose to drop.
+                schema_filter: ~^(?!sqlite_|notes_fts|note_embedding|note_neighbours|deleted_notes|skill_settings|skill_grants)~
+            directory:
+                driver: sqlite3
+                wrapper_class: App\Storage\SqliteConnection
+                path: /nonexistent/the-directory-connection-opens-the-data-dir
+                profiling_collect_backtrace: '%kernel.debug%'
+                # The same, for the directory. An edition's own raw-SQL tables are
+                # hidden by a `doctrine.dbal.schema_filter` service of its own.
+                schema_filter: ~^(?!sqlite_|sessions|user_sessions|oauth_|bearer_tokens|storage_policy|schema_streams)~
+    orm:
+        auto_generate_proxy_classes: true
+        enable_lazy_ghost_objects: true
+        default_entity_manager: vault
+        entity_managers:
+            vault:
+                connection: vault
+                report_fields_where_declared: true
+                validate_xml_mapping: true
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                mappings:
+                    App:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/Entity'
+                        prefix: 'App\Entity'
+                        alias: App
+            directory:
+                connection: directory
+                report_fields_where_declared: true
+                validate_xml_mapping: true
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                mappings:
+                    Directory:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/Directory'
+                        prefix: 'App\Directory'
+                        alias: Directory
+
+when@prod:
+    doctrine:
+        orm:
+            auto_generate_proxy_classes: false
+            proxy_dir: '%kernel.build_dir%/doctrine/orm/Proxies'
+            entity_managers:
+                vault:
+                    query_cache_driver:
+                        type: pool
+                        pool: doctrine.system_cache_pool
+                    result_cache_driver:
+                        type: pool
+                        pool: doctrine.result_cache_pool
+                directory:
+                    query_cache_driver:
+                        type: pool
+                        pool: doctrine.system_cache_pool
+                    result_cache_driver:
+                        type: pool
+                        pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system
