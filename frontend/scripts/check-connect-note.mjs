@@ -6,10 +6,11 @@
  * The note repeats every connection step in text, and it is copied into each
  * new account at sign-up, so a vendor's changed screen fixed in the guides and
  * not in the note sends every new account the old steps. Each client's section
- * must hold one numbered item per instruction, in order, and each item every
- * text the guide shows for it: title, body (the address may follow it), the
- * lines after it, the tip, the link. The first-chat prompt, the ways each
- * assistant keeps it, the address and the token header must appear too.
+ * must hold one numbered item per step, in order, and each item every text the
+ * guide shows for it: title, body, the address where the step has it, the tip,
+ * the link; then the optional permissions line. The first-chat prompt, the
+ * ways each assistant keeps it, the address and the token header must appear
+ * too.
  *
  * Usage: node --experimental-strip-types scripts/check-connect-note.mjs
  */
@@ -55,20 +56,23 @@ function problems(note) {
       continue
     }
     const items = section.split(/^\d+\.\s/m).slice(1).map(flat)
-    if (items.length !== client.instructions.length) {
-      out.push(`${client.label}: ${items.length} numbered steps, Settings has ${client.instructions.length}`)
+    if (items.length !== client.steps.length) {
+      out.push(`${client.label}: ${items.length} numbered steps, Settings has ${client.steps.length}`)
     }
-    client.instructions.forEach((ins, i) => {
+    client.steps.forEach((ins, i) => {
       const item = items[i] ?? ''
       const step = `${client.label} step ${i + 1}`
-      const body = flat(t(ins.bodyKey))
-      const withAddress = body.replace(/\.$/, `: \`${MCP_URL}\`.`)
-      if (!item.includes(body) && !(ins.address && item.includes(withAddress))) out.push(`${step} lacks: ${body}`)
-      for (const key of [ins.titleKey, ins.afterAddressKey, ins.instructionKey, ins.tipKey]) {
+      for (const key of [ins.titleKey, ins.bodyKey, ins.tipKey]) {
         if (key !== undefined && !item.includes(flat(t(key)))) out.push(`${step} lacks: ${t(key)}`)
       }
+      if (ins.address && !item.includes(MCP_URL)) out.push(`${step} lacks the address ${MCP_URL}`)
       if (ins.link && !item.includes(ins.link.url)) out.push(`${step} lacks the link ${ins.link.url}`)
     })
+    if (client.permissionsKey !== undefined) {
+      for (const text of [t(client.permissionsKey), t('connections.guides.permissions_tip')]) {
+        if (!flat(section).includes(flat(text))) out.push(`${client.label}: the optional permissions line lacks: ${text}`)
+      }
+    }
     const { closing, note: keep } = client.persist
     if (closing !== '' && !all.includes(closing)) out.push(`${client.label}: the prompt's closing is missing: ${closing}`)
     if (keep) {
@@ -89,7 +93,7 @@ const note = readFileSync(NOTE, 'utf8')
 // The guard must be able to fail: each of these is the drift it exists for.
 const drifts = [
   ['a vendor step reworded in Settings only', note.replace('Create MCP App', 'Create App')],
-  ['a step dropped from the note', note.replace(/^6\. \*\*Save your custom app[\s\S]*?(?=\n\n)/m, '')],
+  ['a step dropped from the note', note.replace(/^4\. \*\*Save your custom app[\s\S]*?(?=\n\n)/m, '')],
   ['the first-chat prompt edited in the note only', note.replace('source of truth', 'main source')],
 ]
 const blind = drifts.filter(([, mutated]) => mutated === note || problems(mutated).length === 0).map(([name]) => name)
@@ -103,4 +107,4 @@ if (found.length > 0) {
   console.error(`FAIL backend/config/welcome/2-connect-your-first-assistant.md no longer says what Settings › Assistants says:\n  ${found.join('\n  ')}`)
   process.exit(1)
 }
-console.log(`Connect note passed: ${CLIENTS.map((c) => `${c.label} ${c.instructions.length} steps`).join(', ')}, the prompt and the address match Settings.`)
+console.log(`Connect note passed: ${CLIENTS.map((c) => `${c.label} ${c.steps.length} steps`).join(', ')}, the prompt and the address match Settings.`)

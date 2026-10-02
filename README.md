@@ -1,22 +1,122 @@
 # memex
 
-**A knowledge base your assistants write to, and you approve.**
+**Project notes *you and your AI* work from.**
 
-memex keeps Markdown notes with tags, links between them and search by meaning. Ask
-Claude, ChatGPT, Codex or whatever you use: it reads your memex and answers from your
-notes, and what it writes waits in your review inbox by default, so nothing lands without
-an author and a way back. This is memex on a machine of your own, a laptop, a home server
-or a virtual machine, free and open source. It is local-first: the assistants on that
-machine and your network reach it. [memex.tools](https://memex.tools) is memex on the
-internet, for the assistants that reach it from there.
+[![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
+[![CI](https://github.com/artem-kolesnikov/memex/actions/workflows/ci.yml/badge.svg)](https://github.com/artem-kolesnikov/memex/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/artem-kolesnikov/memex)](https://github.com/artem-kolesnikov/memex/releases)
+
+Memex is a web app where your AI can save decisions, reasoning and project context as notes. You can read and edit every note, then use it with any assistant you connect.
+
+As your work changes, ask your assistant to update the notes. Review what it suggests and decide what stays.
+
+Use our free cloud version at [memex.tools](https://memex.tools), or install memex on your
+own computer and keep everything local.
+
+> Memex never reaches out to an assistant: each assistant connects to memex's address instead. Memex only answers, and only to the assistants you have connected. ChatGPT, Claude's connectors and Gemini Spark connect from their servers on the internet, so they can use our cloud version at https://memex.tools but not a local install. Claude Code, Codex and the other assistants on your computer can use either.
+
+|                                       | Free cloud **[memex.tools](https://memex.tools)**                                 | **Local install** (this repository)                                                |
+| ------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| How memex is accessed                 | `https://memex.tools/mcp`                                                         | `http://localhost:8080/mcp`                                                        |
+| Memex                                 | Notes, review inbox, history, search, map, skills, import and export              | The same                                                                           |
+| Assistants                            | Any assistants and agentic harnesses which can use MCP and connect over HTTPS.    | Assistants and agents on your computer or those which can access your own network. |
+| Search by meaning                     | Included                                                                          | Included, as local model or via your own OpenAI API key                            |
+| Descriptions and tags written for you | Included, through your connected assistants (using subscription), or your own API key | The same                                                                       |
+| Sign-in                               | Google, Apple, Microsoft or GitHub                                                | Email and password                                                                 |
+| **Infrastructure**                    |                                                                                   |                                                                                    |
+| Where it runs                         | memex.tools's servers, on AWS                                                     | Your computer, a home server or a virtual machine                                  |
+| Reached from                          | Anywhere, over HTTPS                                                              | That computer, or your network if you open it up                                   |
+| What you need                         | A browser                                                                         | Docker, 1 GB of memory to spare, and a browser                                     |
+| Updates                               | Always the latest version                                                         | You pull the new image when you choose                                             |
+| Backups                               | Nightly, by memex.tools                                                           | Daily, on your own disk; copying them elsewhere is up to you                       |
+| **Costs**                             |                                                                                   |                                                                                    |
+| Price                                 | Free                                                                              | Free and open source                                                               |
+| Limits                                | Very generous hourly and daily limits; unlimited on your own keys                 | None                                                                               |
+| What you pay for                      | Provider keys, if you add any. And you don't have to                              | Your own hardware, and provider keys if you add any                                |
+
+**[Start free on memex.tools →](https://memex.tools)** Sign in with Google, Apple,
+Microsoft or GitHub. No password. To install it on your own computer, go to
+[Run it](#run-it).
+
+## So what is memex?
+
+Memex is a single shared knowledge base across all your chatbots and AI agents. Connect them all and they will know everything instantly.
+
+An assistant helps only as much as it knows about you and your work. Memex keeps that in
+one place: your projects, your notes, your workflows and the skills you have written down.
+Every assistant you connect works from the same notes, and you decide what goes in.
+
+### How does it work?
+
+Work in your usual AI chat. Ask your assistant to read the relevant notes, save what you work out, and suggest updates when something changes. Open memex to review and edit the notes yourself.
+
+1. **Start with what you have.** Import your existing Markdown notes, or start with the next thing you work out with AI.
+2. **Connect the assistants you use.** Decide what they can read and which changes need your approval.
+3. **Keep doing your thing.** Ask questions, explore ideas, work through the details. When something is worth keeping, say “save that to memex.”
+4. **Review what your assistant wrote on your memex page.** Open the proposed note or update in memex. Read it, make any corrections, and decide what to keep.
+5. **Use the notes. Keep them current.** Next time, start with asking your assistant to read the relevant notes.
+
+Every assistant you use today will be replaced by a better one tomorrow. *What you worked out with them now stays with you.*
+
+Feel free to try memex online at https://memex.tools, see how it works and if it fits your needs, and keep using it for free, or go with a local-first version below.
+
+## Local-first memex
+
+- **Your notes stay on your computer.** They live in a Docker volume there, and only the
+  assistants you connect on that computer or your network can reach them.
+- **Search by meaning is built in.** The model behind it comes with memex and runs on your
+  computer, with no key and no cost.
+- **If it talks MCP, it can connect.** Claude Code, Codex, Cursor, Gemini CLI, Claude
+  Desktop, Hermes, OpenClaw, or an agent you wrote yourself.
+- **Open source.** Read the code, change it and extend it, under the AGPL-3.0.
+- **Your notes can move.** Export any note, or all of them, as Markdown. Import them into local vaults, or online vaults, including at [memex.tools](https://memex.tools), whenever you want them online, and back again.
+
+## What memex adds to your AI workflow.
+
+A chatbot lasts while you chat. A memory add-on remembers those chats. **With memex, you build a knowledge base you can use with your AIs, or on your own.**
+
+>Memex is **not just another memory plugin**. It is a different approach. You can run a memory plugin alongside it: the plugin remembers how you like an answer, while memex holds the research note you approved. Both can be available to the same assistant.
+
+
+| Feature              | Details                                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Notes                | What you ask your assistant to write down: a summary, the findings, the background. Each note is readable in the web app, from a short note to a detailed plan, with a description, tags and wiki-links. |
+| Review inbox         | What an assistant saves is held for your approval. Trusted permissions are available if you want them.                                                                                                   |
+| Corrections          | Open the note and change the sentence, or restore an earlier version.                                                                                                                                    |
+| History              | Full note history with authors and dates. Restore any earlier version. Deleted notes stay recoverable for thirty days before their content is purged.                                                    |
+| Search               | By meaning or by keyword, with filters on top.                                                                                                                                                           |
+| Map                  | Every note and link as a picture, with views for orphans, hubs, islands and notes that may be stale, and suggested links between notes close in meaning. Each note shows its own neighbourhood.          |
+| Duplicates and links | Before you save, the editor finds possible duplicates, notes the text names but does not link, and tags you already use.                                                                                 |
+| Skills               | Every instruction and skill is a note you can open, edit or delete. Connected assistants see your skills and load one when a task calls for it, or when you ask.                                         |
+| Tidying up           | Memex lists what needs attention; your own assistant works the list and files the changes for you to check.                                                                                              |
+| Connections          | Each assistant connects with its own token, which you can revoke.                                                                                                                                        |
+| Import and export    | Text and Markdown files in, including a whole vault. Every note out as a Markdown file, or the whole knowledge base in one click.                                                                        |
+
+[Compare memex →](https://memex.tools/#compare)
 
 ## Run it
+
+The easiest way is to let the AI on your computer do it. Give this repository to Claude
+Code, Codex or any assistant that can run commands there, and ask:
+
+```text
+Install memex from https://github.com/artem-kolesnikov/memex and connect yourself to it.
+```
+
+It follows this section and the next one, and hands you the one step that is yours:
+creating your account. To do it yourself, the steps are the same.
 
 You need [Docker](https://docs.docker.com/get-docker/) on Linux, macOS, or Windows with
 Docker Desktop, on 64-bit x86 or ARM, with 1 GB of memory to spare.
 
 ```bash
 docker run -d --name memex -p 127.0.0.1:8080:8080 -v memex:/data --restart unless-stopped ghcr.io/artem-kolesnikov/memex
+```
+
+memex is ready when this answers with `"status":"ok"`:
+
+```bash
+curl -fsS http://localhost:8080/api/health
 ```
 
 Open <http://localhost:8080> and create your account with your email address and a
@@ -40,19 +140,6 @@ under the image's name first, and the commands here use it:
 docker build -t ghcr.io/artem-kolesnikov/memex .
 ```
 
-## On your network
-
-`-p 127.0.0.1:8080:8080` lets only this computer reach memex. To reach it from other
-machines on your network, as when it runs on a home server or a virtual machine, publish
-the port there and give memex the address they use:
-
-```bash
-docker run -d --name memex -p 8080:8080 -e APP_BASE_URL=http://192.168.1.20:8080 -v memex:/data --restart unless-stopped ghcr.io/artem-kolesnikov/memex
-```
-
-How far it reaches beyond that is your own setup. Do not publish memex to the internet: it
-has no HTTPS of its own, and nothing here covers putting it there.
-
 ## Connect your assistants
 
 Settings › Assistants gives each assistant's steps with this server's own address filled in.
@@ -69,6 +156,47 @@ Settings › Assistants gives each assistant's steps with this server's own addr
   memex from their own servers over the internet, so they connect to
   [memex.tools](https://memex.tools), memex's hosted edition, which is free. A Markdown
   export from either imports into the other.
+
+An assistant can also connect itself from a shell once your account exists. This prints a
+token once:
+
+```bash
+docker exec memex php bin/console app:create-token you@example.com "Claude Code"
+```
+
+With that token, Claude Code adds memex like this, and the others take the same address
+and token in the lines Settings › Assistants gives:
+
+```bash
+claude mcp add --transport http --scope user memex http://localhost:8080/mcp --header "Authorization: Bearer YOUR_TOKEN"
+```
+
+What a connected assistant can do:
+
+| | Tools | What for |
+| --- | --- | --- |
+| Read | `search`, `get`, `list_tags` | Find notes by meaning or keyword, read one with its links, reuse your tags |
+| Write | `propose`, `propose_delete`, `propose_merge` | File a new note, an edit, a deletion or a merge, held for you by default |
+| Skills | `list_skills`, `get_skill` | See the instructions you keep for it, and load one when a task matches |
+| Tidy up | `inbox`, `needs_enrichment`, `curation_candidates`, `duplicate_candidates`, `blast_radius`, `last_curated`, `resolve_curation_flag` | See what is waiting and what needs attention, then file the work for you to check |
+| Journal | `health`, `log`, `log_recent` | Check its connection and role; record and read what it did |
+
+The guide inside memex covers every screen and tool; ask any connected assistant to load
+the `memex-guide` skill.
+
+## On your network
+
+`-p 127.0.0.1:8080:8080` lets only this computer reach memex. To reach it from other
+machines on your network, as when it runs on a home server or a virtual machine, publish
+the port there and give memex the address they use:
+
+```bash
+docker run -d --name memex -p 8080:8080 -e APP_BASE_URL=http://192.168.1.20:8080 -v memex:/data --restart unless-stopped ghcr.io/artem-kolesnikov/memex
+```
+
+`APP_BASE_URL` is `http://localhost:8080` unless you set it. Set it whenever memex is
+published on another port or address; memex gives your assistants and its own commands
+the address from it. How far it reaches beyond that is your own setup.
 
 ## Upgrade
 
@@ -116,21 +244,6 @@ volume was lost.
 the ZIP. Each note arrives with its tags, description and dates; history, connections and
 settings stay behind. An export from memex.tools imports the same way, and back.
 
-## Configuration
-
-Set these with `-e NAME=value` on `docker run`.
-
-| Variable | What it does |
-| --- | --- |
-| `APP_BASE_URL` | The address memex is reached at: `http://localhost:8080` unless you set it. Set it when memex is published on another port or on your network, such as `http://192.168.1.20:8080`; sign-in providers and memex's own commands take the address from it. |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Optional sign-in with Google, linked from Settings › Account. |
-| `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` | The same, with GitHub. |
-| `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET` | The same, with Microsoft. |
-| `APPLE_OAUTH_CLIENT_ID`, `APPLE_OAUTH_TEAM_ID`, `APPLE_OAUTH_KEY_ID`, `APPLE_OAUTH_PRIVATE_KEY` | The same, with Apple; the private key is a path to the `.p8` file inside the container. |
-
-A provider's redirect address is `APP_BASE_URL` followed by `/api/auth/<provider>/callback`,
-where `<provider>` is `google`, `github`, `microsoft` or `apple`.
-
 ## Commands
 
 Run each as `docker exec -it memex php bin/console <command>`.
@@ -142,13 +255,13 @@ Run each as `docker exec -it memex php bin/console <command>`.
 | `app:reset-password` | Sets a new password and signs out every browser. memex sends no mail, so this is how a forgotten password is replaced. |
 | `app:create-token <email> <name>` | Creates a token for an assistant, as the *Other* tab does. |
 
-## What memex does not do
+## What runs inside memex
 
-memex does nothing on its own: no background model, no scheduled pass over your notes.
-It keeps notes, not files: a PDF becomes a note about the PDF. It holds one person's
-notes, with no shared teams. Review is work, and drafts wait until you open the inbox.
-The guide inside memex covers every screen and tool; ask any connected assistant to load
-the `memex-guide` skill.
+As installed, the one model in memex is the one behind search by meaning, and it runs
+on your computer. With a key of your own in Settings › AI features, memex can also write a
+description and tags for a note that arrives without them. Nothing else changes your notes
+by itself, and what an assistant writes waits in your inbox, by default, until you approve
+it.
 
 ## Licence
 

@@ -3,6 +3,23 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
+// A component's script runs here with its imports removed. The names the
+// assertions depend on are defined below; any other name it reads, such as a
+// store or helper imported later, is a stand-in that accepts every call and
+// property, so adding an import to a component cannot break this check.
+const standIn = new Proxy(function () {}, {
+  get: (_, key) => (key === Symbol.toPrimitive ? () => '' : typeof key === 'symbol' || key === 'then' ? undefined : standIn),
+  apply: () => standIn,
+  construct: () => standIn,
+})
+
+function sandbox(defined) {
+  return vm.createContext(new Proxy(defined, {
+    has: () => true,
+    get: (target, key) => (key in target ? target[key] : key in globalThis ? globalThis[key] : standIn),
+  }))
+}
+
 function mountScript(file, probe) {
   const source = readFileSync(new URL(`../src/components/settings/${file}`, import.meta.url), 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
@@ -12,13 +29,11 @@ function mountScript(file, probe) {
   const pending = { tokens: [], wiring: [] }
   const deferred = key => new Promise((resolve, reject) => pending[key].push({ resolve, reject }))
   const notices = []
-  const context = vm.createContext({
+  const context = sandbox({
     exports: {},
     ref: value => ({ value }), computed: get => ({ get value() { return get() } }),
     watch() {}, onMounted() {}, defineProps: () => ({}), defineEmits: () => () => {},
-    useI18n: () => ({ t: key => key }), useRoute: () => ({ hash: '' }),
-    useWelcomeStore: () => ({ minted: null }),
-    useAuthStore: () => ({ user: null }),
+    useI18n: () => ({ t: key => key }),
     api: { tokens: () => deferred('tokens'), curationWiring: () => deferred('wiring') },
     toastError: (...args) => notices.push(args), toastSuccess() {},
   })

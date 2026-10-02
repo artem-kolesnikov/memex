@@ -1,12 +1,11 @@
 <script setup lang="ts">
 // Memex Standalone's sign-in screen, in place of the core's: the setup form
-// while the server has no account, the password form after, and any provider
-// linked to the account below it. `next` returns only to the OAuth consent
-// page, as on the core's screen, and the server checks it again.
+// while the server has no account, and the password form after. `next` returns
+// only to the OAuth consent page, as on the core's screen, and the server checks
+// it again.
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { api, type SignInProvider } from '@/api/client'
 import PublicPage from '@/components/PublicPage.vue'
 import { owner } from './owner'
 
@@ -18,7 +17,6 @@ const RESET_PASSWORD = 'docker exec -it memex php bin/console app:reset-password
 
 const hasOwner = ref<boolean | null>(null)
 const codeNeeded = ref(false)
-const providers = ref<SignInProvider[]>([])
 const error = ref('')
 const busy = ref(false)
 
@@ -31,12 +29,10 @@ const next = computed(() => {
   return raw === '/oauth/authorize' || raw.startsWith('/oauth/authorize?') ? raw : ''
 })
 
-const SIGN_IN_ERRORS = ['denied', 'state', 'provider', 'unconfigured', 'no_email', 'email_in_use', 'identity_taken', 'link_session']
 const KNOWN = ['credentials', 'code', 'code_needed', 'email', 'password_empty', 'password_long', 'owner_exists', 'one_owner', 'throttled']
 
 function say(code: string | undefined) {
   if (code !== undefined && KNOWN.includes(code)) error.value = t(`standalone.errors.${code}`)
-  else if (code !== undefined && SIGN_IN_ERRORS.includes(code)) error.value = t(`auth.login.errors.${code}`)
   else error.value = t('auth.login.errors.unfinished')
 }
 
@@ -50,14 +46,6 @@ async function load() {
     codeNeeded.value = answer.data.code === true
   } catch {
     error.value = t('standalone.errors.unreachable')
-    return
-  }
-  if (hasOwner.value) {
-    try {
-      providers.value = (await api.signInProviders()).providers
-    } catch {
-      providers.value = []
-    }
   }
 }
 
@@ -86,10 +74,6 @@ async function submit() {
   } finally {
     busy.value = false
   }
-}
-
-function signInWith(provider: string) {
-  window.location.href = api.signInUrl(provider, { next: next.value || undefined })
 }
 </script>
 
@@ -124,13 +108,6 @@ function signInWith(provider: string) {
           <template v-else>{{ $t(busy ? 'standalone.setup.creating' : 'standalone.setup.submit') }}</template>
         </button>
       </form>
-
-      <div v-if="hasOwner && providers.length" class="d-grid gap-2 mt-3">
-        <button v-for="p in providers" :key="p.id" type="button"
-                class="btn btn-outline-secondary mm-login-provider" @click="signInWith(p.id)">
-          <i :class="p.icon" class="me-2"></i>{{ $t('auth.continue_with', { provider: p.label }) }}
-        </button>
-      </div>
     </div>
 
     <div class="mm-login-box" v-else-if="error">

@@ -38,26 +38,8 @@ export interface NoteListItem {
   flagged?: boolean
 }
 
-/**
- * What the first-run wizard reads to decide which step it opens on. Live on
- * every call — connecting happens in another application, so the only way
- * memex learns it worked is a request arriving from that assistant.
- */
+/** What the profile screens read: the account's profile notes, live on every call. */
 export interface WelcomeFacts {
-  connected: boolean
-  /** What the assistant that last spoke calls itself, so the step can name it. */
-  connection: string | null
-  /** When it last called in, ISO 8601. */
-  last_seen: string | null
-  /** An assistant has opened the memex guide skill. */
-  guide_read: boolean
-  /** A live connection holds the curator role, whose creates and edits apply at once. */
-  curator: boolean
-  skills: number
-  /** Proposals in the review inbox. */
-  waiting: number
-  /** An assistant wrote something and the owner kept it. */
-  kept: boolean
   /** Every note carrying `user-profile`, oldest first; read live, never remembered. */
   profiles: ProfileRef[]
 }
@@ -384,9 +366,6 @@ export interface Me {
   name: string
   /** `handle` is the vault's segment in a note URL. */
   team: { name: string; handle: string }
-  /** Whether sign-in should hand this person to the first-run wizard. Absent
-   *  on a token-authenticated `me`, which never routes anywhere. */
-  welcome_completed?: boolean
   system_tags?: SystemTag[]
   appearance?: AppearancePrefs
   /** How this account wants the map drawn. Absent keys are the SPA's defaults. */
@@ -956,8 +935,7 @@ export const api = {
     }>('/api/me/identities'),
   removeSignInMethod: (id: string) =>
     request<{ removed: boolean }>(`/api/me/identities/${id}`, { method: 'DELETE' }),
-  welcome: () => request<{ completed: boolean; facts: WelcomeFacts }>('/api/me/welcome'),
-  finishWelcome: () => request<{ completed: boolean }>('/api/me/welcome/done', { method: 'POST' }),
+  welcome: () => request<{ facts: WelcomeFacts }>('/api/me/welcome'),
   sessions: () => request<{ sessions: BrowserSession[] }>('/api/me/sessions'),
   endSession: (id: string) =>
     request<{ ended: number }>(`/api/me/sessions/${id}`, { method: 'DELETE' }),

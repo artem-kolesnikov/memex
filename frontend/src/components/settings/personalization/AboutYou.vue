@@ -39,7 +39,7 @@ async function copyProfilePrompt() {
     toastSuccess(t('welcome.profile_ask.copied'), t('welcome.profile_ask.copied_body'))
     window.setTimeout(() => (promptCopied.value = false), 2000)
   } else {
-    toastError(t('welcome.copy_failed'), t('connections.copy_by_hand'))
+    toastError(t('common.copy_failed'), t('connections.copy_by_hand'))
   }
 }
 
@@ -63,7 +63,7 @@ onMounted(() => {
         <template v-if="profiles.length === 0">
           <p class="mm-profile-empty">{{ $t('personalization.profile_note.none') }}</p>
           <button type="button" class="btn btn-outline-primary btn-sm"
-                  @click="router.push({ name: 'welcome', query: { section: 'profile' } })">{{ $t('personalization.profile_note.create') }}</button>
+                  @click="router.push({ name: 'welcome' })">{{ $t('personalization.profile_note.create') }}</button>
         </template>
         <div v-else-if="profiles.length === 1" class="mm-profile-note-row mm-settings-item">
           <i class="fa-regular fa-file-lines" aria-hidden="true"></i>

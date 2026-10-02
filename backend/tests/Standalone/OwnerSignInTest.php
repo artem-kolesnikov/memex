@@ -54,6 +54,7 @@ final class OwnerSignInTest extends WebTestCase
         $me = $this->json('GET', '/api/me');
         self::assertSame(self::EMAIL, $me['email']);
         self::assertFalse($me['web_assistants'], 'local-first: ChatGPT, Claude and Gemini connect to memex.tools');
+        self::assertFalse(static::getContainer()->getParameter('memex.social_sign_in'), 'the owner signs in with a password, never a provider');
         self::assertFalse($this->directory()->fetchOne('SELECT 1 FROM setup_code'), 'the code is spent');
     }
 

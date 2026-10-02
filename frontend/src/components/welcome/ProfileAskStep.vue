@@ -17,7 +17,7 @@ async function copy() {
     toastSuccess(t('welcome.profile_ask.copied'), t('welcome.profile_ask.copied_body'))
     window.setTimeout(() => (copied.value = false), 2000)
   } else {
-    toastError(t('welcome.copy_failed'), t('connections.copy_by_hand'))
+    toastError(t('common.copy_failed'), t('connections.copy_by_hand'))
   }
 }
 </script>

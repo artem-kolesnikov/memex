@@ -61,7 +61,6 @@ async function scenario(name, body) {
     if (match) return json(match[2] ? { revisions: [], note_id: Number(match[1]) } : note(Number(match[1])))
     if (key === 'GET /api/deleted') return json({ notes: [], total: 0, page: 1, pages: 1, per_page: 20, limbo_days: 30 })
     if (key === 'GET /api/me/welcome') return json({ completed: state.user.welcome_completed, facts: { connected: true, connection: 'Synthetic', guide_read: true } })
-    if (key === 'POST /api/me/welcome/done') return json({ completed: true })
     return json({})
   })
   page.on('dialog', dialog => dialog.accept())
@@ -166,14 +165,6 @@ await scenario('account rename response cannot revive the previous user', async 
   await page.evaluate(() => new Promise(requestAnimationFrame))
   assert((await page.locator('.app-account-summary').textContent()).includes('Account 2'))
 })
-
-// Finish setup leads to the optional profile screens first (2026-09-20); the
-// lifetime under test is the completion write, so they are skipped.
-const skipProfile = async page => {
-  const skip = page.getByRole('button', { name: 'Skip profile setup' })
-  await skip.waitFor()
-  await skip.click()
-}
 
 await scenario('inbox distinguishes loaded notes from global waiting and reaches next page', async (page, state) => {
   state.notes = Array.from({ length: 100 }, (_, i) => note(i + 1, { status: 'pending' })); state.total = 101
@@ -336,34 +327,6 @@ await scenario('stale inbox badge cannot replace the next account count', async 
 })
 
 
-await scenario('queued welcome names never execute for a replacement account', async (page, state) => {
-  const gate = deferred(), started = deferred()
-  let lateWrites = 0
-  state.on['GET /api/me/welcome'] = json => json({ completed: state.user.welcome_completed, facts: { connected: false, guide_read: false } })
-  state.on['PATCH /api/me'] = async json => { started.resolve(); await gate.promise; return json(me(1)) }
-  state.on['PATCH /api/me/memex'] = json => { lateWrites++; return json(state.user) }
-  await opened(page, 'welcome')
-  await page.fill('#wiz-name', 'Queued A name')
-  await page.fill('#wiz-memex', 'Queued A space')
-  await page.locator('#wiz-name').focus(); await waitForStart(started.promise)
-  await page.evaluate(() => {
-    const state = history.state ?? {}
-    history.pushState({ ...state, current: '/login', position: (state.position ?? 0) + 1 }, '', '/login')
-    dispatchEvent(new PopStateEvent('popstate', { state: history.state }))
-  })
-  await page.waitForSelector('.mm-login')
-  state.user = { ...me(2), welcome_completed: false }
-  await authAction(page, 'check')
-  await navigate(page, 'welcome')
-  await page.waitForSelector('#wiz-name')
-  assert.equal(await page.inputValue('#wiz-name'), 'Account 2', 'new account inherited an old queued name')
-  const response = page.waitForResponse(res => res.url().endsWith('/api/me') && res.request().method() === 'PATCH')
-  gate.resolve(); await response
-  await page.evaluate(() => new Promise(requestAnimationFrame))
-  assert.equal(lateWrites, 0, 'old queued mutation was sent in the new account')
-})
-
-
 await scenario('failed logout preserves the open editor draft', async (page, state) => {
   state.on['POST /api/logout'] = json => json({ error: 'Logout unavailable' }, 500)
   await opened(page, 'notes/1/edit')
@@ -427,33 +390,6 @@ await scenario('network failure during logout remains visible until a confirmed 
   assert((await page.locator('.app-account-summary').textContent()).includes('Account 1'))
   await page.locator('.app-logout-error button').click()
   await page.waitForURL('**/login')
-})
-
-await scenario('reopened welcome waits for the same pending completion', async (page, state) => {
-  state.user.welcome_completed = false
-  const gate = deferred(), started = deferred()
-  let finishes = 0
-  state.on['POST /api/me/welcome/done'] = async json => { finishes++; started.resolve(); await gate.promise; return json({ completed: true }) }
-  await opened(page, 'welcome')
-  const primary = () => page.locator('.mm-wiz-footer .mm-wiz-button').last()
-  await primary().click()
-  await skipProfile(page)
-  await page.locator('.mm-wiz-completion-checks').waitFor()
-  await primary().click(); await waitForStart(started.promise)
-  await page.evaluate(() => { history.pushState({}, '', '/login'); dispatchEvent(new PopStateEvent('popstate', { state: history.state })) })
-  await page.locator('.mm-login').waitFor()
-  await navigate(page, 'welcome')
-  await page.locator('.mm-wiz').waitFor()
-  if (!await page.locator('.mm-wiz-completion-checks').count()) {
-    await primary().click()
-    await skipProfile(page)
-  }
-  await page.locator('.mm-wiz-completion-checks').waitFor()
-  await primary().click()
-  assert(page.url().endsWith('/welcome'))
-  assert.equal(finishes, 1, 'reopening sent a second completion instead of awaiting the pending one')
-  gate.resolve()
-  await page.waitForURL(`**/${handle}/notes`)
 })
 
 for (const leave of [false, true]) await scenario(`confirmation cancel during opening ${leave ? 'cannot outlive an unmounted view' : 'preserves the draft'}`, async (page, state) => {

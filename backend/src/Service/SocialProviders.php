@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
 /**
  * The accounts a person can sign in with, and everything the sign-in screen and
  * the OAuth dance need to know about each one.
@@ -24,7 +26,9 @@ namespace App\Service;
  * A provider with no client id or secret configured is not offered. That is
  * what makes this safe to merge before the operator has registered anything:
  * the buttons render from {@see available()}, so an unregistered provider is
- * invisible rather than broken.
+ * invisible rather than broken. An edition that does not sign in with providers
+ * at all (`memex.social_sign_in`: Memex Standalone, where the owner has a
+ * password) offers none, whatever is configured.
  *
  * The URLs are checked against each provider's current documentation
  * (2026-08-21). If one moves, this is the single place to fix it.
@@ -112,6 +116,8 @@ final class SocialProviders
         // is what its unit tests do. An installation with no signer configured
         // simply never offers Apple.
         private readonly ?AppleClientSecret $appleSecret = null,
+        #[Autowire('%memex.social_sign_in%')]
+        private readonly bool $offered = true,
     ) {
         $this->credentials = [
             self::GOOGLE => ['id' => trim($googleClientId), 'secret' => trim($googleClientSecret)],
@@ -141,7 +147,7 @@ final class SocialProviders
     public function isConfigured(string $provider): bool
     {
         $creds = $this->credentials[$provider] ?? null;
-        if ($creds === null || $creds['id'] === '') {
+        if (!$this->offered || $creds === null || $creds['id'] === '') {
             return false;
         }
 

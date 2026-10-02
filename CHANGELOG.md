@@ -11,8 +11,7 @@ The first release of memex for a machine of your own: a laptop, a home server or
 machine.
 
 - One account, created at first run: with no code for ten minutes after the first start,
-  and with the setup code the server prints after that. It signs in with a password, and
-  with Google, Apple, Microsoft or GitHub when the server sets them up.
+  and with the setup code the server prints after that. It signs in with a password.
 - Notes with tags, wiki-links and search by meaning, run on the server's own model or on
   OpenAI with your key. What assistants write waits for your review by default.
 - Assistants connect over MCP: by address with OAuth or a token, and Claude Desktop through

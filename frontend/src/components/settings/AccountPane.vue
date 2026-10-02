@@ -125,6 +125,11 @@ const unlinked = computed(() =>
   available.value.filter((p) => !identities.value.some((i) => i.provider === p.id)),
 )
 
+/** An edition with no providers to offer, and none linked, has no block to show. */
+const methodsShown = computed(
+  () => !methodsLoaded.value || available.value.length > 0 || identities.value.length > 0,
+)
+
 /** Whether removing this would leave nothing that opens the account. */
 function isOnlyWayIn(): boolean {
   return identities.value.length <= 1 && !ownWayIn.value
@@ -312,7 +317,7 @@ onMounted(async () => {
 
     <component :is="block" v-for="(block, i) in accountBlocks" :key="i" />
 
-    <div class="mm-block">
+    <div class="mm-block" v-if="methodsShown">
       <h3 class="mm-block-title">{{ $t('account.linked.title') }}</h3>
 
       <div class="table-responsive mb-3" v-if="identities.length">

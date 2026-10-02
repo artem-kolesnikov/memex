@@ -29,7 +29,8 @@ json() {
     python3 -c "import json, sys; print(eval(sys.argv[1], {'json': json, 'd': json.load(sys.stdin)}))" "$1"
 }
 
-docker run -d --name "$name" -p "127.0.0.1:$port:8080" -v "$volume:/data" "$image" > /dev/null
+docker run -d --name "$name" -p "127.0.0.1:$port:8080" -v "$volume:/data" \
+    -e GOOGLE_OAUTH_CLIENT_ID=smoke-client -e GOOGLE_OAUTH_CLIENT_SECRET=smoke-secret "$image" > /dev/null
 
 for _ in $(seq 60); do
     curl -fsS "$base/api/health" > /dev/null 2>&1 && break
@@ -45,6 +46,7 @@ case "$(curl -sI "$base/login")" in
     *) fail "/login carries no Content-Security-Policy" ;;
 esac
 issuer="$(curl -fsS "$base/.well-known/oauth-authorization-server" | json 'd["issuer"]')"
+[ "$(curl -fsS "$base/api/auth/providers" | json 'len(d["providers"])')" = 0 ] || fail "a sign-in provider is offered, though the owner signs in with a password"
 [ "$issuer" = "$base" ] || fail "OAuth discovery names $issuer, not the address in use, $base"
 
 case "$(docker logs "$name" 2>&1)" in

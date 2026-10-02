@@ -60,11 +60,13 @@ services:
         arguments:
             $httpClient: '@test.mock_http_client'
 
-    # All four providers configured, so the suite exercises the offered path
-    # rather than the not-offered one. Fake credentials by construction: the
-    # mock client above is the only thing that ever sees them.
+    # All four providers configured and offered in either edition, so the suite
+    # exercises the offered path rather than the not-offered one, and opens
+    # accounts through them. Fake credentials by construction: the mock client
+    # above is the only thing that ever sees them.
     App\Service\SocialProviders:
         arguments:
+            $offered: true
             $googleClientId: 'test-google-client'
             $googleClientSecret: 'test-google-secret'
             $githubClientId: 'test-github-client'

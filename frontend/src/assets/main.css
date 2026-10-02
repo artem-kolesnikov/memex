@@ -3477,11 +3477,10 @@ button.mm-census-row:hover {
     .mm-map-setting { grid-template-columns: 1fr; gap: 8px; }
 }
 
-/* ── The first-run wizard ──────────────────────────────────────────────────
-   A dialog over the workspace, in the app's own palette: every colour below
-   is a --mm-* token, so the theme radios on its first screen repaint it with
-   the rest of the app. The two lines and the result colours are the only
-   values the palette does not carry. */
+/* ── The profile dialog, and the connect guide in Settings ─────────────────
+   In the app's own palette: every colour below is a --mm-* token, so a theme
+   change repaints them with the rest of the app. The two lines and the result
+   colours are the only values the palette does not carry. */
 .mm-wiz,
 .mm-wiz-scope {
     --wiz-line: var(--mm-line);
@@ -3545,8 +3544,7 @@ button.mm-census-row:hover {
     text-underline-offset: 3px;
 }
 
-.mm-wiz :focus-visible,
-.mm-wiz-image-dialog :focus-visible {
+.mm-wiz :focus-visible {
     outline: 3px solid var(--mm-primary);
     outline-offset: 4px;
 }
@@ -3610,77 +3608,12 @@ button.mm-census-row:hover {
     background: var(--mm-highlight);
 }
 
-.mm-wiz-progress {
-    padding: 0 32px;
-    margin: 0;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    list-style: none;
-    border-bottom: 1px solid var(--wiz-line-soft);
-    background: var(--mm-chrome);
-}
-
-.mm-wiz-progress li {
-    min-width: 0;
-}
-
-.mm-wiz-progress button {
-    width: 100%;
-    background: transparent;
-    padding: 17px 0;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    color: var(--mm-muted);
-    font-size: 11px;
-    text-align: left;
-    min-height: 53px;
-}
-
-.mm-wiz-progress button[aria-current="step"] {
-    border-bottom-color: var(--mm-primary);
-    color: var(--mm-primary);
-    font-weight: 600;
-}
-
-.mm-wiz-step-number {
-    border: 1px solid var(--wiz-line);
-    border-radius: 50%;
-    width: 21px;
-    height: 21px;
-    font-size: 10px;
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-}
-
-.mm-wiz-progress [aria-current="step"] .mm-wiz-step-number {
-    background: var(--mm-primary);
-    color: var(--mm-on-primary);
-    border-color: var(--mm-primary);
-}
-
-.mm-wiz-progress .is-past .mm-wiz-step-number {
-    color: var(--wiz-success);
-    background: var(--wiz-success-bg);
-    border-color: transparent;
-}
-
-.mm-wiz-step-number .mm-wiz-icon {
-    width: 12px;
-    height: 12px;
-}
-
 .mm-wiz-body.modal-body {
     padding: 28px 32px 25px;
     min-height: 405px;
 }
 
-.mm-wiz-body > section,
-.mm-wiz-body > .mm-wiz-completion {
+.mm-wiz-body > section {
     animation: mm-wiz-enter .18s ease-out;
 }
 
@@ -3729,16 +3662,6 @@ button.mm-census-row:hover {
     align-items: center;
     gap: 18px;
     min-width: 0;
-}
-
-.mm-wiz-footer-note {
-    color: var(--mm-muted);
-    font-size: 10px;
-    line-height: 1.5;
-}
-
-.mm-wiz-footer-note.is-error {
-    color: var(--wiz-error);
 }
 
 .mm-wiz-button {
@@ -3818,74 +3741,7 @@ button.mm-census-row:hover {
     margin-left: 3px;
 }
 
-/* Your space */
-.mm-wiz-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.mm-wiz-field label {
-    display: block;
-    font-size: 12px;
-    font-weight: 550;
-    margin-bottom: 9px;
-    color: var(--mm-ink);
-}
-
-.mm-wiz-field input {
-    width: 100%;
-    min-height: 44px;
-    background: var(--mm-input-bg);
-    border: 1px solid var(--wiz-line);
-    color: var(--mm-ink);
-    padding: 0 12px;
-    border-radius: 7px;
-    font-size: 13px;
-}
-
-.mm-wiz-field input:hover {
-    border-color: var(--mm-ink-soft);
-}
-
-.mm-wiz-field input[aria-invalid="true"] {
-    border-color: var(--wiz-error);
-}
-
-.mm-wiz-field input::placeholder {
-    color: var(--mm-muted);
-    opacity: 1;
-}
-
-.mm-wiz-field small {
-    display: block;
-    color: var(--mm-muted);
-    font-size: 10px;
-    margin-top: 7px;
-    line-height: 1.5;
-}
-
-.mm-wiz-field small.is-error {
-    color: var(--wiz-error);
-}
-
-.mm-wiz-appearance {
-    border: 0;
-    padding: 0;
-    margin: 24px 0 0;
-    min-width: 0;
-}
-
-.mm-wiz-appearance legend {
-    padding: 0;
-    margin-bottom: 13px;
-    font-size: 12px;
-    font-weight: 550;
-    float: none;
-    width: auto;
-    color: var(--mm-ink);
-}
-
+/* The theme choice, in Settings › Preferences */
 .mm-wiz-theme-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -4060,36 +3916,33 @@ button.mm-census-row:hover {
     background: var(--mm-on-primary);
 }
 
-/* Connect */
+/* Settings › Assistants: the tabs, each assistant's steps as one numbered
+   list, and the Other tab's token. */
 .mm-wiz-providers {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 9px;
-    margin-bottom: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
 }
 
 .mm-wiz-provider {
     border: 1px solid var(--wiz-line);
     background: var(--mm-surface);
-    border-radius: 7px;
-    min-height: 45px;
-    display: flex;
+    border-radius: 999px;
+    min-height: 36px;
+    padding: 0 15px 0 11px;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: 11px;
+    gap: 7px;
+    font-size: .85rem;
     color: var(--mm-ink);
 }
 
-.mm-wiz-provider img {
-    width: 21px;
-    height: 21px;
-    object-fit: contain;
-}
-
+.mm-wiz-provider img,
 .mm-wiz-provider .mm-wiz-icon {
-    width: 21px;
-    height: 21px;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
 }
 
 .mm-wiz-provider[aria-pressed="true"] {
@@ -4102,196 +3955,144 @@ button.mm-census-row:hover {
     background: var(--mm-highlight);
 }
 
-.mm-wiz-guide-titlebar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 16px;
-}
-
-.mm-wiz-guide-kicker {
-    font-size: 10px;
-    color: var(--mm-muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.mm-wiz-optional-badge {
-    padding: 3px 6px;
-    border-radius: 4px;
-    color: var(--mm-ink-soft);
-    background: var(--mm-highlight);
-    font-size: 9px;
-}
-
-.mm-wiz-guide-dots {
-    display: flex;
-    flex-shrink: 0;
-    gap: 4px;
-    margin-left: auto;
-}
-
-.mm-wiz-guide-dot {
-    width: 29px;
-    height: 29px;
-    background: none;
-    color: var(--mm-muted);
-    border: 1px solid transparent;
-    border-radius: 50%;
-    font-size: 10px;
-}
-
-.mm-wiz-guide-dot[aria-current="step"] {
-    background: var(--mm-highlight);
-    color: var(--mm-primary);
-    border-color: var(--wiz-line);
-}
-
-.mm-wiz-guide-content {
+.mm-connect-steps {
+    list-style: none;
+    counter-reset: mm-connect;
+    margin: 0;
+    padding: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 165px;
-    gap: 28px;
+    gap: 18px;
+    max-width: 680px;
+}
+
+.mm-connect-steps > li {
+    counter-increment: mm-connect;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: 12px;
     align-items: start;
 }
 
-.mm-wiz-guide-content h2 {
-    font-size: 17px;
-    font-weight: 550;
-    line-height: 1.4;
-    letter-spacing: -.3px;
-    color: var(--mm-ink);
-}
-
-.mm-wiz-guide-copy {
-    font-size: 12px;
-    line-height: 1.8;
+.mm-connect-steps > li::before {
+    content: counter(mm-connect);
+    grid-row: 1;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--wiz-line);
     color: var(--mm-ink-soft);
-    margin-top: 10px;
-}
-
-.mm-wiz-guide-copy strong {
-    color: var(--mm-ink);
-    font-weight: 550;
-}
-
-.mm-wiz-guide-copy + .mm-wiz-text-button {
-    margin-top: 10px;
-}
-
-.mm-wiz-guide-tip {
+    font-size: .75rem;
     display: flex;
-    align-items: flex-start;
-    gap: 7px;
-    font-size: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.mm-connect-steps > li > * {
+    grid-column: 2;
+}
+
+/* A block to be copied sits outside the step's indent. */
+.mm-connect-steps > li > .mm-connect-copy {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+}
+
+.mm-connect-step-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: 16px;
+    min-height: 24px;
+}
+
+.mm-connect-step-head h4 {
+    margin: 0;
+    font-size: .95rem;
+    font-weight: 600;
+    line-height: 24px;
+    color: var(--mm-ink);
+}
+
+.mm-connect-step-head .mm-wiz-text-button {
+    min-height: 24px;
+    padding: 0;
+    font-size: .8rem;
+}
+
+.mm-connect-steps p {
+    margin: 2px 0 0;
+    font-size: .85rem;
+    line-height: 1.6;
+    color: var(--mm-ink-soft);
+}
+
+.mm-connect-steps strong {
+    color: var(--mm-ink);
+    font-weight: 600;
+}
+
+.mm-connect-steps p.mm-connect-tip,
+.mm-connect-optional {
+    font-size: .8rem;
     color: var(--mm-muted);
-    line-height: 1.7;
-    margin-top: 13px;
 }
 
-.mm-wiz-guide-tip .mm-wiz-icon {
-    width: 13px;
-    height: 13px;
-    margin-top: 2px;
-}
-
-.mm-wiz-thumbnail {
-    display: block;
-    padding: 7px;
-    border: 1px solid var(--wiz-line);
-    border-radius: 9px;
-    background: var(--mm-chrome);
-    width: 100%;
-    min-height: 140px;
-    position: relative;
-    cursor: zoom-in;
-}
-
-.mm-wiz-thumbnail img {
-    width: 100%;
-    height: 140px;
-    object-fit: contain;
-    display: block;
-}
-
-.mm-wiz-thumbnail:hover {
-    border-color: var(--mm-primary);
-}
-
-.mm-wiz-zoom {
-    position: absolute;
-    bottom: 7px;
-    right: 7px;
-    display: grid;
-    place-items: center;
-    width: 25px;
-    height: 25px;
-    border-radius: 5px;
-    background: var(--mm-surface);
-    border: 1px solid var(--wiz-line);
-    color: var(--mm-primary);
-}
-
-.mm-wiz-zoom .mm-wiz-icon {
-    width: 13px;
-    height: 13px;
-}
-
-.mm-wiz-thumb-caption {
-    display: block;
-    font-size: 9px;
-    color: var(--mm-muted);
-    text-align: center;
-    margin-top: 7px;
-}
-
-.mm-wiz-gallery {
-    display: grid;
-    gap: 9px;
-}
-
-.mm-wiz-gallery .mm-wiz-thumbnail {
-    min-height: 0;
-    padding: 5px;
-}
-
-.mm-wiz-gallery .mm-wiz-thumbnail img {
-    height: 72px;
-}
-
-.mm-wiz-gallery .mm-wiz-thumb-caption {
+.mm-connect-steps > li > .mm-connect-tip {
     margin-top: 4px;
 }
 
-/* Three related screenshots: the location above, the two menus below. */
-.mm-wiz-gallery-three {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 9px 7px;
+.mm-connect-optional {
+    max-width: 680px;
+    margin: 20px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--wiz-line-soft);
+    line-height: 1.6;
 }
 
-.mm-wiz-gallery-three > div:first-child {
-    grid-column: 1 / -1;
+.mm-connect-optional strong {
+    color: var(--mm-ink-soft);
+    font-weight: 600;
 }
 
-.mm-wiz-gallery-three .mm-wiz-thumbnail img {
-    height: 62px;
+.mm-connect-steps .mm-wiz-address {
+    margin: 10px 0 0;
 }
 
-.mm-wiz-gallery-three > div:not(:first-child) .mm-wiz-thumbnail img {
-    height: 55px;
+.mm-connect-steps .mm-wiz-address code {
+    font-size: .85rem;
 }
 
-.mm-wiz-gallery-three > div:not(:first-child) .mm-wiz-zoom {
-    width: 19px;
-    height: 19px;
-    bottom: 4px;
-    right: 4px;
+.mm-connect-prompt pre {
+    font: .85rem/1.6 var(--mm-font-sans);
 }
 
-.mm-wiz-gallery-three .mm-wiz-thumb-caption {
-    font-size: 8px;
+.mm-connect-steps .mm-wiz-snippet pre {
+    font-size: .8rem;
+}
+
+.mm-connect-token {
+    display: flex;
+    gap: 8px;
+    max-width: 440px;
+    margin-top: 10px;
+}
+
+.mm-connect-token input {
+    flex: 1;
+    min-width: 0;
+}
+
+.mm-connect-steps p.mm-connect-setups-intro {
+    margin-top: 14px;
+}
+
+.mm-connect-steps .mm-wiz-setups {
+    margin-top: 8px;
+}
+
+.mm-connect-steps .mm-wiz-setup {
+    font-size: .8rem;
 }
 
 .mm-wiz-address {
@@ -4333,72 +4134,6 @@ button.mm-census-row:hover {
 .mm-wiz-copy-button .mm-wiz-icon {
     width: 14px;
     height: 14px;
-}
-
-.mm-wiz-diagram {
-    min-height: 150px;
-    background: var(--mm-chrome);
-    border: 1px solid var(--wiz-line-soft);
-    border-radius: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 12px;
-    padding: 15px;
-}
-
-.mm-wiz-diagram-pair {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-}
-
-.mm-wiz-diagram-pair > .mm-wiz-icon {
-    width: 17px;
-    color: var(--mm-muted);
-}
-
-.mm-wiz-app-mark {
-    display: grid;
-    place-items: center;
-    width: 46px;
-    height: 46px;
-    border: 1px solid var(--wiz-line);
-    border-radius: 11px;
-    background: var(--mm-surface);
-}
-
-.mm-wiz-app-mark img {
-    width: 25px;
-    height: 25px;
-    object-fit: contain;
-}
-
-.mm-wiz-diagram small {
-    font-size: 9px;
-    line-height: 1.6;
-    text-align: center;
-    color: var(--mm-muted);
-}
-
-.mm-wiz-custom {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 22px;
-}
-
-.mm-wiz-custom h2 {
-    font-size: 14px;
-    font-weight: 550;
-    color: var(--mm-ink);
-}
-
-.mm-wiz-custom p {
-    margin-top: 9px;
-    font-size: 11px;
-    line-height: 1.8;
-    color: var(--mm-ink-soft);
 }
 
 .mm-wiz-setups {
@@ -4444,92 +4179,6 @@ button.mm-census-row:hover {
     color: var(--mm-ink);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-}
-
-.mm-wiz-custom .mm-wiz-field {
-    margin-top: 15px;
-}
-
-.mm-wiz-custom .mm-wiz-field input {
-    min-height: 39px;
-    font-size: 11px;
-}
-
-.mm-wiz-custom .mm-wiz-field label {
-    font-size: 11px;
-}
-
-.mm-wiz-custom .mm-wiz-button {
-    margin-top: 12px;
-    min-height: 36px;
-    font-size: 11px;
-}
-
-.mm-wiz-custom code {
-    font-size: 10px;
-    overflow-wrap: anywhere;
-    color: var(--mm-ink);
-}
-
-/* Test it */
-.mm-wiz-test-card {
-    border: 1px solid var(--wiz-line);
-    background: var(--mm-chrome);
-    border-radius: 10px;
-    padding: 20px 23px;
-}
-
-.mm-wiz-test-top {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 18px;
-}
-
-.mm-wiz-test-top .mm-wiz-app-mark {
-    width: 40px;
-    height: 40px;
-    border-radius: 9px;
-}
-
-.mm-wiz-test-top .mm-wiz-app-mark img {
-    width: 23px;
-    height: 23px;
-}
-
-.mm-wiz-test-top strong {
-    display: block;
-    font-size: 12px;
-    font-weight: 550;
-    color: var(--mm-ink);
-}
-
-.mm-wiz-test-top small {
-    display: block;
-    margin-top: 4px;
-    color: var(--mm-muted);
-    font-size: 10px;
-}
-
-.mm-wiz-message {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    background: var(--mm-surface);
-    border: 1px solid var(--wiz-line);
-    border-radius: 8px;
-    padding: 10px 12px 10px 15px;
-    font-size: 14px;
-    color: var(--mm-ink);
-}
-
-.mm-wiz-test-links {
-    margin-top: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
 }
 
 .mm-wiz-status {
@@ -4584,15 +4233,7 @@ button.mm-census-row:hover {
     color: var(--wiz-error);
 }
 
-.mm-wiz-test-card + .mm-wiz-status {
-    margin-top: 15px;
-}
-
-/* First chat */
-.mm-wiz-first-chat .mm-wiz-heading {
-    margin-bottom: 18px;
-}
-
+/* A prompt to copy */
 .mm-wiz-prompt {
     border: 1px solid var(--wiz-line);
     background: var(--mm-input-bg);
@@ -4638,46 +4279,6 @@ button.mm-census-row:hover {
     margin-top: 9px;
 }
 
-.mm-wiz-guide-wait {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--mm-ink-soft);
-    font-size: 10px;
-    margin-top: 15px;
-    line-height: 1.7;
-}
-
-.mm-wiz-guide-wait .mm-wiz-icon {
-    width: 14px;
-    height: 14px;
-}
-
-.mm-wiz-first-chat .mm-wiz-status {
-    margin-top: 13px;
-    padding: 10px 12px;
-}
-
-.mm-wiz-first-chat .mm-wiz-status p {
-    margin-top: 3px;
-}
-
-.mm-wiz-review-reminder {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 10px;
-    line-height: 1.6;
-    color: var(--mm-ink-soft);
-    margin-top: 13px;
-}
-
-.mm-wiz-review-reminder .mm-wiz-icon {
-    width: 14px;
-    height: 14px;
-    color: var(--wiz-success);
-}
-
 .mm-wiz-open-failed {
     margin: 0 0 18px;
 }
@@ -4686,68 +4287,6 @@ button.mm-census-row:hover {
     min-height: 0;
     padding: 0;
     margin-top: 4px;
-}
-
-/* Finished, and paused */
-.mm-wiz-completion {
-    text-align: center;
-    padding-top: 25px;
-}
-
-.mm-wiz-completion-mark {
-    display: grid;
-    place-items: center;
-    width: 63px;
-    height: 63px;
-    background: var(--wiz-success-bg);
-    border-radius: 50%;
-    margin: 0 auto 21px;
-    color: var(--wiz-success);
-}
-
-.mm-wiz-completion-mark.is-paused {
-    background: var(--mm-highlight);
-    color: var(--mm-ink-soft);
-}
-
-.mm-wiz-completion-mark .mm-wiz-icon {
-    width: 29px;
-    height: 29px;
-}
-
-.mm-wiz-completion p {
-    font-size: 12px;
-    line-height: 1.85;
-    color: var(--mm-ink-soft);
-    max-width: 400px;
-    margin: 12px auto 22px;
-}
-
-.mm-wiz-completion-checks {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.mm-wiz-completion-checks span {
-    font-size: 10px;
-    color: var(--wiz-success);
-    display: flex;
-    gap: 5px;
-    align-items: center;
-}
-
-.mm-wiz-completion-checks .mm-wiz-icon {
-    width: 13px;
-    height: 13px;
-}
-
-.mm-wiz-optional-actions {
-    display: flex;
-    align-items: center;
-    gap: 17px;
 }
 
 /* Your profile */
@@ -4924,41 +4463,7 @@ button.mm-census-row:hover {
     .mm-profile-note-row > .btn { grid-column: 2; justify-self: start; }
 }
 
-/* The enlarged screenshot: a native dialog in the top layer, above the
-   wizard's own modal. */
-.mm-wiz-image-dialog {
-    max-width: min(1000px, 94vw);
-    max-height: 94svh;
-    padding: 15px;
-    background: var(--mm-surface);
-    color: var(--mm-ink);
-    border: 1px solid var(--mm-line);
-    border-radius: 12px;
-    font-family: var(--mm-font-sans);
-}
-
-.mm-wiz-image-dialog::backdrop {
-    background: rgba(7, 17, 19, .72);
-    backdrop-filter: blur(3px);
-}
-
-.mm-wiz-image-dialog header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    font-size: 12px;
-}
-
-.mm-wiz-image-dialog img {
-    max-width: 100%;
-    max-height: calc(90svh - 80px);
-    object-fit: contain;
-    display: block;
-    margin: 10px auto 0;
-}
-
-/* The wizard's pieces inside Settings: the same tokens, a pane's own width. */
+/* The dialog's pieces inside Settings: the same tokens, a pane's own width. */
 .mm-wiz-scope {
     font-family: var(--mm-font-sans);
     -webkit-font-smoothing: antialiased;
@@ -4970,18 +4475,6 @@ button.mm-census-row:hover {
 
 .mm-connect-guide { width: 100%; }
 
-.mm-wiz-guide-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 22px;
-}
-
-.mm-wiz-guide-nav .mm-wiz-button {
-    margin-left: auto;
-}
-
 .mm-wiz-prompt-heading .mm-wiz-copy-button {
     min-height: 26px;
     margin: -4px -8px -4px 2px;
@@ -4992,26 +4485,13 @@ button.mm-census-row:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Half a desktop, beside the assistant's own window. */
 @media (max-width: 700px) {
     .mm-wiz-header { padding: 17px 23px 15px; }
-    .mm-wiz-progress { padding: 0 23px; }
     .mm-wiz-body.modal-body { padding: 24px 23px 22px; min-height: 404px; }
     .mm-wiz-title { font-size: 26px; }
     .mm-wiz-heading { margin-bottom: 21px; }
     .mm-wiz-footer { margin: 0 23px; }
-    .mm-wiz-guide-content { grid-template-columns: minmax(0, 1fr) 139px; gap: 20px; }
-    .mm-wiz-thumbnail img { height: 127px; }
-    .mm-wiz-guide-content h2 { font-size: 16px; }
-    .mm-wiz-guide-copy { font-size: 11px; }
-    .mm-wiz-providers { gap: 7px; }
-    .mm-wiz-provider { font-size: 10px; gap: 6px; }
-    .mm-wiz-provider img { width: 19px; height: 19px; }
-    .mm-wiz-progress button { font-size: 10px; gap: 6px; }
     .mm-wiz-prompt-text { font-size: 11px; line-height: 1.75; }
-    .mm-wiz-optional-actions { gap: 12px; }
-    .mm-wiz-optional-actions .mm-wiz-text-button { font-size: 10px; }
-    .mm-wiz-footer:has(.mm-wiz-optional-actions) .mm-wiz-footer-note { display: none; }
 }
 
 /* A phone: the card is the screen. */
@@ -5026,60 +4506,15 @@ button.mm-census-row:hover {
     .mm-wiz-brand { font-size: 22px; }
     .mm-wiz-brand img { width: 26px; height: 26px; }
     .mm-wiz-setup-label { font-size: 10px; }
-    /* Five names do not fit a phone: the current step keeps its name, the
-       others are their circles, and the row stays on one line. */
-    .mm-wiz-progress { padding: 0 20px; grid-template-columns: repeat(5, minmax(0, auto)); justify-content: space-between; column-gap: 8px; }
-    .mm-wiz-progress button { min-height: 51px; padding: 12px 0; font-size: 10px; white-space: nowrap; }
-    .mm-wiz-progress button:not([aria-current="step"]) .mm-wiz-step-label { display: none; }
-    .mm-wiz-step-number { width: 18px; height: 18px; font-size: 9px; }
     .mm-wiz-body.modal-body { padding: 25px 20px 24px; flex: 1; min-height: 0; }
     .mm-wiz-title { font-size: 26px; }
-    .mm-wiz-fields { grid-template-columns: 1fr; gap: 17px; }
-    .mm-wiz-appearance { margin-top: 23px; }
     .mm-wiz-theme-options { gap: 15px; }
     .mm-wiz-theme-image { padding: 12px 9px 0; height: 83px; }
     .mm-wiz-theme-caption small { display: none; }
     .mm-wiz-footer { margin: 0 20px; gap: 12px; padding-bottom: 21px; }
     .mm-wiz-footer-left { gap: 9px; }
-    .mm-wiz-footer-note { font-size: 9px; max-width: 105px; }
     .mm-wiz-button { font-size: 11px; padding: 0 13px; }
-    .mm-wiz-provider { flex-direction: column; gap: 7px; min-height: 64px; font-size: 10px; }
-    .mm-wiz-provider img, .mm-wiz-provider .mm-wiz-icon { width: 21px; height: 21px; }
-    .mm-wiz-providers { gap: 8px; margin-bottom: 19px; }
-    .mm-wiz-guide-titlebar { margin-bottom: 17px; }
-    .mm-wiz-guide-content { grid-template-columns: minmax(0, 1fr) 103px; gap: 14px; }
-    .mm-wiz-guide-copy { font-size: 12px; line-height: 1.75; }
-    .mm-wiz-guide-content h2 { font-size: 16px; }
-    .mm-wiz-guide-content.is-optional h2 { font-size: 15px; }
-    .mm-wiz-guide-content.is-optional .mm-wiz-guide-copy { font-size: 11px; }
-    .mm-wiz-thumbnail { min-height: 110px; padding: 5px; }
-    .mm-wiz-thumbnail img { height: 110px; }
-    .mm-wiz-gallery .mm-wiz-thumbnail img { height: 79px; }
-    .mm-wiz-gallery-three { gap: 9px 5px; }
-    .mm-wiz-gallery-three .mm-wiz-thumbnail { padding: 3px; }
-    .mm-wiz-gallery-three > div:not(:first-child) .mm-wiz-thumbnail img { height: 46px; }
-    .mm-wiz-gallery-three .mm-wiz-thumb-caption { font-size: 8px; line-height: 1.5; }
-    .mm-wiz-diagram { padding: 9px; min-height: 125px; }
-    .mm-wiz-diagram-pair { flex-direction: column; gap: 7px; }
-    .mm-wiz-diagram-pair > .mm-wiz-icon { transform: rotate(90deg); width: 12px; height: 12px; }
-    .mm-wiz-app-mark { width: 32px; height: 32px; border-radius: 7px; }
-    .mm-wiz-app-mark img { width: 18px; height: 18px; }
-    .mm-wiz-address { flex-wrap: wrap; padding: 8px 9px 3px; gap: 0; }
-    .mm-wiz-address code { font-size: 10px; flex-basis: 100%; }
-    .mm-wiz-copy-button { margin-left: auto; min-height: 35px; }
-    .mm-wiz-custom { grid-template-columns: 1fr; gap: 15px; }
-    .mm-wiz-custom .mm-wiz-field { margin-top: 12px; }
-    .mm-wiz-custom .mm-wiz-button { margin-top: 8px; }
-    .mm-wiz-custom p { font-size: 12px; }
-    .mm-wiz-test-card { padding: 18px; }
-    .mm-wiz-test-top small { font-size: 10px; line-height: 1.6; }
-    .mm-wiz-message { font-size: 13px; }
-    .mm-wiz-message .mm-wiz-copy-button { min-height: 35px; }
-    .mm-wiz-test-links { align-items: flex-start; }
-    .mm-wiz-test-links .mm-wiz-text-button { font-size: 10px; }
     .mm-wiz-prompt-text { padding: 15px; font-size: 11px; line-height: 1.85; }
-    .mm-wiz-completion { padding-top: 28px; }
-    .mm-wiz-optional-actions { gap: 10px; }
 }
 
 @media (max-height: 690px) and (min-width: 481px) {
@@ -5091,7 +4526,6 @@ button.mm-census-row:hover {
 
 @media (prefers-reduced-motion: reduce) {
     .mm-wiz-body > section,
-    .mm-wiz-body > .mm-wiz-completion,
     .mm-wiz-button {
         animation: none;
         transition: none;

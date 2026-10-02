@@ -2,9 +2,9 @@
 // "Connections": which assistants can reach this knowledge base and what each
 // of them is allowed to do without asking.
 //
-// The guides are the first-run wizard's, shown the same way: four tabs, one
-// instruction at a time, the prompt last. Other mints a token for an agent
-// that cannot complete an OAuth flow in a browser.
+// The guides are four tabs, each assistant's steps one numbered list with the
+// prompt last. Other mints a token for an agent that cannot complete an OAuth
+// flow in a browser.
 //
 // Changes to the table are a DRAFT until Save. Promoting a token to curator is
 // a decision about unattended writes to someone's knowledge base, and a
@@ -21,11 +21,11 @@ import CurationAutomationPanel from '@/components/settings/CurationAutomationPan
 import ConnectGuide from '@/components/settings/ConnectGuide.vue'
 import NewTokenDialog from '@/components/settings/NewTokenDialog.vue'
 import { formatDate as writeDate } from '@/lib/datetime'
-import { useWelcomeStore } from '@/stores/welcome'
+import { useTokenMintStore } from '@/stores/tokenMint'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
-const welcome = useWelcomeStore()
+const mint = useTokenMintStore()
 const auth = useAuthStore()
 
 const route = useRoute()
@@ -85,7 +85,7 @@ async function load() {
 }
 onMounted(load)
 // A token minted on the Other tab is a new row in the table below.
-watch(() => welcome.minted, (minted) => {
+watch(() => mint.minted, (minted) => {
   if (minted !== null) {
     void load()
   }
@@ -249,8 +249,8 @@ async function save() {
         @close="editing = null"
       />
 
-      <NewTokenDialog v-if="welcome.minted" :name="welcome.minted.name" :token="welcome.minted.token"
-                      @close="welcome.minted = null" />
+      <NewTokenDialog v-if="mint.minted" :name="mint.minted.name" :token="mint.minted.token"
+                      @close="mint.minted = null" />
 
       <div class="mm-savebar" v-if="dirty">
         <span class="small">{{ $t('connections.table.not_saved') }}</span>

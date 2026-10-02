@@ -617,10 +617,9 @@ Every connection speaks MCP, the standard assistants use to reach tools, at one 
 ```
 
 **Connect an assistant** (Settings › Assistants) opens the connection guides: four tabs,
-ChatGPT, Claude, Gemini Spark and *Other*, and for the first three one numbered
-instruction at a time, with a picture of the screen it describes, the address
-to paste, *approve sign-in with Memex*, and the prompt to paste last. *Back* and the
-numbered dots move between instructions. Each guide is a few minutes. ChatGPT's Developer
+ChatGPT, Claude, Gemini Spark and *Other*, and for the first three every step as one
+numbered list: where to go in the assistant, the address to paste, *approve sign-in with
+Memex*, and the prompt to paste last. Each guide is a few minutes. ChatGPT's Developer
 mode and custom plugins and Claude's custom connectors are available on free accounts,
 though a free Claude account holds one custom connector; Gemini Spark's custom apps need a
 paid Google AI Pro or Ultra plan.

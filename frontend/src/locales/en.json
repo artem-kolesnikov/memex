@@ -24,7 +24,9 @@
     "refresh": "Refresh",
     "session_changed": "Your session changed while this request was running. Please try again.",
     "operation_outcome_unknown": "Your session changed while this operation was running. It may have completed. Copy any unsaved text, then reload to check the result before trying again.",
-    "reload_page": "Reload page"
+    "reload_page": "Reload page",
+    "copy_failed": "Couldn’t copy",
+    "opens_new_tab": "(opens in a new tab)"
   },
   "app": {
     "brand": {
@@ -1095,7 +1097,11 @@
     },
     "themes": {
       "sunrise": "Sunrise",
-      "midnight": "Midnight"
+      "midnight": "Midnight",
+      "light_kind": "Light",
+      "dark_kind": "Dark",
+      "mini_title": "Your notes",
+      "aria": "{name}, {kind} theme"
     },
     "fonts": {
       "sans": "Sans",
@@ -1264,90 +1270,39 @@
   },
   "connections": {
     "guides": {
-      "optional": "Optional",
-      "im_there": "I’m there",
-      "continue_to_test": "Continue to test",
-      "to_prompt": "The prompt to paste",
-      "permissions_title": "Fewer interruptions, same review inbox.",
+      "optional": "Optional.",
       "permissions_tip": "Memex still holds edits, deletions and merges in your review inbox for approval. New notes arrive there for review too.",
       "permissions_tip_curator": "Memex still holds deletions and merges in your review inbox for approval. A curator connection’s notes and edits apply at once.",
       "review_tip": "You’ll still review what your assistant writes before it becomes a note.",
       "review_tip_curator": "This knowledge base has a curator connection: its notes and edits apply at once, and its deletions and merges still wait for you.",
-      "enlarge": "Enlarge screenshot: {what}",
-      "close_screenshot": "Close enlarged screenshot",
-      "diagram_label": "{provider} connects to memex",
-      "diagram_caption": "Your assistant. Your notes in memex.",
-      "images": {
-        "enlarge": "Click to enlarge",
-        "open_memex": "1. Open Memex",
-        "choose_permissions": "2. Choose permissions",
-        "read_only": "2. Read-only",
-        "write_delete": "3. Write/delete",
-        "name_and_address": "1. Name and address",
-        "confirm_and_add": "2. Confirm and add",
-        "paste_link": "1. Paste the link",
-        "confirm_address": "2. Confirm the address",
-        "approve": "Memex connection approval with the Connect it button",
-        "developer_mode": "ChatGPT Security and login settings with Developer mode enabled",
-        "new_plugin": "ChatGPT New Plugin form with the Memex name and server URL",
-        "chatgpt_plugin_list": "ChatGPT Plugins settings showing the Memex plugin",
-        "chatgpt_plugin_permissions": "Memex plugin permissions with Allow all actions selected",
-        "claude_connectors": "Claude Connectors settings with the Add button and Memex connector",
-        "claude_connectors_open": "Claude Connectors settings showing the Memex connector to open",
-        "claude_add": "Claude Add custom connector form with Memex and its server address",
-        "claude_confirm": "Claude connector confirmation with detected sign-in settings and Add button",
-        "claude_read": "Claude Memex read-only tools menu with Always allow available",
-        "claude_write": "Claude Memex write-delete tools menu with Always allow available",
-        "gemini_custom_apps": "Gemini Custom apps for Spark section with the app link field and Next button",
-        "gemini_paste": "Gemini Custom apps for Spark section with the Memex server address",
-        "gemini_confirm": "Gemini Connect to an MCP server screen with the Memex URL and Next button",
-        "gemini_save": "Gemini Save your custom app screen with the Memex name, available actions and Connect button"
-      },
       "chatgpt": {
         "developer_mode": {
           "title": "Turn on Developer mode",
-          "body": "In ChatGPT, open **Settings → Security and login**. Switch on **Developer mode**.",
-          "link": "Open ChatGPT settings",
-          "next": "Developer mode is on"
+          "body": "In ChatGPT, open **Settings → Security and login** and switch on **Developer mode**.",
+          "link": "Open ChatGPT settings"
         },
         "plugin": {
           "title": "Add Memex as a plugin",
-          "body": "Open [Plugins](https://chatgpt.com/plugins) and choose **+ (Add) → Create MCP App**. Name it **Memex** and paste this server address.",
-          "tip": "Tick the confirmation box, then click Create.",
-          "next": "I’ve added Memex"
+          "body": "Open [Plugins](https://chatgpt.com/plugins) and choose **+ (Add) → Create MCP App**. Name it **Memex**, paste this address, tick the confirmation box and click **Create**."
         },
         "approve": {
           "title": "Allow the connection",
-          "body": "Memex will open in a new tab. Click **Connect it**, then come back here.",
-          "next": "Connection added"
+          "body": "Memex opens in a new tab. Click **Connect it**."
         },
-        "permissions": {
-          "body": "**Allow low-risk actions** is a good default. For fewer interruptions, let ChatGPT use memex without asking each time.",
-          "instruction": "Open **Settings → Plugins → Memex** and choose **Allow all actions**."
-        }
+        "permissions": "To stop ChatGPT asking each time, open **Settings → Plugins → Memex** and choose **Allow all actions**."
       },
       "claude": {
-        "connectors": {
-          "title": "Open Claude’s connectors",
-          "body": "Go to **Settings → Connectors** in Claude.",
-          "link": "Open Claude connectors"
-        },
         "add": {
           "title": "Add your memex",
-          "body": "Click **Add**. Name it **Memex** and paste this address.",
-          "after_address": "Click **Continue**, keep the detected settings, then click **Add**.",
-          "tip": "Free accounts can have one custom connector.",
-          "next": "I’ve added Memex"
+          "body": "In Claude, open **Settings → Connectors** and click **Add**. Name it **Memex**, paste this address and click **Continue**. Keep the detected settings, then click **Add**.",
+          "link": "Open Claude connectors",
+          "tip": "Free accounts can have one custom connector."
         },
         "approve": {
           "title": "Connect and approve",
-          "body": "Click **Connect** next to Memex in Claude. When Memex opens, click **Connect it**, then come back here.",
-          "next": "Connection added"
+          "body": "Click **Connect** next to Memex in Claude. When Memex opens, click **Connect it**."
         },
-        "permissions": {
-          "body": "In **Connectors**, open **Memex**. Choose **Always allow** for both **Read-only tools** and **Write/delete tools**.",
-          "instruction": "Claude can then use memex without asking each time."
-        },
+        "permissions": "To stop Claude asking each time, open **Memex** in **Connectors** and choose **Always allow** for both **Read-only tools** and **Write/delete tools**.",
         "persist_note": {
           "before": "For future chats, also paste this into",
           "link": "Claude’s profile preferences",
@@ -1355,42 +1310,46 @@
         }
       },
       "gemini": {
-        "personal": {
-          "title": "Open Personal intelligence",
-          "body": "In Gemini, go to **Settings → Personal intelligence**.",
-          "link": "Open Gemini settings",
-          "tip": "This setup uses Custom apps for Spark. Spark requires a paid Google AI Pro or Ultra plan."
-        },
         "custom_apps": {
-          "title": "Find Custom apps",
-          "body": "Open **Connected Apps**, then find **Custom apps for Spark**.",
+          "title": "Find Custom apps for Spark",
+          "body": "In Gemini, open **Settings → Personal intelligence → Connected Apps** and find **Custom apps for Spark**.",
           "link": "Open Connected Apps",
-          "next": "I found it"
+          "tip": "Spark requires a paid Google AI Pro or Ultra plan."
         },
         "link": {
           "title": "Add the Memex link",
-          "body": "Under **Custom apps for Spark**, paste this address.",
-          "after_address": "Click **Next**. On the next screen, leave the settings as they are and click **Next** again.",
-          "next": "Link added"
+          "body": "Under **Custom apps for Spark**, paste this address and click **Next**. On the next screen, leave the settings as they are and click **Next** again."
         },
         "accounts": {
           "title": "Link your accounts",
-          "body": "Check the confirmation box and click **Connect**.",
-          "instruction": "When Google asks to link your Google and Memex accounts, click **Agree and continue**.",
-          "next": "Accounts linked"
-        },
-        "approve": {
-          "title": "Approve in Memex",
-          "body": "When Memex opens, click **Connect it**. Then return to Gemini to finish.",
-          "next": "Connection approved"
+          "body": "Check the confirmation box and click **Connect**. When Google asks to link your Google and Memex accounts, click **Agree and continue**. When Memex opens, click **Connect it**."
         },
         "save": {
           "title": "Save your custom app",
-          "body": "Keep the name **Memex** and click **Connect** to save it.",
-          "tip": "All set. Next, switch to Spark and say hello to memex."
+          "body": "Keep the name **Memex** and click **Connect** to save it, then switch to Spark."
         }
       },
       "paste_prompt": "Start a new chat, then paste this prompt"
+    },
+    "connect": {
+      "choose": "Choose your assistant",
+      "other": "Other",
+      "address_copied": "Server address copied.",
+      "other_create": "Create a connection",
+      "other_create_body": "Give your agent a name so you can recognise it later.",
+      "other_name": "Connection name",
+      "other_name_placeholder": "e.g. My coding assistant",
+      "other_add": "Add it to your agent",
+      "other_add_body": "Add memex to your agent as an MCP server at this address.",
+      "setups": "Or set up one of these, with your token in place of YOUR_TOKEN:",
+      "setup_terminal": "Run this in a terminal.",
+      "setup_file": "Add this to {file}.",
+      "setup_copy_failed": "Could not copy the setup"
+    },
+    "prompt": {
+      "copy": "Copy the prompt",
+      "copied": "Prompt copied",
+      "copied_body": "Paste it into a new chat."
     },
     "copy_by_hand": "Select it and copy it by hand.",
     "load_failed": "Could not load your connections",
@@ -1802,137 +1761,10 @@
   "welcome": {
     "header": "Let’s get you started",
     "brand": "memex",
-    "progress_label": "Setup progress",
-    "rail": {
-      "you": "Your space",
-      "connect": "Connect",
-      "test": "Test it",
-      "ask": "First chat",
-      "profile": "Your profile"
-    },
-    "rail_locked": "Connect an assistant first.",
-    "leave": "Leave setup for now",
-    "launch": "Run setup again",
     "switch_dark": "Switch to dark theme",
     "switch_light": "Switch to light theme",
-    "go_to_memex": "Go to my memex",
-    "check_again": "Check again",
-    "copy_failed": "Couldn’t copy",
-    "finish_failed": "memex could not save that you are done. Try again.",
     "open_failed": "memex could not be reached, so nothing here is up to date yet.",
     "open_retry": "Try again",
-    "opens_new_tab": "(opens in a new tab)",
-    "open_provider": "Open {provider}",
-    "your_assistant": "your assistant",
-    "review_reminder": "You review what your assistant writes before it becomes a note.",
-    "review_reminder_curator": "A curator connection’s notes and edits apply at once; its deletions and merges wait for you.",
-    "you": {
-      "title": "Make yourself at home.",
-      "intro": "A name, a place for your notes, and a look you like.",
-      "name": "Your name",
-      "name_placeholder": "What should we call you?",
-      "name_hint": "Shown next to the notes you write.",
-      "memex_name": "Name of your memex",
-      "memex_hint": "Your assistant will know it by this name.",
-      "not_saved": "Not saved. Check the value and leave the field again to retry.",
-      "look": "Choose your look",
-      "light": "Light",
-      "dark": "Dark",
-      "theme_aria": "{name}, {kind} theme",
-      "mini_title": "Your notes",
-      "next": "Connect an assistant",
-      "note": "You can change these later."
-    },
-    "connect": {
-      "title": "Connect your first assistant.",
-      "intro": "Choose the one you use most. You can add others later.",
-      "choose": "Choose your assistant",
-      "other": "Other",
-      "in_provider": "In {provider}",
-      "position": "{at} of {total}",
-      "instructions": "Connection instructions",
-      "instruction_n": "Instruction {n}: {title}",
-      "address_copied": "Server address copied.",
-      "other_create": "1. Create a connection",
-      "other_create_body": "Give your agent a name so you can recognise it later.",
-      "other_name": "Connection name",
-      "other_name_placeholder": "e.g. My coding assistant",
-      "other_add": "2. Add it to your agent",
-      "other_add_body": "Use this MCP server address:",
-      "setups": "Or set up one of these, with your token in place of YOUR_TOKEN:",
-      "setup_terminal": "Run this in a terminal.",
-      "setup_file": "Add this to {file}.",
-      "setup_copy_failed": "Could not copy the setup",
-      "test_connection": "Test connection",
-      "skip": "Skip this step",
-      "note": "Keep this window open as you go.",
-      "note_token": "Keep your token private.",
-      "note_optional": "Default permissions work too."
-    },
-    "test": {
-      "title": "Let’s make sure it works.",
-      "intro": "Open a new chat in {provider} and send this short message.",
-      "intro_other": "Open a new chat with your assistant and send this short message.",
-      "intro_gemini_before": "In Gemini, choose",
-      "switch_to_spark": "Switch to Spark",
-      "intro_gemini_after": "and send this short message.",
-      "card_title": "A quick check with memex",
-      "card_hint": "Allow your assistant to use Memex if it asks.",
-      "copy_message": "Copy test message",
-      "copied": "Message copied. Paste it into a new chat.",
-      "send_in_agent": "Send this in your connected agent.",
-      "review_steps": "Review setup steps",
-      "ready": "Ready when you are",
-      "ready_body": "Send the message, then check the connection.",
-      "not_yet": "No reply from your assistant yet",
-      "not_yet_body": "Check that Memex is enabled in this chat, send the message again, then retry.",
-      "found": "{name} reached memex",
-      "found_body": "The connection works. Next, tell your assistant how to use it.",
-      "failed": "Couldn’t check the connection",
-      "failed_body": "Memex couldn’t check right now. Try again; you don’t need to reconnect.",
-      "check": "Check connection",
-      "give_instructions": "Give it instructions",
-      "note": "Send the message first.",
-      "note_done": "Connection confirmed."
-    },
-    "ask": {
-      "title": "Start using memex together.",
-      "intro_before": "Copy this into",
-      "intro_after": ". It tells your assistant to use memex and read the guide.",
-      "intro_other": "Copy this into your assistant’s chat. It tells your assistant to use memex and read the guide.",
-      "prompt_label": "Your first instruction",
-      "for_provider": "For {provider}",
-      "paste_first": "Paste these into your chat, then check that your assistant read the guide.",
-      "wait": "After your assistant replies, check that it read the guide.",
-      "read": "The guide has been read",
-      "read_body": "Your assistant opened the memex guide. You’re ready to start using memex together.",
-      "not_yet": "The guide hasn’t been read yet",
-      "not_yet_body": "Ask your assistant to read the memex guide in your memex, then check again.",
-      "failed": "Couldn’t check the guide",
-      "failed_body": "Memex couldn’t check right now. Try again in a moment.",
-      "copy": "Copy instructions",
-      "copied": "Instructions copied",
-      "copied_body": "Paste them into your assistant’s chat.",
-      "check": "Check guide read",
-      "finish": "Finish setup",
-      "note": "Paste these into your chat.",
-      "note_wait": "Wait for your assistant’s reply.",
-      "note_done": "Guide read. All set."
-    },
-    "finished": {
-      "title": "You’re ready.",
-      "body": "Your assistant can use your memex and has read the guide. Next time you settle something worth keeping, ask it to save a note.",
-      "account": "Account set up",
-      "connected": "Assistant connected",
-      "guide": "Guide read",
-      "note": "Your notes stay under your control."
-    },
-    "paused": {
-      "title": "Pick this up when you’re ready.",
-      "body": "You can connect an assistant from Settings → Assistants. Your memex is also a place to write notes yourself.",
-      "resume": "Resume setup",
-      "note": "Nothing else changes. Run the setup again from Settings whenever you like."
-    },
     "profile": {
       "title": "Choose a few preferences",
       "intro": "Your profile is a note about you that your connected assistants can read. Start with your preferences. You can change them anytime.",
@@ -1952,7 +1784,6 @@
       "not_saved": "Your profile could not be saved",
       "load_failed": "memex could not read your profile just now. Try again in a moment.",
       "continue": "Continue",
-      "skip": "Skip profile setup",
       "options": {
         "answers": {
           "short": "Keep them short",
@@ -1966,7 +1797,8 @@
       "sensitive_hint": "For example, details about your health, family, or finances.",
       "review_changes": "Review changes",
       "adding": "Add to your profile",
-      "removing": "Remove from your profile"
+      "removing": "Remove from your profile",
+      "position": "{at} of {total}"
     },
     "profile_ask": {
       "title": "Let your assistant add more",

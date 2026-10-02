@@ -10,14 +10,14 @@ const { theme } = useTheme()
 </script>
 
 <template>
-  <div class="mm-wiz-providers" role="group" :aria-label="$t('welcome.connect.choose')">
+  <div class="mm-wiz-providers" role="group" :aria-label="$t('connections.connect.choose')">
     <button v-for="c in CLIENTS" :key="c.id" type="button" class="mm-wiz-provider"
             :aria-pressed="modelValue === c.id" @click="emit('update:modelValue', c.id)">
       <img :src="logoFor(c, theme)" alt="">{{ c.label }}
     </button>
     <button type="button" class="mm-wiz-provider" :aria-pressed="modelValue === OTHER"
             @click="emit('update:modelValue', OTHER)">
-      <WizardIcon name="code" />{{ $t('welcome.connect.other') }}
+      <WizardIcon name="code" />{{ $t('connections.connect.other') }}
     </button>
   </div>
 </template>

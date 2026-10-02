@@ -11,11 +11,6 @@ address are refused for a few minutes. memex sends no mail, so a forgotten passw
 replaced on the server: `docker exec -it memex php bin/console app:reset-password` sets a
 new one and signs out every browser.
 
-**Sign-in providers.** When whoever runs the server has set up Google, Apple, Microsoft or
-GitHub, Settings › Account links one to your account, and it then signs you in as well. The
-password stays a way in, so any provider can be removed. A provider never opens a second
-account.
-
 **Your email address** is the one given when the account was created. It cannot be changed.
 
 **Deleting the account** returns the server to its first run, with an empty memex and ten

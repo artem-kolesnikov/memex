@@ -16,10 +16,6 @@ Third-party material in this repository
   picker for a connection. Each is a trademark of its owner, named with its source in
   frontend/public/logos/NOTICE.md. They are used only to name the service a connection
   reaches; no owner endorses memex or is connected with it.
-- frontend/public/onboarding/: screenshots of the interfaces of ChatGPT (OpenAI), Claude
-  (Anthropic) and Gemini (Google), shown only to guide a person connecting that assistant
-  to memex. Those interfaces and their marks belong to their owners. memex-approve.jpg
-  shows memex itself.
 - Font Awesome Free (@fortawesome/fontawesome-free): icons under CC BY 4.0, fonts under
   the SIL Open Font License 1.1, code under the MIT License.
   https://fontawesome.com/license/free

@@ -11,58 +11,67 @@ Every assistant connects at the same address:
 
 {{web}}
 The steps below are also in [Settings › Assistants]({{base}}/settings/connections), under
-*Connect an assistant*, with a picture of each screen. Pick the assistant you use most; you
-can add others later.
+*Connect an assistant*. Pick the assistant you use most; you can add others later.
 
 {{edition:assistants-connect}}
 
 ## ChatGPT
 
-1. **Turn on Developer mode.** In ChatGPT, open **Settings → Security and login**. Switch
+1. **Turn on Developer mode.** In ChatGPT, open **Settings → Security and login** and switch
    on **Developer mode**. [Open ChatGPT settings](https://chatgpt.com/settings/security)
 2. **Add Memex as a plugin.** Open [Plugins](https://chatgpt.com/plugins) and choose
-   **+ (Add) → Create MCP App**. Name it **Memex** and paste this server address:
-   `{{origin}}/mcp`. Tick the confirmation box, then click Create.
-3. **Allow the connection.** Memex will open in a new tab. Click **Connect it**, then come
-   back here. You’ll still review what your assistant writes before it becomes a note.
-4. **Optional. Fewer interruptions, same review inbox.** **Allow low-risk actions** is a
-   good default. For fewer interruptions, let ChatGPT use memex without asking each time.
-   Open **Settings → Plugins → Memex** and choose **Allow all actions**. Memex still holds
-   edits, deletions and merges in your review inbox for approval. New notes arrive there
-   for review too.
+   **+ (Add) → Create MCP App**. Name it **Memex**, paste this address, tick the
+   confirmation box and click **Create**.
+
+   ```
+   {{origin}}/mcp
+   ```
+
+3. **Allow the connection.** Memex opens in a new tab. Click **Connect it**. You’ll still
+   review what your assistant writes before it becomes a note.
+
+**Optional.** To stop ChatGPT asking each time, open **Settings → Plugins → Memex** and
+choose **Allow all actions**. Memex still holds edits, deletions and merges in your review
+inbox for approval. New notes arrive there for review too.
 
 ## Claude
 
-1. **Open Claude’s connectors.** Go to **Settings → Connectors** in Claude.
+1. **Add your memex.** In Claude, open **Settings → Connectors** and click **Add**. Name it
+   **Memex**, paste this address and click **Continue**. Keep the detected settings, then
+   click **Add**. Free accounts can have one custom connector.
    [Open Claude connectors](https://claude.ai/new#customize/connectors)
-2. **Add your memex.** Click **Add**. Name it **Memex** and paste this address:
-   `{{origin}}/mcp`. Click **Continue**, keep the detected settings, then click
-   **Add**. Free accounts can have one custom connector.
-3. **Connect and approve.** Click **Connect** next to Memex in Claude. When Memex opens,
-   click **Connect it**, then come back here. You’ll still review what your assistant
-   writes before it becomes a note.
-4. **Optional. Fewer interruptions, same review inbox.** In **Connectors**, open
-   **Memex**. Choose **Always allow** for both **Read-only tools** and **Write/delete
-   tools**. Claude can then use memex without asking each time. Memex still holds edits,
-   deletions and merges in your review inbox for approval. New notes arrive there for
-   review too.
+
+   ```
+   {{origin}}/mcp
+   ```
+
+2. **Connect and approve.** Click **Connect** next to Memex in Claude. When Memex opens,
+   click **Connect it**. You’ll still review what your assistant writes before it becomes
+   a note.
+
+**Optional.** To stop Claude asking each time, open **Memex** in **Connectors** and choose
+**Always allow** for both **Read-only tools** and **Write/delete tools**. Memex still holds
+edits, deletions and merges in your review inbox for approval. New notes arrive there for
+review too.
 
 ## Gemini Spark
 
-1. **Open Personal intelligence.** In Gemini, go to **Settings → Personal intelligence**.
-   This setup uses Custom apps for Spark. Spark requires a paid Google AI Pro or Ultra plan.
-   [Open Gemini settings](https://gemini.google.com/personalization-settings)
-2. **Find Custom apps.** Open **Connected Apps**, then find **Custom apps for Spark**.
-   [Open Connected Apps](https://gemini.google.com/apps)
-3. **Add the Memex link.** Under **Custom apps for Spark**, paste this address:
-   `{{origin}}/mcp`. Click **Next**. On the next screen, leave the settings as
-   they are and click **Next** again.
-4. **Link your accounts.** Check the confirmation box and click **Connect**. When Google
-   asks to link your Google and Memex accounts, click **Agree and continue**.
-5. **Approve in Memex.** When Memex opens, click **Connect it**. Then return to Gemini to
-   finish. You’ll still review what your assistant writes before it becomes a note.
-6. **Save your custom app.** Keep the name **Memex** and click **Connect** to save it. All
-   set. Next, switch to Spark and say hello to memex.
+1. **Find Custom apps for Spark.** In Gemini, open **Settings → Personal intelligence →
+   Connected Apps** and find **Custom apps for Spark**. Spark requires a paid Google AI Pro
+   or Ultra plan. [Open Connected Apps](https://gemini.google.com/apps)
+2. **Add the Memex link.** Under **Custom apps for Spark**, paste this address and click
+   **Next**. On the next screen, leave the settings as they are and click **Next** again.
+
+   ```
+   {{origin}}/mcp
+   ```
+
+3. **Link your accounts.** Check the confirmation box and click **Connect**. When Google
+   asks to link your Google and Memex accounts, click **Agree and continue**. When Memex
+   opens, click **Connect it**. You’ll still review what your assistant writes before it
+   becomes a note.
+4. **Save your custom app.** Keep the name **Memex** and click **Connect** to save it, then
+   switch to Spark.
 {{/web}}
 
 {{local}}

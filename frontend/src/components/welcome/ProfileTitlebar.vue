@@ -5,6 +5,6 @@ const welcome = useWelcomeStore()
 
 <template>
   <span class="mm-wiz-profile-position">
-    {{ $t('welcome.connect.position', { at: welcome.profileSlide === 'choose' ? 1 : 2, total: 2 }) }}
+    {{ $t('welcome.profile.position', { at: welcome.profileSlide === 'choose' ? 1 : 2, total: 2 }) }}
   </span>
 </template>

@@ -25,7 +25,8 @@
     "check-stale-build": "node scripts/check-stale-build.mjs",
     "check-i18n": "node scripts/check-i18n.mjs",
     "check-map-radar": "node --experimental-strip-types scripts/check-map-radar.mjs",
-    "check-operation-lifetimes": "node scripts/check-operation-lifetimes.mjs"
+    "check-operation-lifetimes": "node scripts/check-operation-lifetimes.mjs",
+    "check-settings-loads": "node scripts/check-settings-loads.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
