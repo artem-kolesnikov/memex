@@ -11,10 +11,10 @@ use App\Service\AgentIcons;
 use App\Service\Appearance;
 use App\Service\Locales;
 use App\Service\MapSettings;
-use App\Service\PublicAddress;
 use App\Service\SystemTags;
 use App\Service\WelcomeProgress;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +29,8 @@ class AuthController extends ApiController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly EntityManagerInterface $directoryEntityManager,
-        private readonly PublicAddress $publicAddress,
+        #[Autowire('%memex.web_assistants%')]
+        private readonly bool $webAssistants,
     ) {
     }
 
@@ -307,9 +308,9 @@ class AuthController extends ApiController
             // hardcoded copy of a list the server owns. Installation-wide, not
             // per-account: see App\Service\SystemTags.
             'system_tags' => SystemTags::all(),
-            // Whether ChatGPT, Claude and Gemini can reach this memex at all,
-            // which decides what Settings and the wizard offer to connect.
-            'web_assistants' => $this->publicAddress->reachableFromTheWeb(),
+            // Whether this edition serves ChatGPT, Claude and Gemini, which
+            // decides what Settings and the wizard offer to connect.
+            'web_assistants' => $this->webAssistants,
             // How this person wants memex to look, on whichever device they
             // have just opened. Empty until they choose something.
             'appearance' => Appearance::read($settings->getAppearance()),

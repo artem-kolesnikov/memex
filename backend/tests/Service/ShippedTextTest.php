@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Service;
 
-use App\Service\PublicAddress;
 use App\Service\ShippedText;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -56,7 +55,7 @@ final class ShippedTextTest extends TestCase
         mkdir($dir);
         file_put_contents($dir.'/said.md', "Said here.\n");
         file_put_contents($dir.'/unsaid.md', '');
-        $text = new ShippedText(new RequestStack(), new NullLogger(), $dir, '', new PublicAddress('', true));
+        $text = new ShippedText(new RequestStack(), new NullLogger(), $dir, '', true);
 
         self::assertSame(
             "One.\n\nSaid here.\n\nTwo.\n\n- a\n- b\n",
@@ -66,23 +65,23 @@ final class ShippedTextTest extends TestCase
         rmdir($dir);
     }
 
-    public function testWebAndLocalBlocksFollowWhetherWebAssistantsCanReachThisServer(): void
+    public function testWebAndLocalBlocksFollowWhetherTheEditionServesWebAssistants(): void
     {
         $text = "One.\n\n{{web}}\n## ChatGPT\n\nSteps.\n{{/web}}\n\n{{local}}\nOn this computer.\n{{/local}}\n\nTwo.\n";
-        $render = static fn (string $base, bool $alwaysPublic): string => (new ShippedText(new RequestStack(), new NullLogger(), '/nowhere', $base, new PublicAddress($base, $alwaysPublic)))->render($text);
+        $render = static fn (string $base, bool $web): string => (new ShippedText(new RequestStack(), new NullLogger(), '/nowhere', $base, $web))->render($text);
 
-        self::assertSame("One.\n\n## ChatGPT\n\nSteps.\n\nTwo.\n", $render('https://memex.example.org', false));
+        self::assertSame("One.\n\n## ChatGPT\n\nSteps.\n\nTwo.\n", $render('http://localhost:5100', true), 'memex.tools serves them on a developer machine too');
         self::assertSame("One.\n\nOn this computer.\n\nTwo.\n", $render('http://localhost:8080', false));
-        self::assertSame("One.\n\n## ChatGPT\n\nSteps.\n\nTwo.\n", $render('http://localhost:5100', true), 'an always-public edition is public on a developer machine too');
+        self::assertSame("One.\n\nOn this computer.\n\nTwo.\n", $render('https://memex.example.org', false), 'a local-first edition at a public address is still local-first');
     }
 
     public function testTheOriginIsTheAddressInUseThenTheConfiguredOneThenLocalhost(): void
     {
         $requests = new RequestStack();
         $requests->push(Request::create('https://memex.example.org/mcp'));
-        self::assertSame('https://memex.example.org/mcp', (new ShippedText($requests, new NullLogger(), '/nowhere', 'https://configured.example', new PublicAddress('', true)))->render('{{origin}}/mcp'));
+        self::assertSame('https://memex.example.org/mcp', (new ShippedText($requests, new NullLogger(), '/nowhere', 'https://configured.example', true))->render('{{origin}}/mcp'));
 
-        self::assertSame('https://configured.example/mcp', (new ShippedText(new RequestStack(), new NullLogger(), '/nowhere', 'https://configured.example/', new PublicAddress('', true)))->render('{{origin}}/mcp'));
-        self::assertSame('http://localhost/mcp', (new ShippedText(new RequestStack(), new NullLogger(), '/nowhere', '', new PublicAddress('', true)))->render('{{origin}}/mcp'));
+        self::assertSame('https://configured.example/mcp', (new ShippedText(new RequestStack(), new NullLogger(), '/nowhere', 'https://configured.example/', true))->render('{{origin}}/mcp'));
+        self::assertSame('http://localhost/mcp', (new ShippedText(new RequestStack(), new NullLogger(), '/nowhere', '', true))->render('{{origin}}/mcp'));
     }
 }

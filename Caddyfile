@@ -1,3 +1,0 @@
-{$MEMEX_DOMAIN} {
-	reverse_proxy memex:8080
-}

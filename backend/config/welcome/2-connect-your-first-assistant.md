@@ -66,9 +66,11 @@ can add others later.
 {{/web}}
 
 {{local}}
-This memex is on your computer, so the assistants that connect to it run there too: Claude
-Code, Codex, Cursor, Gemini CLI, Claude Desktop, or an agent or script of your own.
-[Settings › Assistants]({{base}}/settings/connections) gives the lines for each one.
+This memex runs on your own machine, so the assistants that connect to it run there or
+elsewhere on your network: Claude Code, Codex, Cursor, Gemini CLI, Claude Desktop, agents
+such as Hermes and OpenClaw, or a script of your own. ChatGPT, Claude's connectors and
+Gemini Spark call memex from their own servers over the internet, so they connect to
+[memex.tools](https://memex.tools), memex's hosted edition, instead.
 {{/local}}
 
 {{web}}

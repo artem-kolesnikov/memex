@@ -14,8 +14,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * Creating the one account. For ten minutes after memex first starts, whoever
  * opens it creates the account; after that the form asks for a setup code only
- * whoever runs the server can read, because on a public server a later visitor
- * could be anybody. The code is printed by `app:setup-code`, which starting
+ * whoever runs the server can read, because anyone who can reach the page
+ * could be the one opening it. The code is printed by `app:setup-code`, which starting
  * memex runs, and the ten minutes count from its making (operator, 2026-10-01).
  */
 final class FirstRun

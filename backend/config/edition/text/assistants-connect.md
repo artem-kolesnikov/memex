@@ -1,4 +1,5 @@
-**Where each assistant connects from.** ChatGPT, Claude and Gemini Spark reach memex from
-their own servers, so they connect only when this memex has a public HTTPS address, set as
-`APP_BASE_URL`. A memex at `localhost` is reached by assistants on the same computer, and
-there Settings › Assistants and the welcome notes offer only those.
+**On this memex** *Connect an assistant* opens *Other* alone. This memex is local-first: the
+assistants that reach it run on the machine it runs on or elsewhere on your network.
+ChatGPT, Claude's connectors and Gemini Spark call memex from their own servers over the
+internet, so their guides are on memex.tools, memex's hosted edition; notes move between
+the two by export and import (sections 19 and 20).

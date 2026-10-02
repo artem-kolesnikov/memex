@@ -5,8 +5,10 @@
 memex keeps Markdown notes with tags, links between them and search by meaning. Ask
 Claude, ChatGPT, Codex or whatever you use: it reads your memex and answers from your
 notes, and what it writes waits in your review inbox by default, so nothing lands without
-an author and a way back. This is memex for one person on their own computer or server,
-free and open source. A hosted edition runs at [memex.tools](https://memex.tools).
+an author and a way back. This is memex on a machine of your own, a laptop, a home server
+or a virtual machine, free and open source. It is local-first: the assistants on that
+machine and your network reach it. [memex.tools](https://memex.tools) is memex on the
+internet, for the assistants that reach it from there.
 
 ## Run it
 
@@ -31,23 +33,42 @@ docker logs memex
 The container has to be called `memex` for Claude Desktop's setup to find it. Everything
 memex keeps is in the `memex` volume.
 
+To run the code in this repository rather than the published image, build it from a clone
+under the image's name first, and the commands here use it:
+
+```bash
+docker build -t ghcr.io/artem-kolesnikov/memex .
+```
+
+## On your network
+
+`-p 127.0.0.1:8080:8080` lets only this computer reach memex. To reach it from other
+machines on your network, as when it runs on a home server or a virtual machine, publish
+the port there and give memex the address they use:
+
+```bash
+docker run -d --name memex -p 8080:8080 -e APP_BASE_URL=http://192.168.1.20:8080 -v memex:/data --restart unless-stopped ghcr.io/artem-kolesnikov/memex
+```
+
+How far it reaches beyond that is your own setup. Do not publish memex to the internet: it
+has no HTTPS of its own, and nothing here covers putting it there.
+
 ## Connect your assistants
 
 Settings › Assistants gives each assistant's steps with this server's own address filled in.
 
-- **Claude Code, Codex, Cursor, Gemini CLI**: the *Other* tab creates a token and gives the
-  command or settings lines, pointing at `http://localhost:8080/mcp`.
-- **Claude Desktop**: the *Other* tab gives the lines for `claude_desktop_config.json`.
-  Claude Desktop starts memex's own command inside the container, so nothing listens for it
-  on the network.
-- **ChatGPT, Claude (its connectors on the web, desktop and phone) and Gemini Spark** call
-  memex from their own servers, so they need it at a public HTTPS address:
-  [docs/hosting.md](docs/hosting.md).
-
-## A public server
-
-[docs/hosting.md](docs/hosting.md): a VPS or Amazon Lightsail with Caddy in front for HTTPS
-(`compose.yaml` and `Caddyfile` here), Fly.io, or Railway.
+- **Claude Code, Codex, Cursor, Gemini CLI**: *Connect an assistant* creates a token and
+  gives the command or settings lines, pointing at `http://localhost:8080/mcp`, or at the
+  address you gave memex.
+- **Claude Desktop**: the same screen gives the lines for `claude_desktop_config.json`.
+  Claude Desktop starts memex's own command inside the container, so it works on the
+  computer that runs memex, and nothing listens for it on the network.
+- **Hermes, OpenClaw and agents of your own** add memex as an MCP server at the same
+  address and send the token on every request as `Authorization: Bearer <token>`.
+- **ChatGPT, Claude's connectors on the web, desktop and phone, and Gemini Spark** call
+  memex from their own servers over the internet, so they connect to
+  [memex.tools](https://memex.tools), memex's hosted edition, which is free. A Markdown
+  export from either imports into the other.
 
 ## Upgrade
 
@@ -57,8 +78,9 @@ docker rm -f memex
 docker run -d --name memex -p 127.0.0.1:8080:8080 -v memex:/data --restart unless-stopped ghcr.io/artem-kolesnikov/memex
 ```
 
-The notes stay on the volume, and memex brings their files up to date when it opens them.
-With `compose.yaml`: `docker compose pull && docker compose up -d`.
+Run it with the same options you started it with. The notes stay on the volume, and memex
+brings their files up to date when it opens them. If you built the image yourself, `git pull`
+and build it again instead of `docker pull`.
 
 ## Backups
 
@@ -88,8 +110,7 @@ docker start memex
 
 Nothing is touched unless the folder holds a backup, and what was there before is moved to
 `/data/before-restore-…` rather than deleted. Put `secret.env` back the same way if the
-volume was lost. With `compose.yaml` the volume has the same name, `memex`; stop with
-`docker compose stop memex` and start with `docker compose start memex`.
+volume was lost.
 
 **Notes only, from a Markdown export**: on a new memex, Settings › Notes › *Import* takes
 the ZIP. Each note arrives with its tags, description and dates; history, connections and
@@ -97,12 +118,11 @@ settings stay behind. An export from memex.tools imports the same way, and back.
 
 ## Configuration
 
-Set these with `-e NAME=value` on `docker run`, or under `environment:` in `compose.yaml`.
+Set these with `-e NAME=value` on `docker run`.
 
 | Variable | What it does |
 | --- | --- |
-| `APP_BASE_URL` | The address people use: `http://localhost:8080` unless you set it. Set it whenever memex is reached anywhere else, such as `https://memex.example.com` on a public server; sign-in providers and memex's own commands take the address from it. |
-| `TRUSTED_PROXIES` | The TLS proxy in front of memex: an address, a range, or `REMOTE_ADDR` when nothing but the proxy can reach memex. |
+| `APP_BASE_URL` | The address memex is reached at: `http://localhost:8080` unless you set it. Set it when memex is published on another port or on your network, such as `http://192.168.1.20:8080`; sign-in providers and memex's own commands take the address from it. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Optional sign-in with Google, linked from Settings › Account. |
 | `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` | The same, with GitHub. |
 | `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET` | The same, with Microsoft. |
@@ -136,4 +156,5 @@ memex is free software under the GNU Affero General Public License, version 3 on
 ([LICENSE](LICENSE)). If you run a modified memex for other people, the licence asks you
 to offer them its source. The name, wordmark and logo are not under that licence:
 [TRADEMARKS.md](TRADEMARKS.md). Third-party material is listed in [NOTICE](NOTICE).
-Security reports: [SECURITY.md](SECURITY.md).
+Security reports: [SECURITY.md](SECURITY.md). Issues and pull requests:
+[CONTRIBUTING.md](CONTRIBUTING.md).

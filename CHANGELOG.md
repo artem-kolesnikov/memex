@@ -7,7 +7,8 @@ notes.
 
 ## Unreleased
 
-The first release of memex for one person's own computer or server.
+The first release of memex for a machine of your own: a laptop, a home server or a virtual
+machine.
 
 - One account, created at first run: with no code for ten minutes after the first start,
   and with the setup code the server prints after that. It signs in with a password, and
@@ -16,5 +17,5 @@ The first release of memex for one person's own computer or server.
   OpenAI with your key. What assistants write waits for your review by default.
 - Assistants connect over MCP: by address with OAuth or a token, and Claude Desktop through
   the container.
-- One Docker image. It writes a daily backup and a Markdown export to its volume; with
-  `compose.yaml`, Caddy serves it over HTTPS on a public server.
+- One Docker image, reached from this computer or, once you publish its port, your
+  network. It writes a daily backup and a Markdown export to its volume.

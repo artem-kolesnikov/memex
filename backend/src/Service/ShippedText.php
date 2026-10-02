@@ -15,8 +15,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * true of one edition only stays in that edition's files; an empty passage
  * removes the line and the blank line above it. `{{origin}}` becomes this
  * server's own address. Lines between `{{web}}` and `{{/web}}` are kept only
- * where ChatGPT, Claude and Gemini can reach this server, and those between
- * `{{local}}` and `{{/local}}` only where they cannot ({@see PublicAddress}).
+ * where the edition serves ChatGPT, Claude and Gemini, and those between
+ * `{{local}}` and `{{/local}}` only where it does not (`memex.web_assistants`).
  */
 final class ShippedText
 {
@@ -31,7 +31,8 @@ final class ShippedText
         private readonly string $passagesDir,
         #[Autowire(env: 'APP_BASE_URL')]
         private readonly string $appBaseUrl,
-        private readonly PublicAddress $publicAddress,
+        #[Autowire('%memex.web_assistants%')]
+        private readonly bool $webAssistants,
     ) {
     }
 
@@ -42,7 +43,7 @@ final class ShippedText
 
     private function reach(string $text): string
     {
-        $web = $this->publicAddress->reachableFromTheWeb();
+        $web = $this->webAssistants;
 
         return (string) preg_replace_callback(self::REACH, static fn (array $m): string => ($m[2] === 'web') === $web ? $m[1].$m[3] : '', $text);
     }

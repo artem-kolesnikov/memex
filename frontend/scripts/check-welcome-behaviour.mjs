@@ -551,8 +551,7 @@ await scenario('the rail cannot leave Your space over a refused save, and the dr
   assert((await page.inputValue('#wiz-name')) === 'Alexandra', 'the draft was lost')
   fail = false
   await page.locator('.mm-wiz-progress button').nth(1).click()
-  await page.waitForTimeout(400)
-  assert((await current(page).textContent()).includes('Connect'), 'the rail did not move once the save landed')
+  await current(page).filter({ hasText: 'Connect' }).waitFor({ timeout: 5000 }).catch(() => assert(false, 'the rail did not move once the save landed'))
   assert(JSON.stringify(state.saves) === '[["name","Alexandra"]]', `saves: ${JSON.stringify(state.saves)}`)
 })
 

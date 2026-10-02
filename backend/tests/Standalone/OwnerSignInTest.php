@@ -51,7 +51,9 @@ final class OwnerSignInTest extends WebTestCase
         $answer = $this->json('POST', '/api/auth/owner', ['email' => self::EMAIL, 'password' => self::PASSWORD]);
         self::assertResponseIsSuccessful();
         self::assertSame($this->firstRun()->owner()?->path(), $answer['redirect']);
-        self::assertSame(self::EMAIL, $this->json('GET', '/api/me')['email']);
+        $me = $this->json('GET', '/api/me');
+        self::assertSame(self::EMAIL, $me['email']);
+        self::assertFalse($me['web_assistants'], 'local-first: ChatGPT, Claude and Gemini connect to memex.tools');
         self::assertFalse($this->directory()->fetchOne('SELECT 1 FROM setup_code'), 'the code is spent');
     }
 

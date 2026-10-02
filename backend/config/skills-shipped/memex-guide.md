@@ -89,6 +89,8 @@ memex sits alongside the memory features your assistants already have. Those rem
 you like an answer. memex holds the work you and your assistants produced and chose to keep,
 in your own words, readable by every assistant you connect.
 
+{{edition:where-it-runs}}
+
 ## 2. How a note lives here
 
 A note has:

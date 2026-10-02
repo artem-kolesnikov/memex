@@ -10,11 +10,20 @@ let failed = false
 for (const item of policy.exceptions) {
   if (!item.owner || !item.boundary || item.expires < today) throw new Error(`Missing/expired advisory review: ${item.project} ${item.advisory}`)
 }
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const audit = (project) => {
+  for (let attempt = 1; ; attempt++) {
+    const result = spawnSync('npm', ['audit', '--json'], { cwd: path.join(root, project), encoding: 'utf8' })
+    if (result.error || ![0, 1].includes(result.status)) throw new Error(`${project}: audit failed: ${result.error || result.stderr}`)
+    const report = JSON.parse(result.stdout)
+    if (!report.error && report.vulnerabilities) return report
+    if (attempt === 3) throw new Error(`${project}: audit unavailable: ${JSON.stringify(report.error)}`)
+    console.log(`${project}: the registry sent no audit report, asking again`)
+    pause(5000)
+  }
+}
 for (const project of ['frontend', 'services/ml-processor']) {
-  const result = spawnSync('npm', ['audit', '--json'], { cwd: path.join(root, project), encoding: 'utf8' })
-  if (result.error || ![0, 1].includes(result.status)) throw new Error(`${project}: audit failed: ${result.error || result.stderr}`)
-  const report = JSON.parse(result.stdout)
-  if (report.error || !report.vulnerabilities) throw new Error(`${project}: audit unavailable: ${JSON.stringify(report.error)}`)
+  const report = audit(project)
   const lock = JSON.parse(readFileSync(path.join(root, project, 'package-lock.json')))
   const seen = new Set()
   for (const [name, vulnerability] of Object.entries(report.vulnerabilities)) {

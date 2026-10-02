@@ -12,8 +12,9 @@ The latest release. Upgrading is a new image: README › Upgrade.
 
 ## What a memex server relies on
 
-- **HTTPS in front of it** on any network but your own computer. `compose.yaml` puts Caddy
-  in front; never publish port 8080 to the internet directly.
+- **Your own machine and network.** memex is local-first and has no HTTPS of its own: on
+  your network, sign-in and tokens travel as plain HTTP. Never publish it to the internet;
+  memex.tools is the edition built for that.
 - **The account's password**, as long as you make it; guesses from one address are
   throttled. Tokens for assistants are shown once, and Settings › Assistants revokes them.
 - **The `/data` volume.** It holds the notes, the provider keys you add (encrypted) and

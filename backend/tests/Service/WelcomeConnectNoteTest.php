@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Service;
 
-use App\Service\PublicAddress;
 use App\Service\ShippedText;
 use App\Service\SkillLibrary;
 use PHPUnit\Framework\TestCase;
@@ -12,26 +11,26 @@ use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * *Connect your first assistant* is copied into every new account. On a memex
- * ChatGPT, Claude and Gemini cannot reach, its steps for them could only fail,
- * so the note there gives the assistants on the same computer alone.
+ * *Connect your first assistant* is copied into every new account. On an
+ * edition that does not serve ChatGPT, Claude and Gemini, its steps for them
+ * could only fail, so the note there gives the assistants beside it alone.
  */
 final class WelcomeConnectNoteTest extends TestCase
 {
     private const NOTE = __DIR__.'/../../config/welcome/2-connect-your-first-assistant.md';
 
-    private static function render(string $base): string
+    private static function render(string $base, bool $web): string
     {
         $parsed = SkillLibrary::parseSkillFile((string) file_get_contents(self::NOTE));
         self::assertNotNull($parsed);
-        $text = new ShippedText(new RequestStack(), new NullLogger(), sys_get_temp_dir(), $base, new PublicAddress($base, false));
+        $text = new ShippedText(new RequestStack(), new NullLogger(), sys_get_temp_dir(), $base, $web);
 
         return $text->render($parsed['body']);
     }
 
-    public function testAtLocalhostTheNoteGivesOnlyAssistantsOnThisComputer(): void
+    public function testWithoutWebAssistantsTheNoteGivesOnlyTheAssistantsBesideIt(): void
     {
-        $note = self::render('http://localhost:8080');
+        $note = self::render('http://localhost:8080', false);
 
         foreach (['## ChatGPT', '## Claude', '## Gemini', 'chatgpt.com', 'claude.ai', 'gemini.google.com', 'choose **Other**'] as $web) {
             self::assertStringNotContainsString($web, $note);
@@ -41,9 +40,9 @@ final class WelcomeConnectNoteTest extends TestCase
         self::assertStringNotContainsString('{{', str_replace('{{base}}', '', $note));
     }
 
-    public function testAtAPublicAddressTheNoteGivesEveryAssistant(): void
+    public function testWithWebAssistantsTheNoteGivesEveryAssistant(): void
     {
-        $note = self::render('https://memex.example.org');
+        $note = self::render('https://memex.example.org', true);
 
         foreach (['## ChatGPT', '## Claude', '## Gemini Spark', '## An agent or a script', 'choose **Other**'] as $section) {
             self::assertStringContainsString($section, $note);

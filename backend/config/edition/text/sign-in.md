@@ -1,10 +1,10 @@
 **Opening the account.** A memex server holds one account. The first time it is opened in a
 browser, it asks for an email address and a password, and creates the account and its
-knowledge base. That works for ten minutes after memex first starts. After that, since on a
-public server a visitor could be anybody, it also asks for the setup code, which proves you
-run the server: memex prints it in its log when it starts (`docker logs memex`), and
-`app:setup-code` prints it again. `app:create-owner` creates the account from a shell
-instead.
+knowledge base. That works for ten minutes after memex first starts. After that, since
+anyone who can reach the page could be the one opening it, it also asks for the setup code,
+which proves you run the server: memex prints it in its log when it starts
+(`docker logs memex`), and `app:setup-code` prints it again. `app:create-owner` creates the
+account from a shell instead.
 
 **Signing in** is with that email address and password. Repeated wrong guesses from one
 address are refused for a few minutes. memex sends no mail, so a forgotten password is

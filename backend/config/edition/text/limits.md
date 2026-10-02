@@ -5,5 +5,7 @@
   restore that would take a note past the limit is refused with the size it observed and
   the limit, and that write leaves nothing behind; earlier files in the same upload or
   import that fit stay saved and are listed.
-- **You run the server.** Its backups, upgrades and address are in your hands; the README
-  says how.
+- **It runs on your machine.** Its backups and upgrades are in your hands, and so is how
+  far it reaches on your network; the README says how.
+- **Not on the internet.** It has no HTTPS of its own. ChatGPT, Claude's connectors and
+  Gemini Spark, which call memex from their own servers, connect to memex.tools.

@@ -26,10 +26,11 @@ parameters:
     # key for a vault that has none of its own.
     memex.embedding_models: ['nomic-embed-text-v1.5', 'text-embedding-3-large']
     memex.embedding_server_key: false
-    # Whether this edition is only ever a public service, so assistants that
-    # call from their own servers can always reach it; otherwise APP_BASE_URL
-    # decides (App\Service\PublicAddress).
-    memex.always_public: false
+    # Whether this edition serves the assistants that call memex from their own
+    # servers over the internet (ChatGPT, Claude's connectors, Gemini). Memex
+    # Standalone is local-first: it offers only the assistants on its owner's
+    # machine and network, and leaves the internet to memex.tools.
+    memex.web_assistants: false
 
 services:
     # default configuration for services in *this* file
