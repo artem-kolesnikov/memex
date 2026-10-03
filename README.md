@@ -168,7 +168,7 @@ With that token, Claude Code adds memex like this, and the others take the same 
 and token in the lines Settings › Assistants gives:
 
 ```bash
-claude mcp add --transport http --scope user memex http://localhost:8080/mcp --header "Authorization: Bearer YOUR_TOKEN"
+claude mcp add --transport http --scope user memex-local http://localhost:8080/mcp --header "Authorization: Bearer YOUR_TOKEN"
 ```
 
 What a connected assistant can do:

@@ -47,36 +47,36 @@ export interface AssistantSetup {
   label: string
   /** Settings file the text is added to; none means a terminal command. */
   file?: string
-  /** The text, for this MCP address, with YOUR_TOKEN where the token goes. */
-  text: (address: string) => string
+  /** The text, for this MCP address and server name, with YOUR_TOKEN where the token goes. */
+  text: (address: string, name: string) => string
 }
 
 export const SETUPS: AssistantSetup[] = [
   {
     id: 'claude-code',
     label: 'Claude Code',
-    text: (address) =>
-      `claude mcp add --transport http --scope user memex ${address} --header "Authorization: Bearer YOUR_TOKEN"`,
+    text: (address, name) =>
+      `claude mcp add --transport http --scope user ${name} ${address} --header "Authorization: Bearer YOUR_TOKEN"`,
   },
   {
     id: 'codex',
     label: 'Codex',
     file: '~/.codex/config.toml',
-    text: (address) =>
-      `[mcp_servers.memex]\nurl = "${address}"\nhttp_headers = { "Authorization" = "Bearer YOUR_TOKEN" }`,
+    text: (address, name) =>
+      `[mcp_servers.${name}]\nurl = "${address}"\nhttp_headers = { "Authorization" = "Bearer YOUR_TOKEN" }`,
   },
   {
     id: 'cursor',
     label: 'Cursor',
     file: '~/.cursor/mcp.json',
-    text: (address) =>
-      JSON.stringify({ mcpServers: { memex: { url: address, headers: { Authorization: 'Bearer YOUR_TOKEN' } } } }, null, 2),
+    text: (address, name) =>
+      JSON.stringify({ mcpServers: { [name]: { url: address, headers: { Authorization: 'Bearer YOUR_TOKEN' } } } }, null, 2),
   },
   {
     id: 'gemini-cli',
     label: 'Gemini CLI',
-    text: (address) =>
-      `gemini mcp add --transport http -s user -H "Authorization: Bearer YOUR_TOKEN" memex ${address}`,
+    text: (address, name) =>
+      `gemini mcp add --transport http -s user -H "Authorization: Bearer YOUR_TOKEN" ${name} ${address}`,
   },
 ]
 

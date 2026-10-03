@@ -168,9 +168,9 @@ final class McpServer
     private function serverInstructions(): string
     {
         $base = <<<'TXT'
-            memex is the user's own knowledge base: markdown notes with tags, wiki-links and
-            meaning-based search. You read it with `search` and `get`, and you write to it with
-            `propose`.
+            The memex at {ORIGIN} is the user's own knowledge base: markdown notes with tags,
+            wiki-links and meaning-based search. You read it with `search` and `get`, and you
+            write to it with `propose`.
 
             Six things worth knowing before you use it.
 
@@ -219,8 +219,8 @@ final class McpServer
             TXT;
 
         return str_replace(
-            ['{SKILLS}', '{PROFILE}', '{WRITING}', '{CURATION}'],
-            [$this->skillsBlock(), $this->profileParagraph(), $this->writingParagraph(), $this->curationParagraph()],
+            ['{ORIGIN}', '{SKILLS}', '{PROFILE}', '{WRITING}', '{CURATION}'],
+            [$this->origin, $this->skillsBlock(), $this->profileParagraph(), $this->writingParagraph(), $this->curationParagraph()],
             $base,
         );
     }
@@ -475,6 +475,7 @@ final class McpServer
                 'list_tags' => $this->toolListTags(),
                 'health' => [
                     'status' => 'ok',
+                    'address' => $this->origin,
                     'authenticated_as' => $this->mcpToken?->getName(),
                     'role' => $this->mcpToken?->getRole(),
                     'work' => [
@@ -1679,7 +1680,7 @@ final class McpServer
             ],
             [
                 'name' => 'health',
-                'description' => 'Liveness and auth check; returns the token name this session authenticates as, and `work`: how much is waiting (review inbox counts, enrichment backlog), so a scheduled run can stop here when there is nothing to do.',
+                'description' => 'Liveness and auth check; returns the address of this memex, which tells it apart from another memex you may also be connected to, the token name this session authenticates as, and `work`: how much is waiting (review inbox counts, enrichment backlog), so a scheduled run can stop here when there is nothing to do.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()],
             ],
             [

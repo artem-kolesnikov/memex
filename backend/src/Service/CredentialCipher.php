@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Service;
 
 /**
- * Symmetric encryption for the one secret this application stores on a user's
- * behalf: their own AI provider key.
+ * Symmetric encryption for the secrets this application stores on a user's
+ * behalf: their own AI provider key, and the tokens they made for their
+ * assistants ({@see ConnectionSecrets}), each under a key of its own.
  *
  * AES-256-GCM (ext-openssl, always present in the PHP the box installs —
  * `php8.3-sodium` is not, see deploy/provision-base.sh) under a key derived
@@ -28,9 +29,9 @@ final class CredentialCipher
 
     private readonly string $key;
 
-    public function __construct(string $appSecret)
+    public function __construct(string $appSecret, string $purpose = 'memex.team-ai-credentials')
     {
-        $this->key = hash_hkdf('sha256', $appSecret, 32, 'memex.team-ai-credentials');
+        $this->key = hash_hkdf('sha256', $appSecret, 32, $purpose);
     }
 
     /** @return string base64 of iv|tag|ciphertext */

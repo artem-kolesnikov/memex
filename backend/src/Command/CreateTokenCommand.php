@@ -44,10 +44,10 @@ class CreateTokenCommand extends Command
 
         [, $plaintext] = $this->scope->run(
             $account->vault(),
-            fn (): array => $this->tokens->issue($account, (string) $input->getArgument('name')),
+            fn (): array => $this->tokens->issue($account, (string) $input->getArgument('name'), keep: true),
         );
 
-        $output->writeln('Token (shown once, store it now):');
+        $output->writeln('Token (Settings › Assistants copies it again later):');
         $output->writeln($plaintext);
 
         return Command::SUCCESS;

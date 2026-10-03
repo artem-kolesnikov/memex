@@ -37,8 +37,7 @@ class ManualTokenTest extends ApiTestCase
         self::assertSame('Hermes', $created['name']);
         self::assertStringStartsWith('mxt_', (string) $created['token']);
 
-        // The plaintext is handed over once and never stored, so the only
-        // proof it is the real credential is using it.
+        // The proof it is the real credential is using it.
         $this->request('GET', '/api/notes', (string) $created['token']);
         self::assertSame(200, $this->httpStatus());
 

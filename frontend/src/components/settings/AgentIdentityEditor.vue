@@ -1,5 +1,6 @@
 <!--
-  Naming a connected assistant, describing it, and giving it a face.
+  Naming a connected assistant, describing it, and giving it a face; for a
+  connection made in Settings, its token too, masked, with a copy button.
 
   ## What it is for
 
@@ -55,6 +56,7 @@ import { useI18n } from 'vue-i18n'
 import { api, type IconChoice, type LogoChoice, type TokenInfo } from '@/api/client'
 import { toastError, toastSuccess } from '@/components/toastService'
 import AgentMark from '@/components/AgentMark.vue'
+import { copyFetched } from '@/lib/clipboard'
 
 const props = defineProps<{ token: TokenInfo; icons: IconChoice[]; logos: LogoChoice[] }>()
 const emit = defineEmits<{ saved: []; close: [] }>()
@@ -95,6 +97,48 @@ const chosenLogo = computed(() => props.logos.find((l) => l.key === iconKey.valu
 
 /** Set by a successful Save, so the close it triggers is not read as abandoning. */
 const savedOk = ref(false)
+
+const tokenKept = ref(props.token.token_kept)
+/** The token in the clear, only after the clipboard refused it. */
+const tokenShown = ref<string | null>(null)
+const tokenCopied = ref(false)
+const reissuing = ref(false)
+
+async function copy(fetchToken: () => Promise<string>): Promise<boolean> {
+  let token = ''
+  const copied = await copyFetched(() => fetchToken().then((value) => (token = value)))
+  if (copied) {
+    tokenCopied.value = true
+    window.setTimeout(() => (tokenCopied.value = false), 2000)
+  } else {
+    tokenShown.value = token
+    toastError(t('connections.new_token.copy_failed'), t('connections.copy_by_hand'))
+  }
+  return copied
+}
+
+async function copyToken() {
+  try {
+    await copy(() => api.tokenSecret(props.token.id))
+  } catch (e) {
+    toastError(t('connections.new_token.copy_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
+  }
+}
+
+async function reissue() {
+  if (!window.confirm(t('connections.identity.new_token_confirm'))) return
+  reissuing.value = true
+  try {
+    const copied = await copy(() => api.reissueToken(props.token.id))
+    tokenKept.value = true
+    emit('saved')
+    if (copied) toastSuccess(t('connections.identity.new_token_copied'), name.value.trim() || props.token.label)
+  } catch (e) {
+    toastError(t('connections.identity.new_token_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
+  } finally {
+    reissuing.value = false
+  }
+}
 
 onMounted(() => {
   if (dialog.value === null) return
@@ -218,6 +262,24 @@ async function onFile(event: Event) {
                 :placeholder="$t('connections.identity.description_placeholder')"
                 :disabled="saving"
               ></textarea>
+            </div>
+
+            <div class="mb-3" v-if="token.auth === 'manual'">
+              <label class="form-label d-block">{{ $t('connections.identity.token') }}</label>
+              <div class="mm-address" v-if="tokenKept">
+                <code>{{ tokenShown ?? 'mxt_••••••••••••••••••••' }}</code>
+                <button type="button" class="mm-address-copy" :disabled="saving"
+                        :aria-label="tokenCopied ? $t('common.copied') : $t('connections.new_token.copy_token')" @click="copyToken">
+                  <i class="fa-regular" :class="tokenCopied ? 'fa-circle-check' : 'fa-copy'"></i>
+                </button>
+                <span class="small text-muted" v-if="tokenCopied">{{ $t('common.copied') }}</span>
+              </div>
+              <template v-else>
+                <p class="small text-muted mb-2">{{ $t('connections.identity.token_not_kept') }}</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="reissuing || saving" @click="reissue">
+                  {{ reissuing ? $t('connections.identity.new_token_making') : $t('connections.identity.new_token') }}
+                </button>
+              </template>
             </div>
 
             <label class="form-label d-block">{{ $t('connections.identity.icon') }}</label>

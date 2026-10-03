@@ -1381,7 +1381,8 @@
       "actions": "Actions",
       "will_be_revoked": "will be revoked",
       "undo": "Undo",
-      "rename": "Rename",
+      "edit": "Edit connection",
+      "copy_token": "Copy token",
       "revoke": "Revoke",
       "empty": "No assistants connected yet. Use Connect an assistant above to add one.",
       "not_saved": "Not saved yet.",
@@ -1392,16 +1393,17 @@
       "confirm_save": "Save these changes?",
       "revoke_failed": "Could not revoke a connection",
       "partial_save": "Some changes were not saved",
-      "saved": "Connections saved"
+      "saved": "Connections saved",
+      "token_copied": "Token copied"
     },
     "new_token": {
-      "copy_now": "Copy this token now. It will not be displayed again.",
+      "copy_now": "Copy this token and add it to your assistant. You can copy it again from Actions › Copy token.",
       "copy_token": "Copy the token",
       "copy_failed": "Could not copy the token",
       "add": "Add token"
     },
     "identity": {
-      "title": "Rename connection",
+      "title": "Edit connection",
       "connected_as": "connected as “{label}” · {auth}",
       "auth_manual": "manual",
       "display_name": "Displayed name",
@@ -1416,7 +1418,14 @@
       "upload": "Upload custom icon",
       "saved": "Saved",
       "save_failed": "Could not save",
-      "icon_rejected": "That icon was not accepted"
+      "icon_rejected": "That icon was not accepted",
+      "token": "Token",
+      "token_not_kept": "memex did not keep this token, so it cannot be copied. A new one replaces it.",
+      "new_token": "Make a new token",
+      "new_token_making": "Making…",
+      "new_token_confirm": "The current token stops working at once, and the assistant that uses it needs the new one. Make a new token?",
+      "new_token_copied": "New token copied",
+      "new_token_failed": "Could not make a new token"
     }
   },
   "automation": {

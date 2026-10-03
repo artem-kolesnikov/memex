@@ -99,7 +99,8 @@ yourself, or a script.
 1. **Create a connection.** Open [Settings › Assistants]({{base}}/settings/connections),
    give the connection a name you will recognise later and press **Create token**.
 {{/local}}
-2. **Copy the token.** It is shown once, so copy it then, and keep it private.
+2. **Copy the token**, and keep it private. *Copy token*, in the connection's *Actions*,
+   copies it again later.
 {{web}}
 3. **Add it to your agent.** Add memex as an MCP server at `{{origin}}/mcp`. The
    agent sends the token with every request, as the header

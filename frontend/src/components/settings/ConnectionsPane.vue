@@ -21,6 +21,7 @@ import CurationAutomationPanel from '@/components/settings/CurationAutomationPan
 import ConnectGuide from '@/components/settings/ConnectGuide.vue'
 import NewTokenDialog from '@/components/settings/NewTokenDialog.vue'
 import { formatDate as writeDate } from '@/lib/datetime'
+import { copyFetched } from '@/lib/clipboard'
 import { useTokenMintStore } from '@/stores/tokenMint'
 import { useAuthStore } from '@/stores/auth'
 
@@ -90,6 +91,22 @@ watch(() => mint.minted, (minted) => {
     void load()
   }
 })
+
+/** A token the clipboard refused, on screen to be copied by hand. */
+const shownToken = ref<{ name: string; token: string } | null>(null)
+
+async function copyToken(token: TokenInfo) {
+  const name = token.display_name || token.label
+  try {
+    if (await copyFetched(() => api.tokenSecret(token.id))) {
+      toastSuccess(t('connections.table.token_copied'), name)
+    } else {
+      shownToken.value = { name, token: await api.tokenSecret(token.id) }
+    }
+  } catch (e) {
+    toastError(t('connections.new_token.copy_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
+  }
+}
 
 function markRevoked(token: TokenInfo) {
   revokeDraft.value = new Set(revokeDraft.value).add(token.id)
@@ -218,7 +235,12 @@ async function save() {
                     <li>
                       <a class="dropdown-item" href="javascript:void(0)"
                          @click="editing = editing === token.id ? null : token.id">
-                        <i class="fa-solid fa-pen fa-fw me-2 text-muted"></i>{{ $t('connections.table.rename') }}
+                        <i class="fa-solid fa-pen fa-fw me-2 text-muted"></i>{{ $t('connections.table.edit') }}
+                      </a>
+                    </li>
+                    <li v-if="token.token_kept">
+                      <a class="dropdown-item" href="javascript:void(0)" @click="copyToken(token)">
+                        <i class="fa-regular fa-copy fa-fw me-2 text-muted"></i>{{ $t('connections.table.copy_token') }}
                       </a>
                     </li>
                     <li><hr class="dropdown-divider"></li>
@@ -251,6 +273,8 @@ async function save() {
 
       <NewTokenDialog v-if="mint.minted" :name="mint.minted.name" :token="mint.minted.token"
                       @close="mint.minted = null" />
+      <NewTokenDialog v-if="shownToken" :name="shownToken.name" :token="shownToken.token"
+                      @close="shownToken = null" />
 
       <div class="mm-savebar" v-if="dirty">
         <span class="small">{{ $t('connections.table.not_saved') }}</span>

@@ -17,7 +17,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * request to that vault. Issuing takes the vault's write lock, then the
  * directory's, the one order every issue follows, and commits the connection
  * only once its route is written; revoking removes the route first, so a
- * revoked token stops reaching the vault at once.
+ * revoked token stops reaching the vault at once. A token the owner made is
+ * also kept encrypted on the connection ({@see ConnectionSecrets}).
  */
 final class BearerTokens
 {
@@ -27,6 +28,7 @@ final class BearerTokens
         private readonly Connection $directory,
         private readonly VaultContext $context,
         private readonly GrowthLimits $growth,
+        private readonly ConnectionSecrets $secrets,
     ) {
     }
 
@@ -37,17 +39,21 @@ final class BearerTokens
      * It is replaced.
      *
      * @param (callable(Connection): void)|null $alongside directory writes that stand or fall with the route
+     * @param bool $keep whether the token is kept for the owner to copy again; an OAuth client's is not
      *
-     * @return array{0: ApiToken, 1: string} the connection, and the plaintext token shown once
+     * @return array{0: ApiToken, 1: string} the connection, and the plaintext token
      */
-    public function issue(Account $account, string $name, ?callable $alongside = null): array
+    public function issue(Account $account, string $name, ?callable $alongside = null, bool $keep = false): array
     {
         $this->assertBound($account);
         $this->growth->assertConnectionRoom();
 
-        return $this->em->wrapInTransaction(function () use ($account, $name, $alongside): array {
-            $plaintext = 'mxt_'.bin2hex(random_bytes(20));
+        return $this->em->wrapInTransaction(function () use ($account, $name, $alongside, $keep): array {
+            $plaintext = self::mint();
             $token = new ApiToken($name);
+            if ($keep) {
+                $this->secrets->keep($token, $plaintext);
+            }
             $this->em->persist($token);
             $this->em->flush();
             $this->directory->transactional(function (Connection $directory) use ($account, $token, $plaintext, $alongside): void {
@@ -70,6 +76,31 @@ final class BearerTokens
         });
     }
 
+    /**
+     * A new token for a live connection, kept like one just made; the old one
+     * stops reaching the vault when the route moves to the new hash.
+     */
+    public function reissue(Account $account, ApiToken $token): string
+    {
+        $this->assertBound($account);
+
+        return $this->em->wrapInTransaction(function () use ($account, $token): string {
+            $plaintext = self::mint();
+            $this->secrets->keep($token, $plaintext);
+            $this->em->flush();
+            $moved = $this->directory->update(
+                'bearer_tokens',
+                ['token_hash' => self::hash($plaintext), 'created_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s')],
+                ['account_id' => $account->getId(), 'connection_id' => $token->getId()],
+            );
+            if ($moved !== 1) {
+                throw new \LogicException('A connection without a route has no token to replace.');
+            }
+
+            return $plaintext;
+        });
+    }
+
     public function revoke(Account $account, ApiToken $token): void
     {
         $this->assertBound($account);
@@ -89,6 +120,11 @@ final class BearerTokens
         );
 
         return $row === false ? null : ['account_id' => (int) $row['account_id'], 'connection_id' => (int) $row['connection_id']];
+    }
+
+    private static function mint(): string
+    {
+        return 'mxt_'.bin2hex(random_bytes(20));
     }
 
     public static function hash(string $plaintext): string

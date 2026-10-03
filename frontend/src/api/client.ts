@@ -613,6 +613,8 @@ export interface TokenInfo {
   created_at: string
   last_used_at: string | null
   revoked: boolean
+  /** memex holds the token, so Settings can copy it again. */
+  token_kept: boolean
 }
 
 export interface IconChoice {
@@ -1287,6 +1289,9 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   revokeToken: (id: number) => request<unknown>(`/api/tokens/${id}`, { method: 'DELETE' }),
+  tokenSecret: (id: number) => request<{ token: string }>(`/api/tokens/${id}/token`).then((r) => r.token),
+  reissueToken: (id: number) =>
+    request<{ token: string }>(`/api/tokens/${id}/token`, { method: 'POST' }).then((r) => r.token),
 
   inboxBatch: (body: InboxBatchRequest) =>
     request<{ action: string; done: number; failed: { kind: string; id: number; error: string }[] }>(

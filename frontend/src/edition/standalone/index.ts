@@ -8,14 +8,15 @@ export const edition: Edition = {
     { path: '/login', name: 'login', meta: { public: true }, component: () => import('./OwnerSignIn.vue') },
   ],
   accountBlocks: [defineAsyncComponent(() => import('./PasswordBlock.vue'))],
+  connectionName: 'memex-local',
   assistantSetups: [
     {
       id: 'claude-desktop',
       label: 'Claude Desktop',
       file: 'claude_desktop_config.json',
-      text: () => `{
+      text: (_address, name) => `{
   "mcpServers": {
-    "memex": {
+    "${name}": {
       "command": "docker",
       "args": ["exec", "-i", "-e", "MEMEX_TOKEN=YOUR_TOKEN", "memex", "php", "bin/console", "app:mcp-stdio"]
     }

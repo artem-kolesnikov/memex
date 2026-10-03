@@ -1,10 +1,9 @@
 <script setup lang="ts">
-// The token, shown once.
+// A token on screen: one just made, or one the clipboard refused.
 //
-// A modal rather than a panel below the form (operator, 2026-08-28): the server
-// keeps only a hash, so this is the single moment the secret exists anywhere a
-// person can read it, and a box that scrolls away with the rest of the page is
-// the wrong shape for that.
+// A modal rather than a panel below the form (operator, 2026-08-28): a box
+// that scrolls away with the rest of the page is the wrong shape for a secret
+// somebody is about to paste elsewhere.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { copyText } from '@/lib/clipboard'

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // Other: an agent that speaks Authorization headers and nothing else. The
-// token is minted at agent role and shown once; the server keeps only a hash.
+// token is minted at agent role and kept encrypted, so Actions can copy it again.
 // The minting and the result live in a store, so switching to another
-// assistant while the request is out cannot lose the only copy of the secret.
+// assistant while the request is out cannot lose the token before it is shown.
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toastError, toastSuccess } from '@/components/toastService'
 import { SETUPS, mcpAddress } from '@/components/settings/connectGuides'
-import { editions } from '@/editions'
+import { connectionName, editions } from '@/editions'
 import { useTokenMintStore } from '@/stores/tokenMint'
 import { copyText } from '@/lib/clipboard'
 import WizardIcon from '@/components/welcome/WizardIcon.vue'
@@ -15,6 +15,7 @@ import WizardIcon from '@/components/welcome/WizardIcon.vue'
 const { t } = useI18n()
 const mint = useTokenMintStore()
 const address = mcpAddress()
+const serverName = connectionName()
 const setups = [...SETUPS, ...editions.flatMap((edition) => edition.assistantSetups ?? [])]
 
 const name = ref('')
@@ -46,7 +47,7 @@ async function copyAddress() {
 
 async function copySetup() {
   if (setup.value === null) return
-  if (await copyText(setup.value.text(address))) {
+  if (await copyText(setup.value.text(address, serverName))) {
     setupCopied.value = true
     window.setTimeout(() => (setupCopied.value = false), 2000)
   } else {
@@ -97,7 +98,7 @@ async function copySetup() {
         </i18n-t>
         <p v-else>{{ $t('connections.connect.setup_terminal') }}</p>
         <div class="mm-wiz-snippet mm-connect-copy">
-          <pre><code>{{ setup.text(address) }}</code></pre>
+          <pre><code>{{ setup.text(address, serverName) }}</code></pre>
           <button type="button" class="mm-wiz-copy-button"
                   :aria-label="setupCopied ? $t('common.copied') : $t('common.copy')"
                   :title="setupCopied ? $t('common.copied') : $t('common.copy')" @click="copySetup">

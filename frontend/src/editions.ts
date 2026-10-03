@@ -14,8 +14,14 @@ export interface Edition {
   assistantSetups?: AssistantSetup[]
   /** Links in the footer, after the copyright. */
   footerLinks?: { labelKey: string; href: string }[]
+  /** The name assistants' settings give this memex, where it is not `memex`. */
+  connectionName?: string
 }
 
 export const editions: Edition[] = Object.values(
   import.meta.glob<Edition>('./edition/*/index.ts', { eager: true, import: 'edition' }),
 )
+
+export function connectionName(): string {
+  return editions.find((edition) => edition.connectionName)?.connectionName ?? 'memex'
+}

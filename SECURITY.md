@@ -16,7 +16,8 @@ The latest release. Upgrading is a new image: README › Upgrade.
   your network, sign-in and tokens travel as plain HTTP. Never publish it to the internet;
   memex.tools is the edition built for that.
 - **The account's password**, as long as you make it; guesses from one address are
-  throttled. Tokens for assistants are shown once, and Settings › Assistants revokes them.
-- **The `/data` volume.** It holds the notes, the provider keys you add (encrypted) and
-  `secret.env`, the key that decrypts them. Protect it and every copy of its backups as you
-  would the notes themselves.
+  throttled. Tokens for assistants are kept encrypted, like provider keys, and Settings ›
+  Assistants revokes them.
+- **The `/data` volume.** It holds the notes, the provider keys you add and your assistants'
+  tokens (both encrypted), and `secret.env`, the key that decrypts them. Protect it and
+  every copy of its backups as you would the notes themselves.

@@ -53,9 +53,10 @@ services:
             string $localesDir: '%app.locales_dir%'
             string $projectDir: '%kernel.project_dir%'
             # Key material for App\Service\CredentialCipher, which encrypts the
-            # one secret we hold for a user: their own AI provider key. Derived
-            # from APP_SECRET so the box needs no second secret — rotating it
-            # makes stored provider keys unreadable and they are re-entered.
+            # secrets we hold for a user: their own AI provider key and their
+            # assistants' tokens. Derived from APP_SECRET so the box needs no
+            # second secret — rotating it makes them unreadable: provider keys
+            # are re-entered and tokens replaced.
             string $appSecret: '%kernel.secret%'
             # Social sign-in (App\Service\SocialProviders), in an edition that
             # offers it. A provider with no client id or secret is simply not

@@ -8,8 +8,9 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * A connection: an agent or API client holding a bearer token. The token's
- * sha256 hash lives in the directory, which routes it here; the plaintext
- * (mxt_<hex>) is shown once at creation. Every write made with
+ * sha256 hash lives in the directory, which routes it here. A token the owner
+ * made for an assistant (mxt_<hex>) is also kept here encrypted, so Settings
+ * can copy it again; one an OAuth client holds is not. Every write made with
  * a token is attributed to it, and token-authored notes land review-gated —
  * EXCEPT tokens with the 'curator' role: their safe writes (create/edit) apply
  * immediately and are audit-logged instead of held. Deletes and merges stay
@@ -111,6 +112,14 @@ class ApiToken
     #[ORM\JoinColumn(name: 'curation_preset_id', nullable: true, onDelete: 'SET NULL')]
     private ?CurationPreset $curationPreset = null;
 
+    /**
+     * The token itself, encrypted with {@see \App\Service\CredentialCipher}.
+     * Null for a token memex was not given to keep: one an OAuth client holds,
+     * one made before tokens were kept, and one revoked.
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $secret = null;
+
     public function __construct(string $name)
     {
         $this->name = $name;
@@ -135,6 +144,17 @@ class ApiToken
     public function revoke(): void
     {
         $this->revokedAt = new \DateTimeImmutable();
+        $this->secret = null;
+    }
+
+    public function getSecret(): ?string
+    {
+        return $this->secret;
+    }
+
+    public function keepSecret(?string $encrypted): void
+    {
+        $this->secret = $encrypted;
     }
 
     public function touch(): void

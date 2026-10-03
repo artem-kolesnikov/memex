@@ -671,22 +671,27 @@ role, new notes arrive in your review inbox and edits, deletions and merges wait
 approval; a curator connection's creates and edits apply at once, and its deletes and
 merges still wait.
 
-**Other** is the tab for anything that cannot complete a browser sign-in: a coding agent,
-a self-hosted agent, a script. Give the connection a name and *Create token*. The token is
-shown once; copy it then. The agent sends it on every request as the header
-`Authorization: Bearer <token>`. Below the address, setups for Claude Code, Codex, Cursor
-and Gemini CLI give the command to run or the lines to add to the assistant's settings
-file, with `YOUR_TOKEN` where the token goes. These connections show *Manual* in the table.
+**Other** is the tab for anything that cannot complete a browser sign-in: a coding agent, a
+self-hosted agent, a script. Give the connection a name and *Create token*, then copy the
+token from the dialog; *Copy token* copies it again later. The agent sends it on every
+request as the header `Authorization: Bearer <token>`. Below the address, setups for Claude
+Code, Codex, Cursor and Gemini CLI give the command to run or the lines to add to the
+assistant's settings file, with `YOUR_TOKEN` where the token goes. These connections show
+*Manual* in the table.
 
 {{edition:assistants-other}}
 
 **Connected assistants & agents** lists every connection with its name, how it
-authenticated, when it was created and when it last called in. *Rename* opens the identity
-editor: the displayed name, an optional description, and an icon (a provider logo, a
-glyph, or an uploaded image). The name and icon you choose are what every byline shows for
-that assistant across memex. *Revoke* marks the connection; *Save changes* confirms, and the
-connection stops working immediately. A revoked assistant gets "Invalid or revoked token"
-on its next call and nothing else. Its past bylines stay.
+authenticated, when it was created and when it last called in. Its *Actions* hold *Edit
+connection*, *Copy token* for a connection made on *Other*, and *Revoke*. *Edit connection*
+opens the identity editor: the displayed name, an optional description, and an icon (a
+provider logo, a glyph, or an uploaded image). The name and icon you choose are what every
+byline shows for that assistant across memex. For a connection made on *Other* it also
+shows the token, masked, with a copy button. memex keeps those tokens encrypted; one made
+before it kept them cannot be copied, and *Make a new token* replaces it, at once, so the
+assistant using the old one needs the new one. *Revoke* marks the connection; *Save
+changes* confirms, and the connection stops working immediately. A revoked assistant gets
+"Invalid or revoked token" on its next call and nothing else. Its past bylines stay.
 
 Every new connection, however made, starts with the *agent* role.
 
@@ -993,9 +998,9 @@ made on the Skills page is learned on the connection's very next call.
 were merged into, so an assistant never proposes a retired word), and the three system tags
 marked with what each does.
 
-**health** — Confirms the connection, names the connection and its role, and reports how
-much work is waiting (inbox counts and the enrichment backlog), so a scheduled run can stop
-when there is nothing to do.
+**health** — Confirms the connection, gives this memex's address, names the connection and
+its role, and reports how much work is waiting (inbox counts and the enrichment backlog),
+so a scheduled run can stop when there is nothing to do.
 
 **curation_candidates** — The curation queue: which notes need attention and why, ranked
 as section 17 describes, with counts per reason. `reason` narrows to one defect,

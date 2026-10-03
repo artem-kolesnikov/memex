@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Entity\ApiToken;
 use App\Service\AgentIcons;
 use App\Service\BearerTokens;
+use App\Service\ConnectionSecrets;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -46,6 +47,7 @@ class TokenController extends ApiController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly BearerTokens $tokens,
+        private readonly ConnectionSecrets $secrets,
     ) {
     }
 
@@ -66,7 +68,7 @@ class TokenController extends ApiController
             : $name;
 
         return $this->json([
-            'tokens' => array_map(static fn (ApiToken $t) => [
+            'tokens' => array_map(fn (ApiToken $t) => [
                 'id' => $t->getId(),
                 'name' => $t->getName(),
                 // What the client called itself, cleaned of the oauth prefix.
@@ -91,6 +93,10 @@ class TokenController extends ApiController
                 'created_at' => $t->getCreatedAt()->format(DATE_ATOM),
                 'last_used_at' => $t->getLastUsedAt()?->format(DATE_ATOM),
                 'revoked' => $t->isRevoked(),
+                // Readable, not merely stored: a vault restored without its
+                // secret.env holds tokens nobody can decrypt, and those get
+                // Make a new token in place of a copy that cannot work.
+                'token_kept' => !$t->isRevoked() && $this->secrets->reveal($t) !== null,
             ], $tokens),
             // Shipped with the list so the picker needs no second request, and
             // so a mark removed from the catalogue disappears from the picker
@@ -113,14 +119,49 @@ class TokenController extends ApiController
             return $this->json($this->json400('name is required (max 120 chars)'), Response::HTTP_BAD_REQUEST);
         }
 
-        [$token, $plaintext] = $this->tokens->issue($account, $name);
+        [$token, $plaintext] = $this->tokens->issue($account, $name, keep: true);
 
         return $this->json([
             'id' => $token->getId(),
             'name' => $token->getName(),
-            // Shown exactly once — only the hash is stored.
             'token' => $plaintext,
         ], Response::HTTP_CREATED);
+    }
+
+    /** The connection's token, for the owner to copy again. */
+    #[Route('/api/tokens/{id}/token', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function secret(int $id, Request $request): JsonResponse
+    {
+        $this->assertSessionAuth($request, 'Token management');
+        $token = $this->token($id);
+        $plaintext = $token->isRevoked() ? null : $this->secrets->reveal($token);
+        if ($plaintext === null) {
+            return $this->json($this->json400('memex does not hold this token. Make a new one in Edit connection.'), Response::HTTP_CONFLICT);
+        }
+
+        $response = $this->json(['token' => $plaintext]);
+        $response->headers->set('Cache-Control', 'no-store');
+
+        return $response;
+    }
+
+    /**
+     * A new token for a connection the owner made; the old one stops working.
+     * An OAuth client's token is its client's to renew.
+     */
+    #[Route('/api/tokens/{id}/token', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function reissue(int $id, Request $request): JsonResponse
+    {
+        $this->assertSessionAuth($request, 'Token management');
+        $token = $this->token($id);
+        if ($token->isRevoked() || str_starts_with($token->getName(), self::OAUTH_PREFIX)) {
+            return $this->json($this->json400('Only a live connection made in Settings gets a new token.'), Response::HTTP_CONFLICT);
+        }
+
+        $response = $this->json(['token' => $this->tokens->reissue($this->currentAccount(), $token)]);
+        $response->headers->set('Cache-Control', 'no-store');
+
+        return $response;
     }
 
     /**
