@@ -2,8 +2,7 @@
 
 The code in this repository is free software under the GNU Affero General Public License
 ([LICENSE](LICENSE)). The name **memex** as the name of this software, the memex wordmark
-and the memex logo are not covered by that licence. They belong to Artem Kolesnikov, and
-this policy says how they may be used.
+and the memex logo are not covered by that licence. This policy says how they may be used.
 
 ## Without asking
 
@@ -20,7 +19,7 @@ this policy says how they may be used.
 - Using the name or logo in the name of a product, service, company, domain or app store
   listing.
 - Altering the wordmark or the logo.
-- Anything that suggests Artem Kolesnikov or memex.tools endorses, sponsors or runs what
-  you offer.
+- Anything that suggests this project or memex.tools endorses, sponsors or runs what you
+  offer.
 
 To ask, open an issue in this repository.

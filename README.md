@@ -26,7 +26,7 @@ own computer and keep everything local.
 | **Infrastructure**                    |                                                                                   |                                                                                    |
 | Where it runs                         | memex.tools's servers, on AWS                                                     | Your computer, a home server or a virtual machine                                  |
 | Reached from                          | Anywhere, over HTTPS                                                              | That computer, or your network if you open it up                                   |
-| What you need                         | A browser                                                                         | Docker, 1 GB of memory to spare, and a browser                                     |
+| What you need                         | A browser                                                                         | [Docker](DOCKER.md), 1 GB of memory to spare, and a browser                        |
 | Updates                               | Always the latest version                                                         | You pull the new image when you choose                                             |
 | Backups                               | Nightly, by memex.tools                                                           | Daily, on your own disk; copying them elsewhere is up to you                       |
 | **Costs**                             |                                                                                   |                                                                                    |
@@ -106,8 +106,8 @@ Install memex from https://github.com/artem-kolesnikov/memex and connect yoursel
 It follows this section and the next one, and hands you the one step that is yours:
 creating your account. To do it yourself, the steps are the same.
 
-You need [Docker](https://docs.docker.com/get-docker/) on Linux, macOS, or Windows with
-Docker Desktop, on 64-bit x86 or ARM, with 1 GB of memory to spare.
+You need Docker on Linux, macOS, or Windows with Docker Desktop, on 64-bit x86 or ARM,
+with 1 GB of memory to spare. To install it, follow [DOCKER.md](DOCKER.md).
 
 ```bash
 docker run -d --name memex -p 127.0.0.1:8080:8080 -v memex:/data --restart unless-stopped ghcr.io/artem-kolesnikov/memex
