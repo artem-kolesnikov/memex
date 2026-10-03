@@ -181,6 +181,8 @@ What a connected assistant can do:
 | Tidy up | `inbox`, `needs_enrichment`, `curation_candidates`, `duplicate_candidates`, `blast_radius`, `last_curated`, `resolve_curation_flag` | See what is waiting and what needs attention, then file the work for you to check |
 | Journal | `health`, `log`, `log_recent` | Check its connection and role; record and read what it did |
 
+`log`, `log_recent`, `resolve_curation_flag` and `duplicate_candidates` appear once you grant the connection the curator role in Settings › Assistants.
+
 The guide inside memex covers every screen and tool; ask any connected assistant to load
 the `memex-guide` skill.
 
