@@ -5,7 +5,16 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
-## Unreleased
+## 1.9.1
+
+- A token made in Settings or with `app:create-token` can be copied again: *Copy token* in a
+  connection's *Actions*, or the copy button in *Edit connection*. A token made in 1.9.0 is
+  not kept, so its connection offers *Make a new token* instead, and the old token stops at
+  once.
+- The connection lines in Settings name this memex `memex-local`, and `health` returns its
+  address, so an assistant connected to memex.tools as well can tell the two apart.
+
+## 1.9.0
 
 The first release of memex for a machine of your own: a laptop, a home server or a virtual
 machine.
