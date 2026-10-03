@@ -59,11 +59,15 @@ Then start Docker with the computer, and let your user run `docker` without `sud
 ```bash
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
+newgrp docker
 ```
 
-Sign out and back in for the second line to take effect. Membership of the `docker` group
-is as good as root on that computer; to keep it to root, skip the second line and put `sudo`
-before every `docker` command.
+`newgrp docker` gives the group to this terminal only. Other terminals have it once you sign
+out and back in, or reconnect over SSH; a new terminal window is not enough. Until then,
+`docker` answers *permission denied* on `docker.sock`.
+
+Membership of the `docker` group is as good as root on that computer; to keep it to root,
+skip the last two lines and put `sudo` before every `docker` command.
 
 ## Check it works
 
