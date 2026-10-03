@@ -5,6 +5,13 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.2
+
+- The guide and the first welcome note open with a new description of memex, and the
+  guide's section 18 is called *AI features*.
+- What memex tells a connecting assistant about describing notes now says only whether it is
+  switched on.
+
 ## 1.9.1
 
 - A token made in Settings or with `app:create-token` can be copied again: *Copy token* in a

@@ -13,9 +13,9 @@ As your work changes, ask your assistant to update the notes. Review what it sug
 Use our free cloud version at [memex.tools](https://memex.tools), or install memex on your
 own computer and keep everything local.
 
-> Memex never reaches out to an assistant: each assistant connects to memex's address instead. Memex only answers, and only to the assistants you have connected. ChatGPT, Claude's connectors and Gemini Spark connect from their servers on the internet, so they can use our cloud version at https://memex.tools but not a local install. Claude Code, Codex and the other assistants on your computer can use either.
+> Memex never reaches out to an assistant: each assistant connects to memex's address instead. Memex only answers, and only to the assistants you have connected. ChatGPT, Claude's connectors and Gemini Spark connect from their servers on the internet, so they can use cloud memex at https://memex.tools but not a self-hosted memex. Claude Code, Codex and the other assistants on your computer can use either.
 
-|                                       | Free cloud **[memex.tools](https://memex.tools)**                                 | **Local install** (this repository)                                                |
+|                                       | **Cloud memex**, free at [memex.tools](https://memex.tools)                        | **Self-hosted memex** (this repository)                                            |
 | ------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | How memex is accessed                 | `https://memex.tools/mcp`                                                         | `http://localhost:8080/mcp`                                                        |
 | Memex                                 | Notes, review inbox, history, search, map, skills, import and export              | The same                                                                           |

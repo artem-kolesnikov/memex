@@ -3,9 +3,13 @@ title: "Welcome to memex"
 description: "Start here: what memex is, what happens to what your assistants write, and the two notes to read next."
 ---
 
-memex is a knowledge base your assistants write to, and you approve. Ask Claude, ChatGPT or
-whatever you use; it reads your memex and answers from your notes, and it saves what you
-decide here, where every assistant you connect can find it again.
+Memex is a web app where your AI can save decisions, reasoning and project context as
+notes. You can read and edit every note, then use it with any assistant you connect. As your
+work changes, ask your assistant to update the notes. Review what it suggests and decide what
+stays.
+
+Ask Claude, ChatGPT or whatever you use; it reads your memex and answers from your notes,
+and it saves what you decide here, where every assistant you connect can find it again.
 
 ## Where to start
 

@@ -1,6 +1,6 @@
 ---
 title: "memex — guide"
-description: "What memex is and how every screen, setting and assistant tool works: notes, the three ways in, the review gate, connections and roles, skills, curation, services and spend, export and deletion, and the MCP tool reference. Load it to answer any question about memex. Ships with memex and stays current with it."
+description: "What memex is and how every screen, setting and assistant tool works: notes, the three ways in, the review gate, connections and roles, skills, curation, AI features, export and deletion, and the MCP tool reference. Load it to answer any question about memex. Ships with memex and stays current with it."
 short: "Help you use memex, from saving your first note to managing settings and connections."
 ---
 
@@ -41,7 +41,7 @@ describes memex as it is now.
 15. Roles: agent and curator
 16. Skills and standing instructions over MCP
 17. Curation, if you ever want it
-18. AI features, and whose money they spend
+18. AI features
 
 **Part IV — Your data**
 19. Export
@@ -60,11 +60,15 @@ describes memex as it is now.
 
 ## 1. What memex is, and what it is not
 
-memex is a knowledge base your assistants write to, and you approve. You keep talking to
-Claude, ChatGPT, Gemini or whatever you use, the way you already do. When something is worth
-keeping, you say so, and your assistant writes it into memex as a note. Later, any assistant
-you have connected can read that note back. Between those two moments, you are the one who
-decides what stays.
+Memex is a web app where your AI can save decisions, reasoning and project context as
+notes. You can read and edit every note, then use it with any assistant you connect. As your
+work changes, ask your assistant to update the notes. Review what it suggests and decide what
+stays.
+
+You keep talking to Claude, ChatGPT, Gemini or whatever you use, the way you already do.
+When something is worth keeping, you say so, and your assistant writes it into memex as a
+note. Later, any assistant you have connected can read that note back. Between those two
+moments, you are the one who decides what stays.
 
 Every note is plain Markdown with a title, tags and links to other notes. Search works by
 meaning as well as by keyword. Every note downloads as a text file, and the whole knowledge
@@ -811,7 +815,7 @@ you, and it cannot write the run record.
 After a pass, the assistant reports to you in the chat you started it from. memex reports
 nothing on its own.
 
-## 18. AI features, and whose money they spend
+## 18. AI features
 
 {{edition:ai-features}}
 

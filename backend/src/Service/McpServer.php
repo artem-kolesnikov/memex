@@ -177,8 +177,8 @@ final class McpServer
             **You write the descriptions.** When you save a note you are already holding the text,
             so write the `title`, the `summary` and the `tags` yourself and pass them as arguments.
             Call `list_tags` first and reuse the vocabulary that is already there rather than
-            inventing a private dialect. This knowledge base may also describe notes itself, on a
-            provider account its owner pays for, if they have switched that on: it writes a
+            inventing a private dialect. This knowledge base may also describe notes itself, if that
+            is switched on: it writes a
             description when a note arrives without one, and files the note under tags its owner's
             vocabulary already contains. It never does either instead of you. A summary you supply
             is the one that is kept and costs them nothing, your tags are never removed, and words
