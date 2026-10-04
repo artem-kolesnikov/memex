@@ -1,19 +1,17 @@
-# memex
-
-**Project notes *you and your AI* work from.**
-
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/artem-kolesnikov/memex/actions/workflows/ci.yml/badge.svg)](https://github.com/artem-kolesnikov/memex/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/artem-kolesnikov/memex)](https://github.com/artem-kolesnikov/memex/releases)
+ 
+# memex
 
-Memex is a web app where your AI can save decisions, reasoning and project context as notes. You can read and edit every note, then use it with any assistant you connect.
+### Project notes *you and your AI* work from.
 
-As your work changes, ask your assistant to update the notes. Review what it suggests and decide what stays.
+Memex is a simple notebook for you and your AI assistants. Ask your AI to save decisions and context. Use those notes with any assistant you connect. Skip the repeat explanations. Read, edit, and review suggested updates. You decide what stays.
 
-Use our free cloud version at [memex.tools](https://memex.tools), or install memex on your
-own computer and keep everything local.
+Use our free cloud version at **[memex.tools](https://memex.tools)**, or install memex on your own computer and keep everything local.
 
-> Memex never reaches out to an assistant: each assistant connects to memex's address instead. Memex only answers, and only to the assistants you have connected. ChatGPT, Claude's connectors and Gemini Spark connect from their servers on the internet, so they can use cloud memex at https://memex.tools but not a self-hosted memex. Claude Code, Codex and the other assistants on your computer can use either.
+-----
+### Cloud vs self-hosted
 
 |                                       | **Cloud memex**, free at [memex.tools](https://memex.tools)                        | **Self-hosted memex** (this repository)                                            |
 | ------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -38,29 +36,25 @@ own computer and keep everything local.
 Microsoft or GitHub. No password. To install it on your own computer, go to
 [Run it](#run-it).
 
-## So what is memex?
+## Who is it for and how does it work?
 
-Memex is a single shared knowledge base across all your chatbots and AI agents. Connect them all and they will know everything instantly.
+Anyone who works with AI and wants a notebook made for it: one your assistant writes in while you talk, and you read, approve and come back to. Plans, research, client briefs, a family trip: whatever you work out with AI and don’t want to lose or explain again.
 
-An assistant helps only as much as it knows about you and your work. Memex keeps that in
-one place: your projects, your notes, your workflows and the skills you have written down.
-Every assistant you connect works from the same notes, and you decide what goes in.
+Memex doesn't pretend to be another professional AI memory solution. You don’t need a photo studio to crop a family picture, or a complex memory system to keep notes with your AI. Use your usual AI chat. Ask your assistant to read your notes, save what you work out, and suggest updates when things change. Open memex to review and edit them yourself.
 
-### How does it work?
-
-Work in your usual AI chat. Ask your assistant to read the relevant notes, save what you work out, and suggest updates when something changes. Open memex to review and edit the notes yourself.
+An assistant helps only as much as it knows about you and your work. Memex keeps that in one place: your projects, your notes, your workflows and the skills you have written down.
 
 1. **Start with what you have.** Import your existing Markdown notes, or start with the next thing you work out with AI.
 2. **Connect the assistants you use.** Decide what they can read and which changes need your approval.
-3. **Keep doing your thing.** Ask questions, explore ideas, work through the details. When something is worth keeping, say “save that to memex.”
+3. **Keep doing your thing.** Ask questions, explore ideas, work through the details. When something is worth keeping, say `save that to memex`.
 4. **Review what your assistant wrote on your memex page.** Open the proposed note or update in memex. Read it, make any corrections, and decide what to keep.
 5. **Use the notes. Keep them current.** Next time, start with asking your assistant to read the relevant notes.
 
 Every assistant you use today will be replaced by a better one tomorrow. *What you worked out with them now stays with you.*
 
-Feel free to try memex online at https://memex.tools, see how it works and if it fits your needs, and keep using it for free, or go with a local-first version below.
+Try memex online at https://memex.tools, see how it works and if it fits your needs, and keep using it for free, or go with a local-first version below.
 
-## Local-first memex
+## Local-first memex in this repository
 
 - **Your notes stay on your computer.** They live in a Docker volume there, and only the
   assistants you connect on that computer or your network can reach them.
@@ -71,11 +65,7 @@ Feel free to try memex online at https://memex.tools, see how it works and if it
 - **Open source.** Read the code, change it and extend it, under the AGPL-3.0.
 - **Your notes can move.** Export any note, or all of them, as Markdown. Import them into local vaults, or online vaults, including at [memex.tools](https://memex.tools), whenever you want them online, and back again.
 
-## What memex adds to your AI workflow.
-
-A chatbot lasts while you chat. A memory add-on remembers those chats. **With memex, you build a knowledge base you can use with your AIs, or on your own.**
-
->Memex is **not just another memory plugin**. It is a different approach. You can run a memory plugin alongside it: the plugin remembers how you like an answer, while memex holds the research note you approved. Both can be available to the same assistant.
+> Memex is not a better memory product, and doesn't try to be one. If you already use one, keep it: it remembers you and your conversations, while **memex keeps what you made in them, as notes you can read and correct**. Both can be available to the same assistant.
 
 
 | Feature              | Details                                                                                                                                                                                                  |
@@ -181,7 +171,7 @@ What a connected assistant can do:
 | Tidy up | `inbox`, `needs_enrichment`, `curation_candidates`, `duplicate_candidates`, `blast_radius`, `last_curated`, `resolve_curation_flag` | See what is waiting and what needs attention, then file the work for you to check |
 | Journal | `health`, `log`, `log_recent` | Check its connection and role; record and read what it did |
 
-`log`, `log_recent`, `resolve_curation_flag` and `duplicate_candidates` appear once you grant the connection the curator role in Settings › Assistants.
+`log`, `log_recent`, `resolve_curation_flag` and `duplicate_candidates` appear once you grant the connection the **curator role** in Settings › Assistants.
 
 The guide inside memex covers every screen and tool; ask any connected assistant to load
 the `memex-guide` skill.
@@ -230,11 +220,11 @@ without it, a restored memex asks for those keys again.
 
 ## Restore
 
-**Everything, from a backup folder** (`20261001-000000` stands for the one you choose):
+**Everything, from a backup folder** (`YYYYMMDD-HHMMSS` stands for the one you choose):
 
 ```bash
 docker stop memex
-docker run --rm -v memex:/data -v "$PWD/memex-backups/20261001-000000:/backup:ro" --entrypoint sh ghcr.io/artem-kolesnikov/memex -c 'test -f /backup/directory.sqlite && test -d /backup/vaults && old=/data/before-restore-$(date +%s) && mkdir "$old" && mv /data/directory.sqlite* /data/vaults "$old"/ && cp /backup/directory.sqlite /data/ && cp -r /backup/vaults /data/ && echo restored'
+docker run --rm -v memex:/data -v "$PWD/memex-backups/YYYYMMDD-HHMMSS:/backup:ro" --entrypoint sh ghcr.io/artem-kolesnikov/memex -c 'test -f /backup/directory.sqlite && test -d /backup/vaults && old=/data/before-restore-$(date +%s) && mkdir "$old" && mv /data/directory.sqlite* /data/vaults "$old"/ && cp /backup/directory.sqlite /data/ && cp -r /backup/vaults /data/ && echo restored'
 docker start memex
 ```
 
