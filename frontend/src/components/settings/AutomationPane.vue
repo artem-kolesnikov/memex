@@ -53,6 +53,8 @@ const includedText = computed(() => ai.value?.included === true && ai.value?.cre
 // With nothing capped the server sends no limits, and whose key pays is read off the sections.
 const ownEmbedKey = computed(() => searchPaid.value && (limits.value ? limits.value.own_embed_key : ai.value?.embed_credential_id != null))
 const ownTextKey = computed(() => limits.value ? limits.value.own_text_key : ai.value?.credential_id != null)
+// Nothing capped and memex's key buying search, so the counters say there is no limit.
+const searchIncluded = computed(() => !limits.value && searchPaid.value && !ownEmbedKey.value && search.value?.ready === true)
 const textActive = computed(() => includedText.value || (
   ai.value?.enabled === true && keys.value.some((key) => key.id === ai.value?.credential_id && key.readable !== false)
 ))
@@ -138,14 +140,14 @@ async function saveEnrichment(patch: AiRolePatch) {
         <div class="alert alert-warning" v-if="!search.ready">{{ $t('automation.embeddings.not_ready') }}</div>
         <p class="mm-note" v-else-if="search.embedded < search.notes">{{ $t('automation.embeddings.progress', { embedded: search.embedded, notes: search.notes }) }}</p>
       </template>
-      <div class="mm-settings-grid mm-ai-usage" v-if="limits">
+      <div class="mm-settings-grid mm-ai-usage" v-if="limits || searchIncluded">
         <div>
           <h4 class="mm-ai-label">{{ $t('automation.embeddings.notes_limit') }}</h4>
-          <AutomationQuota :left="limits.left_today.embed" :daily="limits.embed_daily" :own="limits.own_embed_key" />
+          <AutomationQuota :left="limits?.left_today.embed ?? null" :daily="limits?.embed_daily ?? 0" :own="limits?.own_embed_key ?? false" />
         </div>
         <div>
           <h4 class="mm-ai-label">{{ $t('automation.embeddings.search_limit') }}</h4>
-          <AutomationQuota :left="limits.left_today.search" :daily="limits.search_daily" :own="limits.own_embed_key" />
+          <AutomationQuota :left="limits?.left_today.search ?? null" :daily="limits?.search_daily ?? 0" :own="limits?.own_embed_key ?? false" />
         </div>
       </div>
       <h4 class="mm-ai-label">{{ $t('automation.personal_key') }}</h4>
@@ -172,14 +174,15 @@ async function saveEnrichment(patch: AiRolePatch) {
       </div>
       <p class="mm-note">{{ $t('automation.pane.enrichment_why') }}</p>
 
-      <div class="mm-ai-usage" v-if="limits && textActive">
+      <div class="mm-ai-usage" v-if="textActive && (limits || includedText)">
         <h4 class="mm-ai-label">{{ $t('automation.pane.details_limit') }}</h4>
-        <AutomationQuota :left="limits.left_today.text" :daily="limits.text_daily" :own="limits.own_text_key"
+        <AutomationQuota :left="limits?.left_today.text ?? null" :daily="limits?.text_daily ?? 0" :own="limits?.own_text_key ?? false"
                          :model="includedText ? ai?.included_model : null" />
       </div>
       <h4 class="mm-ai-label">{{ $t('automation.personal_key') }}</h4>
       <p class="mm-note" v-if="ownTextKey">{{ $t('automation.key_in_use') }}</p>
-      <p class="mm-note" v-else>{{ $t(includedText ? 'automation.pane.enrichment_allowance' : 'automation.pane.enrichment_key') }}</p>
+      <p class="mm-note" v-else>{{ $t(!includedText ? 'automation.pane.enrichment_key'
+        : (limits ? 'automation.pane.enrichment_allowance' : 'automation.pane.enrichment_model')) }}</p>
 
       <AutomationKeys
         section="text"

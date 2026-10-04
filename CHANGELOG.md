@@ -5,6 +5,11 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.3
+
+- The `app:seed-demo` command and the fictional accounts it wrote are gone from the image,
+  and the screenshots taken from them are gone from the README.
+
 ## 1.9.2
 
 - The guide and the first welcome note open with a new description of memex, and the

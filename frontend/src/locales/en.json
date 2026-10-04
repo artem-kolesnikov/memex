@@ -515,6 +515,8 @@
         "own": "Summaries and titles use your own AI key.",
         "included": "Summaries and titles by {model}: {left} analyses left today. | Summaries and titles by {model}: {left} analysis left today. | Summaries and titles by {model}: {left} analyses left today.",
         "included_default": "Summaries and titles: {left} analyses left today. | Summaries and titles: {left} analysis left today. | Summaries and titles: {left} analyses left today.",
+        "unlimited": "Summaries and titles by {model}: no daily limit.",
+        "unlimited_default": "Summaries and titles: no daily limit.",
         "link": "Settings › AI features"
       },
       "nothing_saved_until": "Nothing is saved until {action}.",
@@ -1457,6 +1459,7 @@
       "enrichment_why": "When you save a note, Memex can write a short description and add relevant tags from your existing tags. Descriptions you supply and tags you choose are kept.",
       "enrichment_allowance": "Add your own API key to remove the daily limit and choose a model.",
       "enrichment_key": "Use a key from OpenAI, Anthropic or Google to turn this on and choose a model. Your provider bills you for usage; Memex applies no daily limit.",
+      "enrichment_model": "Add your own API key to choose a model.",
       "active": "On",
       "inactive": "Off",
       "details_limit": "Daily allowance"
@@ -1601,7 +1604,8 @@
       "left": "{left} of {daily} remaining today.",
       "left_model": "{left} of {daily} remaining today; model: {model}.",
       "own_key": "No Memex daily limit.",
-      "no_ceiling": "No daily limit."
+      "no_ceiling": "No daily limit.",
+      "no_ceiling_model": "No daily limit; model: {model}."
     },
     "personal_key": "Personal API key",
     "key_in_use": "Your personal key is in use. Your provider bills you for usage and its limits still apply."

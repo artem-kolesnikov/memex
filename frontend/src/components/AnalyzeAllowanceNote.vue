@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The editor assistant's one sentence on who writes Analyze's summaries and
 // titles: nobody until a key is added, the person's own key, or memex's key
-// under the tier's allowance, named by model.
+// under the tier's allowance or with none, named by model.
 import type { AnalyzeAllowance } from '@/api/client'
 
 defineProps<{ allowance: AnalyzeAllowance | null }>()
@@ -16,6 +16,11 @@ defineProps<{ allowance: AnalyzeAllowance | null }>()
       </template>
     </i18n-t>
     <p v-else-if="allowance.suggestions === 'own'" class="mm-assistant-lede">{{ $t('editor.assistant.allowance.own') }}</p>
+    <p v-else-if="allowance.left === null" class="mm-assistant-lede">
+      {{ allowance.model
+        ? $t('editor.assistant.allowance.unlimited', { model: allowance.model })
+        : $t('editor.assistant.allowance.unlimited_default') }}
+    </p>
     <p v-else class="mm-assistant-lede">
       {{ allowance.model
         ? $t('editor.assistant.allowance.included', { model: allowance.model, left: allowance.left ?? 0 }, allowance.left ?? 0)

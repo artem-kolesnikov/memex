@@ -22,7 +22,7 @@ const pct = computed(() => (props.daily > 0 ? Math.min(100, (used.value / props.
 
 <template>
   <p class="mm-note mb-2" v-if="own">{{ $t('automation.quota.own_key') }}</p>
-  <p class="mm-note mb-2" v-else-if="left === null">{{ $t('automation.quota.no_ceiling') }}</p>
+  <p class="mm-note mb-2" v-else-if="left === null">{{ model ? $t('automation.quota.no_ceiling_model', { model }) : $t('automation.quota.no_ceiling') }}</p>
   <div class="mm-quota mb-2" v-else>
     <div class="mm-quota-bar" role="img"
          :aria-label="$t('automation.quota.left', { left, daily })">
