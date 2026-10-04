@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Memex Standalone's sign-in screen, in place of the core's: the setup form
+// memex-local's sign-in screen, in place of the core's: the setup form
 // while the server has no account, and the password form after. `next` returns
 // only to the OAuth consent page, as on the core's screen, and the server checks
 // it again.

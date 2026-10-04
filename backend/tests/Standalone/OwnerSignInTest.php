@@ -16,7 +16,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
- * Memex Standalone's one account: made at first run, without a code for ten
+ * memex-local's one account: made at first run, without a code for ten
  * minutes and with the setup code after, opened with its password, and the
  * only one there is.
  */

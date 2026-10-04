@@ -28,11 +28,11 @@ parameters:
     memex.embedding_server_key: false
     # Whether this edition serves the assistants that call memex from their own
     # servers over the internet (ChatGPT, Claude's connectors, Gemini). Memex
-    # Standalone is local-first: it offers only the assistants on its owner's
+    # memex-local is local-first: it offers only the assistants on its owner's
     # machine and network, and leaves the internet to memex.tools.
     memex.web_assistants: false
     # Whether this edition signs in with Google, Apple, Microsoft and GitHub
-    # (App\Service\SocialProviders). Memex Standalone's owner signs in with a
+    # (App\Service\SocialProviders). memex-local's owner signs in with a
     # password, so it offers no provider, whatever is configured.
     memex.social_sign_in: false
 

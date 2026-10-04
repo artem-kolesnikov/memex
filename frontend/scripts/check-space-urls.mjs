@@ -64,7 +64,7 @@ const MIME = {
   '.ico': 'image/x-icon', '.map': 'application/json',
 }
 
-/** The box's routing, as far as a URL's fate is concerned. Standalone has no
+/** The box's routing, as far as a URL's fate is concerned. memex-local has no
  *  landing page: its nginx sends `/` to the app, which is the one difference
  *  `rootIsApp` makes. */
 const serve = (rootIsApp) => createServer((req, res) => {
@@ -342,7 +342,7 @@ await expect('Signed out, your own page asks you to sign in.', `/${MINE}/notes`,
 await expect("Signed out, another account's page asks the same.", `/${THEIRS}/inbox`, { signedIn: false }, { where: '/login' })
 await expect('Signed out, a note asks the same.', `/${MINE}/notes/5`, { signedIn: false }, { where: '/login' })
 
-// --- 5b. where Standalone serves `/` from the app, it is the way in ----------
+// --- 5b. where memex-local serves `/` from the app, it is the way in --------
 
 await expect('Signed in, `/` opens your list.', '/', { base: STANDALONE }, { where: `/${MINE}/notes`, body: (t) => t.includes(LIST[0].title) })
 await expect('Signed out, `/` asks you to sign in.', '/', { base: STANDALONE, signedIn: false }, { where: '/login', body: (t) => t.includes('Google') })

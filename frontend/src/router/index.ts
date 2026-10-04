@@ -66,7 +66,7 @@ const router = createRouter({
     // the two have to match, and nothing else can tell you when they stop.
     { path: '/:handle([a-z2-9]{12})', children: spaceRoutes },
     // On memex.tools nginx serves `/` as the landing page, so only a push from
-    // inside the app arrives here; on Standalone it is the first address an
+    // inside the app arrives here; on memex-local it is the first address an
     // owner opens. Never rendered: the guard sends it to sign-in or to the
     // reader's list, once it knows which. A redirect cannot wait for that, and
     // with no handle to inherit on a fresh load it threw and left a blank page.

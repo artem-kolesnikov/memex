@@ -27,7 +27,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * what makes this safe to merge before the operator has registered anything:
  * the buttons render from {@see available()}, so an unregistered provider is
  * invisible rather than broken. An edition that does not sign in with providers
- * at all (`memex.social_sign_in`: Memex Standalone, where the owner has a
+ * at all (`memex.social_sign_in`: memex-local, where the owner has a
  * password) offers none, whatever is configured.
  *
  * The URLs are checked against each provider's current documentation

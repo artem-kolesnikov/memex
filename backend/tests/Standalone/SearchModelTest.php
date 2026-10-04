@@ -10,7 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * Memex Standalone embeds on its own server and holds no OpenAI key of its
+ * memex-local embeds on its own server and holds no OpenAI key of its
  * own: a vault starts on the local model, chooses OpenAI only with its own
  * key, and without that key is searched by its words alone.
  */

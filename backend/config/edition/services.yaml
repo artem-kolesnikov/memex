@@ -1,4 +1,4 @@
-# Memex Standalone's own services, loaded after the core's (see App\Kernel): the
+# memex-local's own services, loaded after the core's (see App\Kernel): the
 # owner's password and first run in src/Standalone, and its answer to the core's door.
 services:
     _defaults:
