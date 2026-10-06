@@ -71,6 +71,7 @@ class NoteWriter
         private readonly TagAdmin $tags,
         private readonly StorageLimits $storageLimits,
         private readonly GrowthLimits $growth,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -239,13 +240,34 @@ class NoteWriter
         // One transaction from tag resolution to the row: resolving a retired
         // tag un-retires it with a raw delete, and a refusal at the row must
         // take that back with it.
-        $this->limbo->whileHoldingNotes([], function () use ($note, $tagNames, $createdAt, $updatedAt): void {
+        $this->limbo->whileHoldingNotes([], function () use ($note, $token, $title, $bodyMd, $tagNames, $status, $createdAt, $updatedAt): void {
             foreach ($this->resolveTags($tagNames) as $tag) {
                 $note->addTag($tag);
             }
             $note->carryDates($createdAt, $updatedAt);
 
             $this->em->persist($note);
+            $this->em->flush();
+
+            if ($token === null) {
+                $this->journal->record(
+                    (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_CREATE, 'Created “'.$title.'”'))->withNote($note)
+                );
+            } elseif ($status === Note::STATUS_VERIFIED) {
+                // Curator creates leave an audit trail: an already-applied 'create'
+                // proposal row (prev* = null — there was nothing before) + a log row.
+                $audit = EditProposal::forAppliedCreate($note, $token, $title, $bodyMd, $tagNames);
+                $this->em->persist($audit);
+                $this->journal->record(
+                    (new CuratorLogEntry($token->getName(), CuratorLogEntry::ACTION_CREATE, 'Created “'.$title.'”'))
+                        ->withToken($token)->withNote($note)->withProposal($audit)
+                );
+            } else {
+                $this->journal->record(
+                    (new CuratorLogEntry($token->getName(), CuratorLogEntry::ACTION_CREATE_PROPOSED, 'Proposed a new note, “'.$title.'” — held for review.'))
+                        ->withToken($token)->withNote($note)
+                );
+            }
             $this->em->flush();
         });
 
@@ -256,17 +278,6 @@ class NoteWriter
         $suggestions = $enrich !== null
             ? $this->enricher->enrich($note, $enrich, generateSummary: $note->getSummary() === null, applyTags: $applyTags)
             : ['tag_ids' => [], 'new_tags' => []];
-
-        // Curator creates leave an audit trail: an already-applied 'create'
-        // proposal row (prev* = null — there was nothing before) + a log row.
-        if ($token !== null && $token->isCurator() && $status === Note::STATUS_VERIFIED) {
-            $audit = EditProposal::forAppliedCreate($note, $token, $title, $bodyMd, $tagNames);
-            $this->em->persist($audit);
-            $this->em->persist(
-                (new CuratorLogEntry($token->getName(), CuratorLogEntry::ACTION_CREATE, 'Created “'.$title.'”'))
-                    ->withToken($token)->withNote($note)->withProposal($audit)
-            );
-        }
         $this->em->flush();
 
         return ['note' => $note, 'suggestions' => $suggestions];
@@ -362,7 +373,10 @@ class NoteWriter
             // summary is a consequence of that edit rather than part of it.
             // A no-op update (a merge that only moved tags, a proposal whose fields
             // are all null) records nothing — see NoteRevisions::record.
-            $this->revisions->record($previous, $note);
+            if ($this->revisions->record($previous, $note)) {
+                $this->journal->record($this->editEntry($previous, $note, $operation));
+                $this->em->flush();
+            }
 
             $this->enricher->syncLinks($note);
             if ($titleBefore !== $note->getTitle()) {
@@ -377,6 +391,43 @@ class NoteWriter
             : $this->finishUpdateEnrichment($note, $bodyMd !== null, $applyTags, $enrich);
 
         return ['note' => $note, 'suggestions' => $suggestions];
+    }
+
+    /** The journal's line for one edit, written by whoever the revision says replaced the text. */
+    private function editEntry(NoteRevision $previous, Note $note, ?string $operation): CuratorLogEntry
+    {
+        $changed = array_keys(array_filter([
+            'title' => $previous->getTitle() !== $note->getTitle(),
+            'body' => $previous->getBodyMd() !== $note->getBodyMd(),
+            'tags' => self::sortedNames($previous->getTags()) !== self::sortedNames(array_map(static fn (Tag $tag): string => $tag->getName(), $note->getTags()->toArray())),
+            'summary' => $previous->getSummary() !== $note->getSummary(),
+        ]));
+        $description = $operation === NoteRevision::OP_RESTORE
+            ? 'Restored an earlier version of “'.$note->getTitle().'”'
+            : 'Edited '.implode(' + ', $changed).' of “'.$note->getTitle().'”'
+                .($previous->getTitle() !== $note->getTitle() ? ' (was “'.$previous->getTitle().'”)' : '');
+
+        $token = $previous->getReplacedByToken();
+        $entry = new CuratorLogEntry($token?->getName() ?? 'operator', CuratorLogEntry::ACTION_EDIT, $description);
+        if ($token !== null) {
+            $entry->withToken($token);
+        } elseif ($previous->getReplacedBy() === Note::ACTOR_MEMEX) {
+            $entry = (new CuratorLogEntry('memex', CuratorLogEntry::ACTION_EDIT, $description))->byMemex();
+        }
+
+        return $entry->withNote($note);
+    }
+
+    /**
+     * @param string[] $names
+     *
+     * @return string[]
+     */
+    private static function sortedNames(array $names): array
+    {
+        sort($names);
+
+        return $names;
     }
 
     /** @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}} */
@@ -680,6 +731,14 @@ class NoteWriter
                     return $this->fileReport($note, $token, $said);
                 }
                 $drafted->revise(null, null, null, null, null, $said, $changeTitle);
+                $this->journal->record(
+                    (new CuratorLogEntry(
+                        $token->getName(),
+                        self::proposedAction($drafted),
+                        'Revised the reasoning on its held '.self::kindOf($drafted).' of “'.$note->getTitle().'”: '.$said,
+                    ))->withToken($token)->withNote($note)
+                        ->withAffectedNotes(array_filter([(int) $note->getId(), (int) $drafted->getMergeIntoNote()?->getId()]))
+                );
                 $this->em->flush();
 
                 return $drafted;
@@ -754,28 +813,28 @@ class NoteWriter
             // A null token is memex's own enrichment pass. It is never a curator,
             // so it always takes the held path below — which is the whole point of
             // the ruling it implements (operator, 2026-08-23: everything a pass
-            // produces is proposed). Both branches ask `isCurator()`, so null
-            // falls through without needing a third.
-            if ($token?->isCurator() && $hold) {
+            // produces is proposed).
+            if (!$applies) {
                 $changed = self::changedFields($title, $bodyMd, $tagNames, $summary, $patch);
-                // Why it is held is the useful half of this row. "At own request"
-                // was the only reason a curator's edit could be held until C-9, and
-                // reading it against an edit the SERVER held would be actively
-                // misleading — it would credit the connection with a caution it did
-                // not show.
+                // Why it is held is the useful half of a curator's row. "At own
+                // request" was the only reason a curator's edit could be held until
+                // C-9, and reading it against an edit the SERVER held would be
+                // actively misleading — it would credit the connection with a
+                // caution it did not show. Anyone else's edit is held because it
+                // always is.
                 $why = match (true) {
+                    $token?->isCurator() !== true => 'held for review.',
                     $instructionHold => 'held for review: it changes instructions other assistants follow (a note tagged skill or user-profile), which always waits for the owner.',
                     $anchorHold => 'held for review: it replaces the whole body, and a curator connection\'s edits apply without review, so an anchored patch is what applies immediately.',
                     default => 'held for review at own request (unsure).',
                 };
-                $this->em->persist(
-                    (new CuratorLogEntry(
-                        $token->getName(),
-                        CuratorLogEntry::ACTION_EDIT_PROPOSED,
-                        ($folded ? 'Revised the held edit' : 'Proposed edit')
-                            .' ('.implode(' + ', $changed).') of “'.$note->getTitle().'” — '.$why.($comment !== null && $comment !== '' ? ' '.$comment : ''),
-                    ))->withToken($token)->withNote($note)
+                $entry = new CuratorLogEntry(
+                    $token?->getName() ?? 'memex',
+                    CuratorLogEntry::ACTION_EDIT_PROPOSED,
+                    ($folded ? 'Revised the held edit' : 'Proposed edit')
+                        .' ('.implode(' + ', $changed).') of “'.$note->getTitle().'” — '.$why.($comment !== null && $comment !== '' ? ' '.$comment : ''),
                 );
+                $this->journal->record(($token === null ? $entry->byMemex() : $entry->withToken($token))->withNote($note));
             } elseif ($token?->isCurator()) {
                 // Applying immediately, so there is no "as it then stands" to wait
                 // for: resolve the patch against the body in front of us and take
@@ -798,7 +857,7 @@ class NoteWriter
                 // revision this edit replaces would have been attributed to them
                 // too. A curator's direct edit is the single most common write in
                 // this system and it was the one write not saying who made it.
-                $this->update(
+                $this->journal->quietly(fn () => $this->update(
                     $note,
                     $title,
                     $bodyMd,
@@ -815,10 +874,10 @@ class NoteWriter
                     // the revision it creates.
                     changeTitle: $changeTitle,
                     operation: NoteRevision::OP_EDIT,
-                );
+                ));
                 $this->gcTags();
                 $changed = self::changedFields($title, $bodyMd, $tagNames, $summary);
-                $this->em->persist(
+                $this->journal->record(
                     (new CuratorLogEntry(
                         $token->getName(),
                         CuratorLogEntry::ACTION_EDIT,
@@ -840,6 +899,21 @@ class NoteWriter
             $this->em->flush();
         }
         return $proposal;
+    }
+
+    private static function proposedAction(EditProposal $proposal): string
+    {
+        return match ($proposal->getType()) {
+            EditProposal::TYPE_DELETE => CuratorLogEntry::ACTION_DELETE_PROPOSED,
+            EditProposal::TYPE_MERGE => CuratorLogEntry::ACTION_MERGE_PROPOSED,
+            EditProposal::TYPE_REPORT => CuratorLogEntry::ACTION_REPORTED,
+            default => CuratorLogEntry::ACTION_EDIT_PROPOSED,
+        };
+    }
+
+    private static function kindOf(EditProposal $proposal): string
+    {
+        return $proposal->getType() === EditProposal::TYPE_REPORT ? 'report' : $proposal->getType();
     }
 
     /**
@@ -887,15 +961,13 @@ class NoteWriter
             $this->supersedeDraft($note, $token);
             $proposal = EditProposal::forReport($note, $token, $comment);
             $this->em->persist($proposal);
-            if ($token->isCurator()) {
-                $this->em->persist(
-                    (new CuratorLogEntry(
-                        $token->getName(),
-                        CuratorLogEntry::ACTION_REPORTED,
-                        'Reported “'.$note->getTitle().'” as wrong — held for review. '.$comment,
-                    ))->withToken($token)->withNote($note)->withProposal($proposal)
-                );
-            }
+            $this->journal->record(
+                (new CuratorLogEntry(
+                    $token->getName(),
+                    CuratorLogEntry::ACTION_REPORTED,
+                    'Reported “'.$note->getTitle().'” as wrong — held for review. '.$comment,
+                ))->withToken($token)->withNote($note)->withProposal($proposal)
+            );
             $this->em->flush();
 
             return $proposal;
@@ -911,15 +983,13 @@ class NoteWriter
             $this->supersedeDraft($note, $token);
             $proposal = EditProposal::forDelete($note, $token, $comment);
             $this->em->persist($proposal);
-            if ($token->isCurator()) {
-                $this->em->persist(
-                    (new CuratorLogEntry(
-                        $token->getName(),
-                        CuratorLogEntry::ACTION_DELETE_PROPOSED,
-                        'Proposed deleting “'.$note->getTitle().'” — held for review.'.($comment !== null && $comment !== '' ? ' Reason: '.$comment : ''),
-                    ))->withToken($token)->withNote($note)
-                );
-            }
+            $this->journal->record(
+                (new CuratorLogEntry(
+                    $token->getName(),
+                    CuratorLogEntry::ACTION_DELETE_PROPOSED,
+                    'Proposed deleting “'.$note->getTitle().'” — held for review.'.($comment !== null && $comment !== '' ? ' Reason: '.$comment : ''),
+                ))->withToken($token)->withNote($note)
+            );
             $this->em->flush();
 
             return $proposal;
@@ -949,16 +1019,14 @@ class NoteWriter
             $this->supersedeDraft($absorb, $token);
             $proposal = EditProposal::forMerge($absorb, $into, $token, $mergedBodyMd, $comment);
             $this->em->persist($proposal);
-            if ($token->isCurator()) {
-                $this->em->persist(
-                    (new CuratorLogEntry(
-                        $token->getName(),
-                        CuratorLogEntry::ACTION_MERGE_PROPOSED,
-                        'Proposed merging “'.$absorb->getTitle().'” into “'.$into->getTitle().'” — held for review.'.($comment !== null && $comment !== '' ? ' '.$comment : ''),
-                    ))->withToken($token)->withNote($absorb)
-                        ->withAffectedNotes([(int) $absorb->getId(), (int) $into->getId()])
-                );
-            }
+            $this->journal->record(
+                (new CuratorLogEntry(
+                    $token->getName(),
+                    CuratorLogEntry::ACTION_MERGE_PROPOSED,
+                    'Proposed merging “'.$absorb->getTitle().'” into “'.$into->getTitle().'” — held for review.'.($comment !== null && $comment !== '' ? ' '.$comment : ''),
+                ))->withToken($token)->withNote($absorb)
+                    ->withAffectedNotes([(int) $absorb->getId(), (int) $into->getId()])
+            );
             $this->em->flush();
 
             return $proposal;

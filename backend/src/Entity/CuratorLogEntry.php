@@ -7,14 +7,19 @@ namespace App\Entity;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * One row of the Curator log — the single chronological record of everything
- * the curator does (operator-directed 2026-08-06: "all curator activities
- * listed there, not in MD files"). Rows are written by the system at each
- * curator event (auto-applied writes, held proposals filed, operator
- * decisions on them) and by the curator itself via the MCP `log` verb
- * (run summaries, questions, observations, tooling gaps) — which replaced
- * the journal notes. Append-only by design; token/note names are copied so
- * rows outlive what they reference.
+ * One row of the activity journal — the vault's log of every change to its
+ * notes, tags and connections, by whoever made it: the owner in a browser, a
+ * connection, memex itself (operator, 2026-10-06: "activity log is supposed to
+ * be full log of all meaningful actions, its a LOG"). Rows are written by the
+ * system where each change happens ({@see \App\Service\Journal}) and by a
+ * curator connection itself via the MCP `log` verb (run summaries,
+ * observations, tooling gaps). Append-only by design; token/note names are
+ * copied so rows outlive what they reference.
+ *
+ * The table keeps its first name, `curator_log`, from when it held only a
+ * curator's work. What a curator did is now the rows whose `actor` is
+ * `curator`, and that is what every "when was this note last curated" reader
+ * asks for ({@see self::curationWorkOnly()}).
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'curator_log')]
@@ -47,6 +52,26 @@ class CuratorLogEntry
     public const ACTION_REPORTED = 'reported';
     public const ACTION_APPROVED = 'approved';
     public const ACTION_REJECTED = 'rejected';
+    /** A new note filed for review rather than written: a connection's create lands pending. */
+    public const ACTION_CREATE_PROPOSED = 'create-proposed';
+    /** A note moved to Deleted notes, outside a verdict on someone's proposal. */
+    public const ACTION_DELETE = 'delete';
+    /** A note brought back from Deleted notes. */
+    public const ACTION_RESTORE = 'restore';
+    /** A deleted note's content destroyed: by the owner at once, or by memex after its days in Deleted notes. */
+    public const ACTION_PURGE = 'purge';
+    /** Many notes arriving at once — an upload, an import, a new memex's first notes — as one row. */
+    public const ACTION_IMPORT = 'import';
+    /** The owner erasing a note's earlier versions. */
+    public const ACTION_HISTORY_FORGOTTEN = 'history-forgotten';
+    /** A tag the owner removed or merged, allowed back. */
+    public const ACTION_TAG_ALLOWED = 'tag-allowed';
+    public const ACTION_CONNECTED = 'connected';
+    public const ACTION_DISCONNECTED = 'disconnected';
+    /** A connection renamed, given or relieved of the curator role, or given a new token. */
+    public const ACTION_CONNECTION_CHANGED = 'connection-changed';
+    /** A skill turned on or off, renamed, or granted to connections. */
+    public const ACTION_SKILL_CHANGED = 'skill-changed';
     /**
      * The operator flagging a note for priority curation, and the answer that
      * closes it (2026-08-17). These sit in the log rather than only in
@@ -173,11 +198,40 @@ class CuratorLogEntry
      * One definition, because three queries ask the same question and a fourth
      * will: candidates' cooldown, blast radius' already-handled test, and the
      * `last_curated` verb.
+     *
+     * A curator connection's own rows, and the owner's verdicts on its work
+     * ({@see self::$curationWork}). Since the journal records everyone
+     * (2026-10-06), the owner saving a note or another assistant proposing an
+     * edit is a row with that note's id, and counting it would put the note on
+     * cooldown — the curator skipping exactly the notes most likely to need
+     * reading again.
      */
     public static function curationWorkOnly(string $alias): string
     {
-        return $alias.".action NOT IN ('".implode("', '", self::NOT_CURATION_ACTIONS)."')";
+        return $alias.'.curation_work = 1 AND '.$alias.".action NOT IN ('".implode("', '", self::NOT_CURATION_ACTIONS)."')";
     }
+
+    /**
+     * What a curator reads when it opens the log without naming a note: its
+     * own passes and writes, and the owner's rulings on curation — verdicts,
+     * flags, vocabulary changes. Everything else the journal now records (the
+     * owner's own edits, other connections' proposals) would push the last
+     * run-summary out of the window the charter bootstraps from.
+     */
+    public static function curationRecordOnly(string $alias): string
+    {
+        return '('.$alias.'.curationWork = true OR '.$alias.".actor = '".Note::ACTOR_MEMEX."' OR ("
+            .$alias.".actor = '".Note::ACTOR_HUMAN."' AND ("
+            .$alias.".action IN ('".implode("', '", self::RULINGS)."') OR ".$alias.'.operatorComment IS NOT NULL)))';
+    }
+
+    /** The owner's rows a curator reads whatever they are about: flags and vocabulary. */
+    private const RULINGS = [
+        self::ACTION_FLAG_RAISED,
+        self::ACTION_FLAG_RESOLVED,
+        self::ACTION_TAG_REMOVED,
+        self::ACTION_TAG_MERGED,
+    ];
 
     /** Every action a row can carry — the filter vocabulary for reading the log. */
     public const ACTIONS = [
@@ -188,10 +242,21 @@ class CuratorLogEntry
         self::ACTION_MERGE_PROPOSED,
         self::ACTION_APPROVED,
         self::ACTION_REJECTED,
+        self::ACTION_CREATE_PROPOSED,
+        self::ACTION_DELETE,
+        self::ACTION_RESTORE,
+        self::ACTION_PURGE,
+        self::ACTION_IMPORT,
+        self::ACTION_HISTORY_FORGOTTEN,
         self::ACTION_FLAG_RAISED,
         self::ACTION_FLAG_RESOLVED,
         self::ACTION_TAG_REMOVED,
         self::ACTION_TAG_MERGED,
+        self::ACTION_TAG_ALLOWED,
+        self::ACTION_CONNECTED,
+        self::ACTION_DISCONNECTED,
+        self::ACTION_CONNECTION_CHANGED,
+        self::ACTION_SKILL_CHANGED,
         self::ACTION_ENRICHMENT_RUN,
         self::ACTION_CURATION_TASK,
         self::ACTION_EXAMINED,
@@ -206,6 +271,27 @@ class CuratorLogEntry
     /** Copied, not FK'd — the log outlives token rotation. */
     #[ORM\Column(length: 120)]
     private string $tokenName;
+
+    /**
+     * What kind of writer made this row, in the vocabulary of
+     * {@see Note::$lastActor}: `human` for the owner, `agent` or `curator` for
+     * a connection (its role when it wrote), `memex` for memex itself.
+     *
+     * Stored rather than read off the token, because a role changes and a row
+     * is a record of what was true when it was written: a connection promoted
+     * to curator tomorrow did not curate yesterday.
+     */
+    #[ORM\Column(length: 16, options: ['default' => Note::ACTOR_HUMAN])]
+    private string $actor = Note::ACTOR_HUMAN;
+
+    /**
+     * Whether this row is curation: a curator connection's own work, or the
+     * owner's verdict on it. A verdict is the owner's row, so `actor` cannot
+     * say it — and it is what tells the queue a note was settled the day the
+     * owner ruled, not the day the curator filed.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $curationWork = false;
 
     /**
      * The connection this row is about, so the log can show what it is called
@@ -502,16 +588,50 @@ class CuratorLogEntry
         return $this->id;
     }
 
+    /** The connection that wrote this row, which also says what kind of writer it was. */
     public function withToken(?ApiToken $token): self
     {
         $this->token = $token;
+        if ($token !== null) {
+            $this->actor = $token->isCurator() ? Note::ACTOR_CURATOR : Note::ACTOR_AGENT;
+            $this->curationWork = $token->isCurator();
+        }
 
         return $this;
     }
 
-    /** What to call the writer: its current name if the token survives, else the recorded string. */
-    public function writerName(): string
+    /** The owner's row about work this connection filed: curation when a curator filed it. */
+    public function aboutWorkBy(?ApiToken $author): self
     {
+        $this->curationWork = $author?->isCurator() === true;
+
+        return $this;
+    }
+
+    /** A row memex wrote itself, belonging to no connection. */
+    public function byMemex(): self
+    {
+        $this->token = null;
+        $this->actor = Note::ACTOR_MEMEX;
+
+        return $this;
+    }
+
+    public function getActor(): string
+    {
+        return $this->actor;
+    }
+
+    /**
+     * What to call the writer: the owner by the name they go by now, a
+     * connection by its current name if the token survives, else the recorded
+     * string.
+     */
+    public function writerName(?string $owner = null): string
+    {
+        if ($this->actor === Note::ACTOR_HUMAN && $owner !== null) {
+            return $owner;
+        }
         if ($this->token === null) {
             return $this->tokenName;
         }

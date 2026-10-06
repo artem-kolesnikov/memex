@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Directory\Account;
+use App\Entity\CuratorLogEntry;
 use App\Storage\VaultFiles;
 use App\Storage\VaultScope;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +28,7 @@ final class AccountOpener
         private readonly StarterSkills $starters,
         private readonly LoggerInterface $logger,
         private readonly AccountDoor $door,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -57,8 +59,13 @@ final class AccountOpener
         // failed sign-up.
         try {
             $this->scope->run($account->vault(), function () use ($account): void {
-                $this->starters->seed();
-                $this->welcome->seed($account->getHandle());
+                $this->journal->batch(
+                    function () use ($account): void {
+                        $this->starters->seed();
+                        $this->welcome->seed($account->getHandle());
+                    },
+                    static fn (array $notes): CuratorLogEntry => (new CuratorLogEntry('memex', CuratorLogEntry::ACTION_IMPORT, 'Wrote the first '.count($notes).' notes of this memex'))->byMemex(),
+                );
             });
         } catch (\Throwable $e) {
             $this->logger->error('The welcome notes could not be seeded at sign-up', ['exception' => $e]);

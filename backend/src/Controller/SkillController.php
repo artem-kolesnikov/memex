@@ -6,10 +6,12 @@ namespace App\Controller;
 
 use App\Attribute\ReleasesSession;
 use App\Entity\ApiToken;
+use App\Entity\CuratorLogEntry;
 use App\Entity\Note;
 use App\Service\AgentIcons;
 use App\Service\BoundedImportArchive;
 use App\Service\EmbeddingSpend;
+use App\Service\Journal;
 use App\Service\NoteWriter;
 use App\Service\ShippedSkills;
 use App\Service\SkillLibrary;
@@ -56,6 +58,7 @@ class SkillController extends ApiController
         private readonly NoteWriter $writer,
         private readonly StorageLimits $storageLimits,
         private readonly BoundedImportArchive $archive,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -198,31 +201,37 @@ class SkillController extends ApiController
         }
 
         $created = [];
-        foreach ($accepted as $index => $skill) {
-            try {
-                $note = $this->writer->create(
-                    null, mb_substr($skill['title'], 0, 500), $skill['body'], Note::SOURCE_UPLOAD, null, [SystemTags::SKILL],
-                    enrich: EmbeddingSpend::Metered, summary: $skill['description'] !== '' ? $skill['description'] : null, applyTags: false,
-                )['note'];
-            } catch (\Throwable $e) {
-                $limit = StorageLimitExceeded::fromThrowable($e);
-                if ($limit === null) {
-                    throw $e;
+        $this->journal->batch(function () use ($accepted, &$created, &$errors): void {
+            foreach ($accepted as $index => $skill) {
+                try {
+                    $note = $this->writer->create(
+                        null, mb_substr($skill['title'], 0, 500), $skill['body'], Note::SOURCE_UPLOAD, null, [SystemTags::SKILL],
+                        enrich: EmbeddingSpend::Metered, summary: $skill['description'] !== '' ? $skill['description'] : null, applyTags: false,
+                    )['note'];
+                } catch (\Throwable $e) {
+                    $limit = StorageLimitExceeded::fromThrowable($e);
+                    if ($limit === null) {
+                        throw $e;
+                    }
+                    $errors[] = ['file' => $skill['file'], 'error' => $limit->getMessage()];
+                    foreach (array_slice($accepted, $index + 1) as $left) {
+                        $errors[] = ['file' => $left['file'], 'error' => 'Not attempted: an earlier file in this upload was refused. Upload it again.'];
+                    }
+                    break;
                 }
-                $errors[] = ['file' => $skill['file'], 'error' => $limit->getMessage()];
-                foreach (array_slice($accepted, $index + 1) as $left) {
-                    $errors[] = ['file' => $left['file'], 'error' => 'Not attempted: an earlier file in this upload was refused. Upload it again.'];
+                $created[] = $note->getId();
+                try {
+                    $this->serving->ensureRecords();
+                    $this->serving->update($note->getId(), ['slug' => $skill['name']]);
+                } catch (\Throwable $e) {
+                    $errors[] = ['file' => $skill['file'], 'error' => $e->getMessage()];
                 }
-                break;
             }
-            $created[] = $note->getId();
-            try {
-                $this->serving->ensureRecords();
-                $this->serving->update($note->getId(), ['slug' => $skill['name']]);
-            } catch (\Throwable $e) {
-                $errors[] = ['file' => $skill['file'], 'error' => $e->getMessage()];
-            }
-        }
+        }, static fn (array $notes): CuratorLogEntry => new CuratorLogEntry(
+            'operator',
+            CuratorLogEntry::ACTION_IMPORT,
+            count($notes) === 1 ? 'Imported 1 skill' : 'Imported '.count($notes).' skills',
+        ));
         $rows = array_values(array_filter($this->rows(), static fn ($r) => in_array($r['note_id'], $created, true)));
 
         return $this->json(['created' => $rows, 'errors' => $errors, 'ignored' => $ignored], $rows !== [] ? Response::HTTP_CREATED : Response::HTTP_BAD_REQUEST);

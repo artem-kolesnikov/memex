@@ -89,7 +89,10 @@ final class DeletedNoteDraftsTest extends DatabaseTestCase
 
         $this->limbo->retire($keeper, 'operator');
 
-        $lines = $this->journal($keeperId);
+        $lines = array_values(array_filter(
+            $this->journal($keeperId),
+            static fn (string $d): bool => str_contains($d, 'discarded the held'),
+        ));
         self::assertCount(1, $lines);
         self::assertStringContainsString('keeper', $lines[0]);
         self::assertStringContainsString('Merge source', $lines[0]);

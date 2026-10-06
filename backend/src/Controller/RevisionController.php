@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Attribute\ReleasesSession;
+use App\Entity\CuratorLogEntry;
 use App\Entity\Note;
 use App\Entity\NoteRevision;
 use App\Service\ActorView;
+use App\Service\Journal;
 use App\Service\NoteRevisions;
 use App\Service\NoteWriter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +37,7 @@ class RevisionController extends ApiController
         private readonly NoteRevisions $revisions,
         private readonly NoteWriter $writer,
         private readonly EntityManagerInterface $em,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -123,7 +126,13 @@ class RevisionController extends ApiController
         if ($this->requestToken($request) !== null) {
             return $this->json($this->json400('Forgetting history is operator-only'), Response::HTTP_FORBIDDEN);
         }
-        $forgotten = $this->revisions->forget($this->noteRowIdByNumber($this->em, $id));
+        $noteId = $this->noteRowIdByNumber($this->em, $id);
+        $forgotten = $this->revisions->forget($noteId);
+        $note = $this->em->find(Note::class, $noteId);
+        $this->journal->record(
+            (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_HISTORY_FORGOTTEN, 'Forgot the earlier versions of “'.$note?->getTitle().'”'))->withNote($note)
+        );
+        $this->em->flush();
 
         return $this->json(['forgotten' => $forgotten]);
     }

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\CuratorLogEntry;
 use App\Entity\Tag;
+use App\Service\Journal;
 use App\Service\SystemTags;
 use App\Service\TagAdmin;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +37,7 @@ class TagController extends ApiController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly TagAdmin $tags,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -143,6 +146,8 @@ class TagController extends ApiController
         }
 
         $this->tags->unretire($wanted);
+        $this->journal->record(new CuratorLogEntry($this->currentAccount()->getName(), CuratorLogEntry::ACTION_TAG_ALLOWED, 'Allowed the tag “'.$wanted.'” back'));
+        $this->em->flush();
 
         return $this->json(['restored' => $wanted]);
     }

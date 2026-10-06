@@ -122,9 +122,10 @@ final class ActivityFiltersTest extends ApiTestCase
             'An action nobody has taken is a menu entry that returns nothing',
         );
 
-        self::assertSame(
-            ['token:'.$this->kb->a->curatorToken()->getId()],
+        self::assertEqualsCanonicalizing(
+            ['token:'.$this->kb->a->curatorToken()->getId(), 'owner'],
             array_column($filters['writers'], 'value'),
+            'The curator that edited, and the owner who wrote the notes it edited',
         );
     }
 

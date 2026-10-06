@@ -126,14 +126,14 @@ final class LimboCompletenessTest extends DatabaseTestCase
         $proposal = $this->writer->proposeDelete($note, $this->kb->curatorToken, 'Should go.');
         self::getContainer()->get(\App\Service\ReviewVerdicts::class)
             ->rejectProposal($proposal, ['comment' => 'No — still cited elsewhere.', 'precedent' => true]);
-        self::assertSame(2, $this->logRowsFor($id), 'Precondition: proposed, then refused');
+        self::assertSame(3, $this->logRowsFor($id), 'Precondition: created, proposed, then refused');
 
         $this->limbo->retire($note, Note::ACTOR_HUMAN, 'Deleted anyway, by mistake.');
         self::assertSame(0, $this->logRowsFor($id), 'The FK nulls them, by design');
 
         $this->limbo->restore($id);
 
-        self::assertSame(2, $this->logRowsFor($id), 'A restored note is not a note nobody has argued about');
+        self::assertSame(5, $this->logRowsFor($id), 'A restored note is not a note nobody has argued about: created, proposed, refused, deleted, restored');
     }
 
     public function testPurgingClearsTheHintSinceNothingCanRestoreThatIdAgain(): void

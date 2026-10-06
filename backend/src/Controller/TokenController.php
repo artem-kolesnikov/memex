@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\ApiToken;
+use App\Entity\CuratorLogEntry;
 use App\Service\AgentIcons;
 use App\Service\BearerTokens;
 use App\Service\ConnectionSecrets;
+use App\Service\Journal;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -48,6 +50,7 @@ class TokenController extends ApiController
         private readonly EntityManagerInterface $em,
         private readonly BearerTokens $tokens,
         private readonly ConnectionSecrets $secrets,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -175,10 +178,20 @@ class TokenController extends ApiController
         $this->assertSessionAuth($request, 'Token management');
         $token = $this->token($id);
         $role = (string) ($request->toArray()['role'] ?? '');
+        $was = $token->getRole();
         try {
             $token->setRole($role);
         } catch (\InvalidArgumentException $e) {
             return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
+        }
+        if ($token->getRole() !== $was) {
+            $this->journal->record(new CuratorLogEntry(
+                'operator',
+                CuratorLogEntry::ACTION_CONNECTION_CHANGED,
+                $token->isCurator()
+                    ? 'Made “'.$token->displayName().'” a curator: its edits apply without review'
+                    : 'Made “'.$token->displayName().'” an agent: its edits are held for review',
+            ));
         }
         $this->em->flush();
 
@@ -210,7 +223,11 @@ class TokenController extends ApiController
             if ($name !== null && !is_string($name)) {
                 return $this->json($this->json400('display_name must be a string or null'), Response::HTTP_BAD_REQUEST);
             }
+            $before = $token->displayName();
             $token->setDisplayName($name);
+            if ($token->displayName() !== $before) {
+                $this->journal->record(new CuratorLogEntry('operator', CuratorLogEntry::ACTION_CONNECTION_CHANGED, 'Renamed “'.$before.'” to “'.$token->displayName().'”'));
+            }
         }
         if (array_key_exists('description', $data)) {
             $description = $data['description'];

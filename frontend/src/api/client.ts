@@ -719,6 +719,8 @@ export interface CuratorLogRow {
   id: number
   created_at: string
   by: string
+  /** Who wrote it: `human` (the owner), `agent`, `curator`, or `memex`. */
+  actor: string
   action: string
   description: string
   operator_comment: string | null

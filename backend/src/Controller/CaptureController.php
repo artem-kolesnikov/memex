@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Attribute\ReleasesSession;
+use App\Entity\CuratorLogEntry;
 use App\Entity\Note;
 use App\Entity\Tag;
 use App\Service\EmbeddingSpend;
 use App\Service\AnalyzeAllowance;
 use App\Service\EnrichmentSettings;
 use App\Service\FrontmatterParser;
+use App\Service\Journal;
 use App\Service\MlClient;
 use App\Service\NoteWriter;
 use App\Service\SpendLimiter;
@@ -42,6 +44,7 @@ class CaptureController extends ApiController
         private readonly EntityManagerInterface $em,
         private readonly StorageLimits $storageLimits,
         private readonly AnalyzeAllowance $allowance,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -239,41 +242,55 @@ class CaptureController extends ApiController
         }
 
         $created = [];
-        foreach ($accepted as $index => ['name' => $name, 'parsed' => $parsed]) {
-            try {
-                $result = $this->noteWriter->create(
-                    $token,
-                    mb_substr($parsed['title'], 0, 500),
-                    $parsed['body'],
-                    Note::SOURCE_UPLOAD,
-                    null,
-                    $parsed['tags'],
-                    // One embedding PER FILE, and this route takes as many files
-                    // as a multipart body can carry — see the cap above, which is
-                    // the other half of the same finding.
-                    enrich: EmbeddingSpend::Metered,
-                    summary: $parsed['summary'],
-                    summaryBy: $parsed['summary_by'],
-                    createdAt: $parsed['created'],
-                    updatedAt: $parsed['updated'],
-                );
-            } catch (\Throwable $error) {
-                $limit = StorageLimitExceeded::fromThrowable($error);
-                if ($limit === null) {
-                    throw $error;
+        $write = function () use ($accepted, $token, &$created, &$errors): void {
+            foreach ($accepted as $index => ['name' => $name, 'parsed' => $parsed]) {
+                try {
+                    $result = $this->noteWriter->create(
+                        $token,
+                        mb_substr($parsed['title'], 0, 500),
+                        $parsed['body'],
+                        Note::SOURCE_UPLOAD,
+                        null,
+                        $parsed['tags'],
+                        // One embedding PER FILE, and this route takes as many files
+                        // as a multipart body can carry — see the cap above, which is
+                        // the other half of the same finding.
+                        enrich: EmbeddingSpend::Metered,
+                        summary: $parsed['summary'],
+                        summaryBy: $parsed['summary_by'],
+                        createdAt: $parsed['created'],
+                        updatedAt: $parsed['updated'],
+                    );
+                } catch (\Throwable $error) {
+                    $limit = StorageLimitExceeded::fromThrowable($error);
+                    if ($limit === null) {
+                        throw $error;
+                    }
+                    // The memex is full, or the body limit moved between the check
+                    // above and the row, whose failed flush closed the entity manager.
+                    // Either way the rest of the batch is not attempted: what was
+                    // saved is reported as saved, and what was not is named, so a
+                    // retry duplicates nothing.
+                    $errors[] = ['file' => $name, 'error' => $limit->getMessage()];
+                    foreach (array_slice($accepted, $index + 1) as ['name' => $left]) {
+                        $errors[] = ['file' => $left, 'error' => 'Not attempted: an earlier file in this upload was refused. Upload it again.'];
+                    }
+                    break;
                 }
-                // The memex is full, or the body limit moved between the check
-                // above and the row, whose failed flush closed the entity manager.
-                // Either way the rest of the batch is not attempted: what was
-                // saved is reported as saved, and what was not is named, so a
-                // retry duplicates nothing.
-                $errors[] = ['file' => $name, 'error' => $limit->getMessage()];
-                foreach (array_slice($accepted, $index + 1) as ['name' => $left]) {
-                    $errors[] = ['file' => $left, 'error' => 'Not attempted: an earlier file in this upload was refused. Upload it again.'];
-                }
-                break;
+                $created[] = $this->noteToArray($result['note']);
             }
-            $created[] = $this->noteToArray($result['note']);
+        };
+        // The owner's upload is one act and one row. A connection's is a held
+        // note per file, each its own item in the inbox, so each keeps its row
+        // and its place in that note's history.
+        if ($token === null) {
+            $this->journal->batch($write, static fn (array $notes): CuratorLogEntry => new CuratorLogEntry(
+                'operator',
+                CuratorLogEntry::ACTION_IMPORT,
+                count($notes) === 1 ? 'Uploaded 1 note' : 'Uploaded '.count($notes).' notes',
+            ));
+        } else {
+            $write();
         }
 
         return $this->json(

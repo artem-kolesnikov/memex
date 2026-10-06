@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Attribute\ReleasesSession;
+use App\Entity\CuratorLogEntry;
 use App\Entity\Note;
 use App\Service\BoundedImportArchive;
 use App\Service\FrontmatterParser;
 use App\Service\GrowthLimits;
+use App\Service\Journal;
 use App\Service\NoteEnricher;
 use App\Service\NoteLimbo;
 use App\Service\NoteWriter;
@@ -48,6 +50,7 @@ class ImportController extends ApiController
         private readonly StorageLimits $storageLimits,
         private readonly BoundedImportArchive $archive,
         private readonly GrowthLimits $growth,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -234,59 +237,70 @@ class ImportController extends ApiController
 
         $created = [];
         $createdCount = 0;
-        foreach ($importable as $item) {
-            $content = $this->archive->read($zip, $item['index'], $entries[$item['index']], $limits['max_note_bytes']);
-            $parsed = $this->parseFile($content, $item['file']);
-            $tags = array_merge($parsed['tags'], $extraTags);
-            if ($folderTags) {
-                $folder = strtolower(trim(explode('/', $item['file'])[0]));
-                if ($folder !== '' && $folder !== basename($item['file']) && !str_contains($folder, '.')) {
-                    $tags[] = $folder;
+        $refused = $this->journal->batch(function () use ($importable, $zip, $entries, $limits, $extraTags, $folderTags, &$created, &$createdCount): ?JsonResponse {
+            foreach ($importable as $item) {
+                $content = $this->archive->read($zip, $item['index'], $entries[$item['index']], $limits['max_note_bytes']);
+                $parsed = $this->parseFile($content, $item['file']);
+                $tags = array_merge($parsed['tags'], $extraTags);
+                if ($folderTags) {
+                    $folder = strtolower(trim(explode('/', $item['file'])[0]));
+                    if ($folder !== '' && $folder !== basename($item['file']) && !str_contains($folder, '.')) {
+                        $tags[] = $folder;
+                    }
                 }
-            }
-            try {
-                $result = $this->noteWriter->create(
-                    // No token, by construction: the guard above means the only
-                    // caller is a person at the import panel, so these notes land
-                    // verified and attributed to them.
-                    null,
-                    $item['title'],
-                    $parsed['body'],
-                    Note::SOURCE_UPLOAD,
-                    null,
-                    $tags,
-                    enrich: null,
-                    importPath: $item['path'],
-                    // Carried so a vault exported from memex imports back whole.
-                    summary: $parsed['summary'],
-                    summaryBy: $parsed['summary_by'],
-                    createdAt: $parsed['created'],
-                    updatedAt: $parsed['updated'],
-                );
-            } catch (\Throwable $error) {
-                $limit = StorageLimitExceeded::fromThrowable($error);
-                if ($limit === null) {
-                    throw $error;
-                }
-                $payload = $limit->payload();
-                if ($createdCount > 0) {
-                    $payload['error'] = $createdCount.' files were imported before '.$item['file'].' reached the storage limit. '.$payload['error'];
-                }
+                try {
+                    $result = $this->noteWriter->create(
+                        // No token, by construction: the guard above means the only
+                        // caller is a person at the import panel, so these notes land
+                        // verified and attributed to them.
+                        null,
+                        $item['title'],
+                        $parsed['body'],
+                        Note::SOURCE_UPLOAD,
+                        null,
+                        $tags,
+                        enrich: null,
+                        importPath: $item['path'],
+                        // Carried so a vault exported from memex imports back whole.
+                        summary: $parsed['summary'],
+                        summaryBy: $parsed['summary_by'],
+                        createdAt: $parsed['created'],
+                        updatedAt: $parsed['updated'],
+                    );
+                } catch (\Throwable $error) {
+                    $limit = StorageLimitExceeded::fromThrowable($error);
+                    if ($limit === null) {
+                        throw $error;
+                    }
+                    $payload = $limit->payload();
+                    if ($createdCount > 0) {
+                        $payload['error'] = $createdCount.' files were imported before '.$item['file'].' reached the storage limit. '.$payload['error'];
+                    }
 
-                return $this->json($payload + ['created' => $createdCount, 'notes' => $created, 'failed_file' => $item['file']], Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
+                    return $this->json($payload + ['created' => $createdCount, 'notes' => $created, 'failed_file' => $item['file']], Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
+                }
+                ++$createdCount;
+                if (count($created) < 50) {
+                    $created[] = ['id' => $result['note']->getId(), 'title' => $result['note']->getTitle()];
+                }
+                $this->em->detach($result['note']);
+                foreach ($result['note']->getTags() as $tag) {
+                    $this->em->detach($tag);
+                }
+                unset($result, $parsed, $content);
+                // Detached PersistentCollections still form owner cycles; release
+                // each body now instead of waiting for PHP's GC threshold.
+                gc_collect_cycles();
             }
-            ++$createdCount;
-            if (count($created) < 50) {
-                $created[] = ['id' => $result['note']->getId(), 'title' => $result['note']->getTitle()];
-            }
-            $this->em->detach($result['note']);
-            foreach ($result['note']->getTags() as $tag) {
-                $this->em->detach($tag);
-            }
-            unset($result, $parsed, $content);
-            // Detached PersistentCollections still form owner cycles; release
-            // each body now instead of waiting for PHP's GC threshold.
-            gc_collect_cycles();
+
+            return null;
+        }, static fn (array $notes): CuratorLogEntry => new CuratorLogEntry(
+            'operator',
+            CuratorLogEntry::ACTION_IMPORT,
+            count($notes) === 1 ? 'Imported 1 note' : 'Imported '.count($notes).' notes',
+        ));
+        if ($refused !== null) {
+            return $refused;
         }
 
         // Backfilled import_paths (duplicate skips above) may satisfy links

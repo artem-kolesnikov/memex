@@ -135,7 +135,7 @@ final class CurationFlagTest extends TestCase
     {
         self::assertContains(CuratorLogEntry::ACTION_FLAG_RAISED, CuratorLogEntry::NOT_CURATION_ACTIONS);
         self::assertNotContains(CuratorLogEntry::ACTION_FLAG_RESOLVED, CuratorLogEntry::NOT_CURATION_ACTIONS);
-        self::assertSame("cl.action NOT IN ('flag-raised', 'tag-removed', 'tag-merged', 'enrichment-run')", CuratorLogEntry::curationWorkOnly('cl'));
+        self::assertSame("cl.curation_work = 1 AND cl.action NOT IN ('flag-raised', 'tag-removed', 'tag-merged', 'enrichment-run')", CuratorLogEntry::curationWorkOnly('cl'));
         // Both flag actions stay in the log's own filter vocabulary — they are
         // hidden from "when was this curated", never from the operator's read
         // of what happened.

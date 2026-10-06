@@ -368,17 +368,19 @@ assistants can read the inbox but never approve or reject.
 
 ## 10. Activity log
 
-*Activity log* in the account menu. The journal of everything written to your knowledge base and every decision made about
-it: notes created and edited by curators, proposals filed, approvals and rejections, flags
-raised and resolved, tags removed or merged, descriptions written by memex, and the run
-summaries curators record. Each row names the actor, and rows that changed a note offer
-*Show diff*. Filters: by action, by assistant, and by scope (*All activity* or *Curation
-passes only*), plus a search box. Nothing here is ever deleted.
+*Activity log* in the account menu. The journal of every change to your knowledge base,
+whoever made it, and every decision made about it: notes created, edited, deleted, restored
+or deleted for good, by you or an assistant; uploads and imports, one row each; proposals
+filed, and your approvals and rejections; flags raised and resolved; tags removed, merged or
+allowed back; connections added, renamed, promoted and disconnected; skill settings; and the
+run summaries curators record. Each row names who did it: you, an assistant, or memex. Rows
+for a curator's applied changes offer *Show diff*; a note's history holds the text any edit
+replaced. Filters: by action, by who, and by scope (*All activity* or *Curation passes
+only*), plus a search box. Nothing here is ever deleted. Searches and notes read are not
+recorded.
 
 *Curation* switches to one row per curation pass (section 17). *Request logs download*
 saves the journal for a date range as Markdown or CSV.
-
-Your own ordinary edits are not journal rows; they live in each note's history.
 
 ## 11. Map
 
@@ -1025,8 +1027,9 @@ examined, and the counts the assistant claims, which memex checks against what i
 an observation, or a tooling gap. Recording the run also releases the notes the queue was
 holding for that connection.
 
-**log_recent** — Curator only. Read the journal newest first, optionally for one note, one
-kind of entry, or only the verdicts you marked as precedent. Assistants are told that your
+**log_recent** — Curator only. Read the journal newest first: by default the curation
+record (what curators did, and your verdicts, flags and tag changes); for one note, everything
+done to it by anyone; or one kind of entry, or only the verdicts you marked as precedent. Assistants are told that your
 comments on their held items outrank their own judgment, and that a precedent applies to
 comparable cases from then on.
 
@@ -1110,8 +1113,8 @@ within minutes. Keyword search finds it immediately.
 **Can I turn the review gate off for one assistant?** Promote it to curator (section 15).
 Its deletes and merges still wait for you.
 
-**Where do I see what an assistant changed?** In the note's history for an applied change,
-and in Activity for everything curators did.
+**Where do I see what an assistant changed?** In Activity, which records every change by
+anyone, and in the note's history for the text an applied change replaced.
 
 **A note is wrong and my assistant knows it. What should it do?** Propose a patch to the
 sentences that are wrong, or file a comment-only proposal saying what is wrong. Saying it

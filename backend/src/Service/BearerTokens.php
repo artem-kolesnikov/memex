@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Directory\Account;
 use App\Entity\ApiToken;
+use App\Entity\CuratorLogEntry;
 use App\Storage\VaultContext;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +30,7 @@ final class BearerTokens
         private readonly VaultContext $context,
         private readonly GrowthLimits $growth,
         private readonly ConnectionSecrets $secrets,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -55,6 +57,7 @@ final class BearerTokens
                 $this->secrets->keep($token, $plaintext);
             }
             $this->em->persist($token);
+            $this->journal->record(new CuratorLogEntry('operator', CuratorLogEntry::ACTION_CONNECTED, 'Connected “'.$token->displayName().'”'));
             $this->em->flush();
             $this->directory->transactional(function (Connection $directory) use ($account, $token, $plaintext, $alongside): void {
                 if ($alongside !== null) {
@@ -87,6 +90,7 @@ final class BearerTokens
         return $this->em->wrapInTransaction(function () use ($account, $token): string {
             $plaintext = self::mint();
             $this->secrets->keep($token, $plaintext);
+            $this->journal->record(new CuratorLogEntry('operator', CuratorLogEntry::ACTION_CONNECTION_CHANGED, 'Made a new token for “'.$token->displayName().'”; the old one stopped working'));
             $this->em->flush();
             $moved = $this->directory->update(
                 'bearer_tokens',
@@ -106,6 +110,7 @@ final class BearerTokens
         $this->assertBound($account);
         $this->directory->delete('bearer_tokens', ['account_id' => $account->getId(), 'connection_id' => $token->getId()]);
         $token->revoke();
+        $this->journal->record(new CuratorLogEntry('operator', CuratorLogEntry::ACTION_DISCONNECTED, 'Disconnected “'.$token->displayName().'”'));
         $this->em->flush();
     }
 

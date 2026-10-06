@@ -246,6 +246,7 @@ final class NoteBodyLimitTest extends DatabaseTestCase
             self::getContainer()->get(\App\Service\TagAdmin::class),
             $limits,
             self::getContainer()->get(\App\Service\GrowthLimits::class),
+            self::getContainer()->get(\App\Service\Journal::class),
         );
         $this->limit(10);
         $this->refused(fn () => $writer->create(null, 'Note', str_repeat('x', 40), Note::SOURCE_MANUAL, null, ['old-tag'], enrich: null));

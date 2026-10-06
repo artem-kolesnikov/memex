@@ -30,6 +30,7 @@ class ReviewVerdicts
         private readonly EntityManagerInterface $em,
         private readonly NoteWriter $noteWriter,
         private readonly NoteLimbo $limbo,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -55,11 +56,10 @@ class ReviewVerdicts
             foreach ($versions as [$note, $expected]) {
                 $this->assertNoteVersion($note, $expected);
             }
-            $result = $this->noteWriter->applyProposal($proposal);
-            if ($logEntry !== null) {
-                $this->em->persist($logEntry);
-                $this->em->flush();
-            }
+            $this->detachFromLog($proposal);
+            $result = $this->journal->quietly(fn () => $this->noteWriter->applyProposal($proposal));
+            $this->journal->record($logEntry);
+            $this->em->flush();
 
             return $result;
         }, ['revision' => $revision], array_values(array_filter([$proposal->getNote(), $proposal->getMergeIntoNote()])));
@@ -87,10 +87,10 @@ class ReviewVerdicts
                     'Owner saved their own version of “'.(string) $note?->getTitle().'”, which discarded the held '
                         .($proposal->getType() === EditProposal::TYPE_REPORT ? 'report' : $proposal->getType())
                         .' filed by '.$proposal->authorName().'.',
-                ))->withNote($note);
+                ))->withNote($note)->aboutWorkBy($proposal->getProposedByToken());
                 $this->detachFromLog($proposal);
                 $this->em->remove($proposal);
-                $this->em->persist($entry);
+                $this->journal->record($entry);
                 $this->em->flush();
             },
         );
@@ -122,9 +122,7 @@ class ReviewVerdicts
                 $logEntry = $this->proposalEntry($proposal, CuratorLogEntry::ACTION_REJECTED, $verdict);
                 $this->detachFromLog($proposal);
                 $this->em->remove($proposal);
-                if ($logEntry !== null) {
-                    $this->em->persist($logEntry);
-                }
+                $this->journal->record($logEntry);
                 $this->em->flush();
             },
         );
@@ -259,23 +257,24 @@ class ReviewVerdicts
             if ($note->getStatus() !== Note::STATUS_PENDING) {
                 throw new AlreadyDecidedException('This note is no longer pending review.');
             }
+            $author = self::authorOf($note);
+            $authorToken = $note->getLastActorToken();
             if ($amend !== null) {
-                $amended = $amend();
+                $amended = $this->journal->quietly($amend);
             }
             $note->approve();
-            if ($verdict['comment'] !== null || $amended) {
-                $this->em->persist(
-                    (new CuratorLogEntry(
-                        'operator',
-                        CuratorLogEntry::ACTION_APPROVED,
-                        $amended
-                            ? 'Operator approved the pending note “'.$note->getTitle().'” with their own edits.'
-                            : 'Operator approved the pending note “'.$note->getTitle().'”.'
-                    ))
-                        ->withNote($note)
-                        ->withOperatorVerdict($verdict['comment'], $verdict['precedent'])
-                );
-            }
+            $this->journal->record(
+                (new CuratorLogEntry(
+                    'operator',
+                    CuratorLogEntry::ACTION_APPROVED,
+                    $amended
+                        ? 'Operator approved '.$author.' new note “'.$note->getTitle().'” with their own edits.'
+                        : 'Operator approved '.$author.' new note “'.$note->getTitle().'”.'
+                ))
+                    ->withNote($note)
+                    ->withOperatorVerdict($verdict['comment'], $verdict['precedent'])
+                    ->aboutWorkBy($authorToken)
+            );
             $this->em->flush();
         });
     }
@@ -297,32 +296,39 @@ class ReviewVerdicts
         // Rejection is a delete too, and the one most likely to be a slip —
         // a mis-click in the inbox used to be unrecoverable.
         $title = $note->getTitle();
-        // The path marker stays — it says HOW the note was retired, which the
-        // limbo view uses — and the operator's reasoning rides along with it.
-        $this->limbo->retire($note, 'operator', 'Rejected from the review inbox'
-            .($verdict['comment'] === null ? '' : ': '.$verdict['comment']));
-        $this->noteWriter->gcTags();
-        if ($verdict['comment'] !== null) {
+        $author = self::authorOf($note);
+        $authorToken = $note->getLastActorToken();
+        $this->limbo->whileHoldingNotes([$note], function () use ($note, $verdict, $title, $author, $authorToken): void {
+            // The path marker stays — it says HOW the note was retired, which the
+            // limbo view uses — and the operator's reasoning rides along with it.
+            $this->journal->quietly(fn () => $this->limbo->retire($note, 'operator', 'Rejected from the review inbox'
+                .($verdict['comment'] === null ? '' : ': '.$verdict['comment'])));
+            $this->noteWriter->gcTags();
             // Title only, no note reference: retire() has already moved the row
             // out of `notes`, so a reference would null out on the next flush
             // anyway. The copy is what survives, and it is what the curator
             // reads.
-            $this->em->persist(
-                (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_REJECTED, 'Operator rejected the pending note “'.$title.'”.'))
+            $this->journal->record(
+                (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_REJECTED, 'Operator rejected '.$author.' new note “'.$title.'”.'))
                     ->withNote(null, $title)
                     ->withOperatorVerdict($verdict['comment'], $verdict['precedent'])
+                    ->aboutWorkBy($authorToken)
             );
             $this->em->flush();
-        }
+        });
+    }
+
+    /** Whose pending note this is: a connection's name with its possessive, or "the". */
+    private static function authorOf(Note $note): string
+    {
+        $token = $note->getLastActorToken();
+
+        return $token === null ? 'the' : $token->displayName().'’s';
     }
 
     /**
-     * Curator-filed proposals get their operator verdict on the record — the
-     * log shows the full arc: proposed → approved/rejected. An agent-filed
-     * proposal gets one too as soon as the operator says something about it
-     * (2026-08-09): reasoning that reaches no row reaches no future run, and
-     * agent-filed items are most of the inbox. A silent verdict on agent work
-     * still writes nothing.
+     * Every verdict is on the record, whoever filed the item (operator,
+     * 2026-10-06): the log shows the full arc, proposed → approved/rejected.
      *
      * Which note the row points AT depends on what the verdict does to it.
      *
@@ -348,20 +354,9 @@ class ReviewVerdicts
      *
      * @param array{comment: ?string, precedent: bool} $verdict
      */
-    private function proposalEntry(EditProposal $proposal, string $action, array $verdict): ?CuratorLogEntry
+    private function proposalEntry(EditProposal $proposal, string $action, array $verdict): CuratorLogEntry
     {
-        // A verdict on an ordinary agent's proposal, with nothing said, is not
-        // worth a journal row: the inbox already recorded it. A CURATOR's is,
-        // because the curator reads this log on its next run and a silent no
-        // teaches it nothing. memex's own pass (null token) is neither — it
-        // never reads the log back, so it follows the agent rule.
-        // An amendment is the exception to the silence: the note ends up
-        // holding text the proposer never sent, and nothing else on the record
-        // says the difference was the operator's.
         $amended = $action === CuratorLogEntry::ACTION_APPROVED && $proposal->isAmended();
-        if ($proposal->getProposedByToken()?->isCurator() !== true && $verdict['comment'] === null && !$amended) {
-            return null;
-        }
         $applies = $action === CuratorLogEntry::ACTION_APPROVED;
         // A report is acknowledged or dismissed: nothing about it is applied,
         // and "approved the held report" would read as a verdict on whether
@@ -382,7 +377,7 @@ class ReviewVerdicts
         $entry = new CuratorLogEntry(
             'operator',
             $action,
-            'Operator '.$verb.' the held '.$what.($amended ? ', applying their own text.' : '.')
+            'Operator '.$verb.' '.$proposal->authorName().'’s held '.$what.($amended ? ', applying their own text.' : '.')
         );
         // A REJECTED delete or merge destroys nothing — the note stays and the
         // reference is safe. Only an approval has to plan around the apply.
@@ -400,6 +395,7 @@ class ReviewVerdicts
 
         return $entry
             ->withAffectedNotes(array_map('intval', array_values($touched)))
+            ->aboutWorkBy($proposal->getProposedByToken())
             ->withOperatorVerdict($verdict['comment'], $verdict['precedent']);
     }
 

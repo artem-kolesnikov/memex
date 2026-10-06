@@ -269,7 +269,13 @@ function clearFilters() {
 const ACTION_BADGE: Record<string, string> = {
   create: 'text-bg-success',
   edit: 'text-bg-success',
+  delete: 'text-bg-success',
+  restore: 'text-bg-success',
+  purge: 'text-bg-success',
+  import: 'text-bg-success',
+  'history-forgotten': 'text-bg-success',
   approved: 'text-bg-success',
+  'create-proposed': 'text-bg-warning',
   'edit-proposed': 'text-bg-warning',
   'delete-proposed': 'text-bg-warning',
   'merge-proposed': 'text-bg-warning',

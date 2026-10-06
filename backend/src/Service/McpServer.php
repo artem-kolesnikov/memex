@@ -1105,33 +1105,38 @@ final class McpServer
         $limit = min(200, max(1, (int) ($args['limit'] ?? 40)));
         $offset = max(0, (int) ($args['offset'] ?? 0));
 
-        $criteria = [];
+        $qb = $this->em->createQueryBuilder()->select('e')->from(CuratorLogEntry::class, 'e');
         if (isset($args['note_id'])) {
-            $criteria['note'] = $this->requireNote($args, 'note_id');
+            $qb->andWhere('e.note = :note')->setParameter('note', $this->requireNote($args, 'note_id'));
+        } else {
+            $qb->andWhere(CuratorLogEntry::curationRecordOnly('e'));
         }
         if (($args['precedent_only'] ?? false) === true) {
-            $criteria['isPrecedent'] = true;
+            $qb->andWhere('e.isPrecedent = true');
         }
         if (isset($args['action'])) {
             $action = (string) $args['action'];
             if (!in_array($action, CuratorLogEntry::ACTIONS, true)) {
                 throw new \InvalidArgumentException('action must be one of: '.implode(', ', CuratorLogEntry::ACTIONS));
             }
-            $criteria['action'] = $action;
+            $qb->andWhere('e.action = :action')->setParameter('action', $action);
         }
 
-        $repo = $this->em->getRepository(CuratorLogEntry::class);
+        $total = (int) (clone $qb)->select('COUNT(e.id)')->getQuery()->getSingleScalarResult();
         /** @var CuratorLogEntry[] $rows */
-        $rows = $repo->findBy($criteria, ['createdAt' => 'DESC', 'id' => 'DESC'], $limit, $offset);
+        $rows = $qb->orderBy('e.createdAt', 'DESC')->addOrderBy('e.id', 'DESC')
+            ->setFirstResult($offset)->setMaxResults($limit)
+            ->getQuery()->getResult();
 
         return [
-            'total' => $repo->count($criteria),
+            'total' => $total,
             'offset' => $offset,
             'entries' => array_map(static function (CuratorLogEntry $e): array {
                 $entry = [
                     'id' => $e->getId(),
                     'at' => $e->getCreatedAt()->format(DATE_ATOM),
                     'by' => $e->getTokenName(),
+                    'actor' => $e->getActor(),
                     'action' => $e->getAction(),
                     'description' => $e->getDescription(),
                     'note_id' => $e->getNote()?->getId(),
@@ -1718,11 +1723,11 @@ final class McpServer
             ],
             [
                 'name' => 'log_recent',
-                'description' => 'Curator-only: read Curator log entries, newest first. Bootstrap with this every run: operator approved/rejected rows are the VERDICTS on your held items, and your last run-summary says where the previous pass stopped. A verdict may carry `operator_comment` — the operator\'s reasoning in their own words, which OUTRANKS your judgment on that case; read it as an instruction, not as feedback to weigh. `is_precedent: true` means the operator marked that reasoning as general: apply it to comparable cases from now on. Reasoning WITHOUT the flag binds only the case it was written about — do not generalise it, and never read a bare verdict (no comment at all) as blessing a pattern. A pattern you want made standing is a separate proposal to amend the charter, reviewed as policy. With `note_id` it becomes one note\'s history instead — everything ever done to that note and how the operator ruled on it; read that before touching a note you have worked on before, so you do not re-propose something already rejected.',
+                'description' => 'Curator-only: read Curator log entries, newest first. Bootstrap with this every run: operator approved/rejected rows are the VERDICTS on your held items, and your last run-summary says where the previous pass stopped. A verdict may carry `operator_comment` — the operator\'s reasoning in their own words, which OUTRANKS your judgment on that case; read it as an instruction, not as feedback to weigh. `is_precedent: true` means the operator marked that reasoning as general: apply it to comparable cases from now on. Reasoning WITHOUT the flag binds only the case it was written about — do not generalise it, and never read a bare verdict (no comment at all) as blessing a pattern. A pattern you want made standing is a separate proposal to amend the charter, reviewed as policy. Without `note_id` you get the curation record: what curator connections wrote, and the operator\'s verdicts, flags and tag changes. With `note_id` it becomes one note\'s history instead — everything ever done to that note, by anyone, and how the operator ruled on it; read that before touching a note you have worked on before, so you do not re-propose something already rejected.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
-                        'note_id' => ['type' => 'integer', 'description' => 'Only entries about this note (its full curation history, including the operator\'s approve/reject verdicts on proposals you filed against it). Omit for the whole log'],
+                        'note_id' => ['type' => 'integer', 'description' => 'Only entries about this note: everything done to it by anyone, including the operator\'s approve/reject verdicts on proposals you filed against it. Omit for the curation record'],
                         'action' => ['type' => 'string', 'enum' => CuratorLogEntry::ACTIONS, 'description' => 'Only entries of this kind, e.g. "rejected" to review every verdict against you, or "run-summary" to read past passes'],
                         'precedent_only' => ['type' => 'boolean', 'default' => false, 'description' => 'Only verdicts whose reasoning the operator marked as general — the standing guidance you have been given. Read this at the start of a run as well as the recent entries: precedent set weeks ago is far outside the newest 40 rows, and guidance you never retrieved is guidance you will break'],
                         'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 200, 'default' => 40],

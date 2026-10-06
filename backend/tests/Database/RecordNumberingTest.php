@@ -102,9 +102,9 @@ final class RecordNumberingTest extends DatabaseTestCase
 
         self::assertSame(3, $this->log($this->kbs->a, 'Three.')->getId());
         self::assertSame(1, $this->propose($this->kbs->a, $this->kbs->a->note('A'), 'Changed.')->getId());
-        // B's proposal is not a journal row (an agent's held edit writes
-        // none), so its journal must not have moved either.
-        self::assertSame(1, $this->log($this->kbs->b, 'B one.')->getId());
+        // B's note and its held edit are B's first two rows; A's writes are
+        // not, however many there were.
+        self::assertSame(3, $this->log($this->kbs->b, 'B one.')->getId());
         self::assertSame(2, $this->propose($this->kbs->b, $this->kbs->b->note('B two'), 'Changed.')->getId());
     }
 }

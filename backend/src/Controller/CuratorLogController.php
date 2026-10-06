@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Entity\ApiToken;
 use App\Entity\CuratorLogEntry;
 use App\Entity\EditProposal;
+use App\Entity\Note;
 use App\Service\CurationDigest;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -95,9 +96,10 @@ class CuratorLogController extends ApiController
             ->getResult();
 
         $titles = $this->affectedTitles($rows);
+        $owner = $this->ownerMark()->name;
 
         return $this->json([
-            'entries' => array_map(fn (CuratorLogEntry $e) => $this->entryToArray($e, $titles), $rows),
+            'entries' => array_map(fn (CuratorLogEntry $e) => $this->entryToArray($e, $titles, $owner), $rows),
             'total' => $total,
             'page' => $page,
             'pages' => $pages,
@@ -117,7 +119,7 @@ class CuratorLogController extends ApiController
             // than from the list of actions the code can write: a menu of
             // eleven actions where nine have never happened is a menu that
             // mostly returns nothing.
-            'filters' => $this->filterOptions(),
+            'filters' => $this->filterOptions($owner),
         ]);
     }
 
@@ -151,7 +153,8 @@ class CuratorLogController extends ApiController
         $qb->orderBy('e.createdAt', 'DESC')->addOrderBy('e.id', 'DESC');
 
         $stamp = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d');
-        $response = new StreamedResponse(function () use ($qb, $format): void {
+        $owner = $this->ownerMark()->name;
+        $response = new StreamedResponse(function () use ($qb, $format, $owner): void {
             $out = fopen('php://output', 'wb');
             if ($format === 'csv') {
                 fputcsv($out, ['entry', 'at', 'action', 'curation', 'by', 'description', 'operator_comment', 'precedent', 'notes'], ',', '"', '');
@@ -179,9 +182,9 @@ class CuratorLogController extends ApiController
                     if ($format === 'csv') {
                         // Empty escape character: PHP's default backslash is
                         // not RFC 4180 and mangles a description ending in one.
-                        fputcsv($out, self::exportRow($entry, $mine), ',', '"', '');
+                        fputcsv($out, self::exportRow($entry, $mine, $owner), ',', '"', '');
                     } else {
-                        fwrite($out, self::exportMarkdown($entry, $mine));
+                        fwrite($out, self::exportMarkdown($entry, $mine, $owner));
                     }
                     $cursor = [$entry->getCreatedAt(), (int) $entry->getId()];
                 }
@@ -249,14 +252,14 @@ class CuratorLogController extends ApiController
      *
      * @return list<string>
      */
-    private static function exportRow(CuratorLogEntry $entry, array $mine): array
+    private static function exportRow(CuratorLogEntry $entry, array $mine, string $owner): array
     {
         return [
             (string) $entry->getId(),
             $entry->getCreatedAt()->format(DATE_ATOM),
             $entry->getAction(),
             $entry->getCurationRun() === null ? '' : (string) $entry->getCurationRun()->getId(),
-            $entry->writerName(),
+            $entry->writerName($owner),
             $entry->getDescription(),
             (string) $entry->getOperatorComment(),
             $entry->isPrecedent() ? 'yes' : '',
@@ -265,10 +268,10 @@ class CuratorLogController extends ApiController
     }
 
     /** @param array<int, true> $mine */
-    private static function exportMarkdown(CuratorLogEntry $entry, array $mine): string
+    private static function exportMarkdown(CuratorLogEntry $entry, array $mine, string $owner): string
     {
         $out = '## #'.$entry->getId().' · '.$entry->getAction().' · '.$entry->getCreatedAt()->format(DATE_ATOM)."\n\n";
-        $out .= '_'.$entry->writerName().'_';
+        $out .= '_'.$entry->writerName($owner).'_';
         $run = $entry->getCurationRun();
         if ($run !== null) {
             $out .= ' · curation pass #'.$run->getId();
@@ -344,7 +347,9 @@ class CuratorLogController extends ApiController
         // connections may perfectly well be called the same thing. Rows older
         // than tokens-on-log-rows, and rows whose token died with an account,
         // keep only the string that was recorded, so those are addressed by it.
-        if (str_starts_with($writer, 'token:')) {
+        if ($writer === 'owner') {
+            $qb->andWhere('e.actor = :owner')->setParameter('owner', Note::ACTOR_HUMAN);
+        } elseif (str_starts_with($writer, 'token:')) {
             $qb->andWhere('e.token = :token')->setParameter('token', (int) substr($writer, 6));
         } elseif (str_starts_with($writer, 'name:')) {
             $qb->andWhere('e.token IS NULL AND e.tokenName = :name')->setParameter('name', substr($writer, 5));
@@ -487,7 +492,7 @@ class CuratorLogController extends ApiController
      *
      * @return array{actions: list<array{value: string, count: int}>, writers: list<array{value: string, label: string, count: int}>}
      */
-    private function filterOptions(): array
+    private function filterOptions(string $owner): array
     {
         $conn = $this->em->getConnection();
 
@@ -496,19 +501,24 @@ class CuratorLogController extends ApiController
             'SELECT action, COUNT(*) AS n FROM curator_log GROUP BY action ORDER BY n DESC, action',
         );
 
-        /** @var list<array{token_id: ?int, token_name: string, n: int}> $writerRows */
+        /** @var list<array{token_id: ?int, token_name: string, actor: string, n: int}> $writerRows */
         $writerRows = $conn->fetchAllAssociative(
-            'SELECT token_id, token_name, COUNT(*) AS n FROM curator_log GROUP BY token_id, token_name',
+            'SELECT token_id, token_name, actor, COUNT(*) AS n FROM curator_log GROUP BY token_id, token_name, actor',
         );
 
         // One entry per token, whatever it has been called along the way —
-        // the same rule the rows themselves follow through writerName().
+        // the same rule the rows themselves follow through writerName() — and
+        // one for the owner, under whichever name each row recorded.
         $writers = [];
         foreach ($writerRows as $row) {
             $tokenId = $row['token_id'] === null ? null : (int) $row['token_id'];
             $token = $tokenId === null ? null : $this->em->find(ApiToken::class, $tokenId);
-            $value = $token === null ? 'name:'.$row['token_name'] : 'token:'.$tokenId;
-            $label = $token?->displayName() ?? $row['token_name'];
+            $value = match (true) {
+                $row['actor'] === Note::ACTOR_HUMAN => 'owner',
+                $token === null => 'name:'.$row['token_name'],
+                default => 'token:'.$tokenId,
+            };
+            $label = $value === 'owner' ? $owner : ($token?->displayName() ?? $row['token_name']);
             $writers[$value] ??= ['value' => $value, 'label' => $label, 'count' => 0];
             $writers[$value]['count'] += (int) $row['n'];
         }
@@ -582,7 +592,7 @@ class CuratorLogController extends ApiController
      *
      * @return array<string, mixed>
      */
-    private function entryToArray(CuratorLogEntry $entry, array $titles): array
+    private function entryToArray(CuratorLogEntry $entry, array $titles, string $owner): array
     {
         $note = $entry->getNote();
         $noteId = $note === null ? null : (int) $note->getId();
@@ -605,7 +615,8 @@ class CuratorLogController extends ApiController
             // What the connection is called NOW, falling back to the name
             // recorded at the time for rows written before tokens were linked
             // and for a token destroyed with a closing account.
-            'by' => $entry->writerName(),
+            'by' => $entry->writerName($owner),
+            'actor' => $entry->getActor(),
             'action' => $entry->getAction(),
             'description' => $entry->getDescription(),
             // The operator's reasoning on a verdict, and whether they marked it

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Entity\ApiToken;
+use App\Entity\CuratorLogEntry;
 use App\Entity\Note;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -15,8 +17,10 @@ final class SkillSlugTaken extends \RuntimeException
 
 class SkillServing
 {
-    public function __construct(private readonly EntityManagerInterface $em)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly Journal $journal,
+    ) {
     }
 
     private function db(): Connection
@@ -130,6 +134,7 @@ class SkillServing
     {
         $this->ensureRecords();
         $current = $this->settings()[$noteId] ?? throw new \OutOfBoundsException('No skill with that id');
+        $before = $current + ['grants' => $this->grants()[$noteId] ?? []];
 
         if (array_key_exists('slug', $patch)) {
             $slug = (string) $patch['slug'];
@@ -187,6 +192,8 @@ class SkillServing
                     );
                 }
             }
+            $after = $this->settings()[$noteId] + ['grants' => $this->grants()[$noteId] ?? []];
+            $this->recordChange($noteId, $before, $after);
             $conn->commit();
         } catch (\Throwable $e) {
             $conn->rollBack();
@@ -194,7 +201,48 @@ class SkillServing
             throw $e;
         }
 
-        return $this->settings()[$noteId] + ['grants' => $this->grants()[$noteId] ?? []];
+        return $after;
+    }
+
+    /**
+     * @param array{slug: string, enabled: bool, auto: bool, command: bool, grants: list<int>} $before
+     * @param array{slug: string, enabled: bool, auto: bool, command: bool, grants: list<int>} $after
+     */
+    private function recordChange(int $noteId, array $before, array $after): void
+    {
+        $changes = [];
+        if ($before['enabled'] !== $after['enabled']) {
+            $changes[] = $after['enabled'] ? 'turned on' : 'turned off';
+        }
+        if ($before['auto'] !== $after['auto']) {
+            $changes[] = $after['auto'] ? 'used when relevant' : 'no longer used when relevant';
+        }
+        if ($before['command'] !== $after['command']) {
+            $changes[] = $after['command'] ? 'available as a command' : 'no longer a command';
+        }
+        if ($before['slug'] !== $after['slug']) {
+            $changes[] = 'served as '.$after['slug'];
+        }
+        $granted = $after['grants'];
+        sort($granted);
+        $had = $before['grants'];
+        sort($had);
+        if ($granted !== $had) {
+            $names = $granted === [] ? [] : $this->db()->fetchFirstColumn(
+                'SELECT COALESCE(display_name, name) FROM api_tokens WHERE id IN (:ids) ORDER BY id',
+                ['ids' => $granted],
+                ['ids' => ArrayParameterType::INTEGER],
+            );
+            $changes[] = $names === [] ? 'given to every connection' : 'given only to '.implode(', ', $names);
+        }
+        if ($changes === []) {
+            return;
+        }
+        $note = $this->em->find(Note::class, $noteId);
+        $this->journal->record(
+            (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_SKILL_CHANGED, 'Changed the skill “'.$note?->getTitle().'”: '.implode('; ', $changes)))->withNote($note)
+        );
+        $this->em->flush();
     }
 
     private static function now(): string

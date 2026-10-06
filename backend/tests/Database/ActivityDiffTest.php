@@ -153,6 +153,7 @@ final class ActivityDiffTest extends DatabaseTestCase
             (new \ReflectionClass(CuratorLogController::class))->newInstanceWithoutConstructor(),
             $entry,
             [],
+            'Owner',
         );
     }
 }

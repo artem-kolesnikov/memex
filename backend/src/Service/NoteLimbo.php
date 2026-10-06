@@ -74,6 +74,7 @@ class NoteLimbo
         private readonly NoteEnricher $enricher,
         private readonly NoteRevisions $revisions,
         private readonly GrowthLimits $growth,
+        private readonly Journal $journal,
     ) {
     }
 
@@ -87,7 +88,15 @@ class NoteLimbo
     public function retire(Note $note, string $by, ?string $reason = null): void
     {
         $this->whileHoldingNotes([$note], function () use ($note, $by, $reason): void {
-            $this->retireWithin($this->em->getConnection(), $note, $note->getId(), $by, $reason);
+            $id = (int) $note->getId();
+            $title = $note->getTitle();
+            $this->retireWithin($this->em->getConnection(), $note, $id, $by, $reason);
+            $entry = new CuratorLogEntry('operator', CuratorLogEntry::ACTION_DELETE, 'Deleted “'.$title.'”'.($reason !== null && $reason !== '' ? ' — '.$reason : ''));
+            if ($by === Note::ACTOR_MEMEX) {
+                $entry = (new CuratorLogEntry('memex', CuratorLogEntry::ACTION_DELETE, $entry->getDescription()))->byMemex();
+            }
+            $this->journal->record($entry->withNote(null, $title)->rememberRetiredNote($id));
+            $this->em->flush();
         });
     }
 
@@ -219,7 +228,7 @@ class NoteLimbo
                         : 'Deleting “'.$note->getTitle().'” discarded the held '
                             .($draft->getType() === EditProposal::TYPE_REPORT ? 'report' : $draft->getType()))
                         .' filed by '.$draft->authorName().'. A restore brings the note back, not this.',
-                ))->withNote($note)
+                ))->withNote($note)->aboutWorkBy($draft->getProposedByToken())
             );
             foreach ($this->em->getRepository(CuratorLogEntry::class)->findBy(['proposal' => $draft]) as $entry) {
                 $entry->withProposal(null);
@@ -352,6 +361,13 @@ class NoteLimbo
                 }
             }
 
+            $this->journal->record(
+                (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_RESTORE, 'Restored “'.$row['title'].'” from Deleted notes'))
+                    ->withNote(null, (string) $row['title'])
+                    ->rememberRetiredNote($id)
+            );
+            $this->em->flush();
+
             // The note is back at its original id, so its curation history can
             // point at it again. Without this a restored note came back with an
             // empty log, and log_recent(note_id:) — the curator's check for
@@ -401,7 +417,7 @@ class NoteLimbo
         $conn = $this->em->getConnection();
         $conn->beginTransaction();
         try {
-            $tombstone = $conn->fetchAssociative('SELECT purged_at FROM deleted_notes WHERE id = :id', ['id' => $id]);
+            $tombstone = $conn->fetchAssociative('SELECT purged_at, title FROM deleted_notes WHERE id = :id', ['id' => $id]);
 
             // Everything free-text goes, not just the body.
             //
@@ -447,6 +463,13 @@ class NoteLimbo
             // note's entire history while the caller was told 404, nothing
             // happened. purgeExpired() never had this problem because it
             // collects the ids it actually swept first.
+            if ($purged) {
+                $title = (string) $tombstone['title'];
+                $this->journal->record(
+                    (new CuratorLogEntry('operator', CuratorLogEntry::ACTION_PURGE, 'Deleted “'.$title.'” for good'))->withNote(null, $title)
+                );
+                $this->em->flush();
+            }
             if ($tombstone !== false) {
                 $this->revisions->forget($id);
                 // Nothing will ever restore this id, so the hint is a dangling
@@ -493,7 +516,7 @@ class NoteLimbo
         // destroyed, and a note at exactly day 30 is still shown as restorable.
         // Not `UPDATE … RETURNING`: PHP's SQLite3 runs the statement once on
         // execute and again on the first fetch, so the ids come back empty.
-        return $conn->transactional(static function (\Doctrine\DBAL\Connection $conn): int {
+        return $conn->transactional(function (\Doctrine\DBAL\Connection $conn): int {
             $now = self::stamp();
             $ids = array_map('intval', $conn->fetchFirstColumn(
                 'SELECT id FROM deleted_notes WHERE purged_at IS NULL AND purge_after <= :now',
@@ -502,6 +525,16 @@ class NoteLimbo
             if ($ids === []) {
                 return 0;
             }
+            $this->journal->record(
+                (new CuratorLogEntry(
+                    'memex',
+                    CuratorLogEntry::ACTION_PURGE,
+                    count($ids) === 1
+                        ? 'Deleted 1 note for good, '.self::LIMBO_DAYS.' days after it was deleted'
+                        : 'Deleted '.count($ids).' notes for good, '.self::LIMBO_DAYS.' days after they were deleted',
+                ))->byMemex()
+            );
+            $this->em->flush();
 
             $conn->executeStatement(
                 'UPDATE deleted_notes SET body_md = NULL, summary = NULL, purged_at = :now WHERE id IN (:ids)',

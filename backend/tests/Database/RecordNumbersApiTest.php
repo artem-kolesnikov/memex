@@ -138,24 +138,24 @@ final class RecordNumbersApiTest extends ApiTestCase
             'examined' => [$note->getId()],
             'started_at' => (new \DateTimeImmutable('-1 minute'))->format(DATE_ATOM),
         ]);
-        self::assertSame(2, $summary['id']);
+        self::assertSame(3, $summary['id'], 'After the note B wrote and the observation');
 
         $this->in($this->kb->b);
         $examined = $this->em->getRepository(CuratorLogEntry::class)->findOneBy(['action' => 'examined']);
-        self::assertStringContainsString('(log entry 2)', $examined->getDescription());
+        self::assertStringContainsString('(log entry 3)', $examined->getDescription());
 
         $this->loginAs($this->kb->b);
         $this->sessionRequest('GET', '/api/curation/digest');
-        self::assertSame(2, $this->jsonResponse()['runs'][0]['log_id']);
+        self::assertSame(3, $this->jsonResponse()['runs'][0]['log_id']);
 
-        $this->sessionRequest('GET', '/api/curator-log?run=2');
+        $this->sessionRequest('GET', '/api/curator-log?run=3');
         self::assertSame(200, $this->httpStatus(), $this->body());
         $page = $this->jsonResponse();
-        self::assertSame(2, $page['run']['log_id']);
+        self::assertSame(3, $page['run']['log_id']);
         foreach ($page['entries'] as $entry) {
-            self::assertSame(2, $entry['curation_run'], json_encode($entry, JSON_THROW_ON_ERROR));
+            self::assertSame(3, $entry['curation_run'], json_encode($entry, JSON_THROW_ON_ERROR));
         }
-        self::assertContains(3, array_column($page['entries'], 'id'), 'The examined row, B\'s third, comes in by its link to the run');
+        self::assertContains(4, array_column($page['entries'], 'id'), 'The examined row, B\'s fourth, comes in by its link to the run');
     }
 
     public function testTheExportsCiteNumbers(): void

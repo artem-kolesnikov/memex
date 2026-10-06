@@ -108,6 +108,15 @@ final class ApproveWithEditsTest extends ApiTestCase
         );
     }
 
+    /** Every verdict is a journal row now; one approved as filed must not claim the operator's text. */
+    private function assertApprovedAsFiled(string $message = ''): void
+    {
+        $descriptions = $this->journalDescriptions();
+        self::assertCount(1, $descriptions, $message);
+        self::assertStringNotContainsString('own edits', $descriptions[0], $message);
+        self::assertStringNotContainsString('own text', $descriptions[0], $message);
+    }
+
     /** @return array<int, string> */
     private function journalDescriptions(): array
     {
@@ -199,7 +208,7 @@ final class ApproveWithEditsTest extends ApiTestCase
         self::assertStringContainsString('with their own edits', $descriptions[0]);
     }
 
-    public function testASilentApprovalAsFiledStaysOutOfTheJournal(): void
+    public function testASilentApprovalAsFiledIsLoggedAsFiled(): void
     {
         $id = $this->pendingNote();
 
@@ -207,7 +216,7 @@ final class ApproveWithEditsTest extends ApiTestCase
         $this->reviewedRequest('POST', '/api/notes/'.$id.'/approve');
 
         self::assertSame(200, $this->httpStatus(), $this->body());
-        self::assertSame([], $this->journalDescriptions());
+        $this->assertApprovedAsFiled();
     }
 
     public function testAnAgentTokenCannotApproveWithEditsEither(): void
@@ -373,7 +382,7 @@ final class ApproveWithEditsTest extends ApiTestCase
         $revisions = $this->revisionsOf($id);
         self::assertCount(1, $revisions);
         self::assertFalse((bool) $revisions[0]['amended_by_operator']);
-        self::assertSame([], $this->journalDescriptions(), 'A silent verdict on agent work still writes nothing');
+        $this->assertApprovedAsFiled('A silent verdict is a row, and not an amendment');
     }
     /** @return array{0: int, 1: int} the note and the proposal held against it */
     private function heldEdit(string $body = 'The sentence as the agent would have it.'): array
@@ -530,7 +539,7 @@ final class ApproveWithEditsTest extends ApiTestCase
             (bool) $revisions[0]['amended_by_operator'],
             'Echoing the proposal back is an approval, not a rewrite'
         );
-        self::assertSame([], $this->journalDescriptions(), 'A verdict that changed nothing has nothing to say');
+        $this->assertApprovedAsFiled('A verdict that changed nothing says it approved as filed');
     }
 
     public function testAnEchoedPatchIsApprovedRatherThanRewritten(): void
@@ -577,7 +586,7 @@ final class ApproveWithEditsTest extends ApiTestCase
         self::assertSame(200, $this->httpStatus(), $this->body());
         self::assertSame(Note::STATUS_VERIFIED, $this->statusOf($id));
         self::assertSame([], $this->revisionsOf($id), 'Approving a note as filed rewrites nothing, so it revises nothing');
-        self::assertSame([], $this->journalDescriptions(), 'and it has nothing to say in the journal');
+        $this->assertApprovedAsFiled('and the journal says it was approved as filed');
     }
 
     /** @return array<string, array{0: string}> every spelling of "no description" */
@@ -619,6 +628,6 @@ final class ApproveWithEditsTest extends ApiTestCase
             (bool) $this->revisionsOf($id)[0]['amended_by_operator'],
             'A blank description where there was none changes nothing, so it rewrites nothing'
         );
-        self::assertSame([], $this->journalDescriptions());
+        $this->assertApprovedAsFiled();
     }
 }
