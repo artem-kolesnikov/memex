@@ -5,6 +5,23 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.5
+
+- A header on every page holds the Activity log, Docs, the light and dark switch and the
+  Settings gear.
+- Docs is a new page of short how-tos with prompts to copy: connecting an assistant,
+  finding notes, review, skills, your profile, curation, import and export. It opens from
+  the header and from the account menu.
+- The sidebar shows Skills again, between Notes and Review Inbox, and always shows
+  Workspaces, with a line on how to add one while none is saved. Until an assistant has
+  connected, *Connect an assistant* sits above your name.
+- Saved filters are now workspaces: *Save as workspace* sits right after the active filters.
+- On Notes, *New note* sits beside the list and map buttons, and the **?** beside the search
+  box lists the search operators.
+- Skills, Review Inbox and the Activity log keep their buttons beside the page title. The
+  Skills page no longer has *Import*: give a `SKILL.md` to your assistant, which proposes it
+  as a skill.
+
 ## 1.9.4
 
 - Summaries, tags and titles work with every model your key offers. memex sent a fixed
