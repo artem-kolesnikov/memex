@@ -65,11 +65,54 @@ class MlOutageTest extends DatabaseTestCase
 
     public function testAnErrorStatusIsRecorded(): void
     {
-        $this->ml->failWith = ['/summarize' => 502];
+        $this->ml->failWith = ['/summarize' => 500];
 
         self::assertNull($this->ml_client->summarize('anything', new AiCredentials(textEnabled: true)));
         self::assertSame([MlClient::SERVICE_KEY], $this->openKeys());
-        self::assertStringContainsString('HTTP 502', $this->failure()['detail']);
+        self::assertStringContainsString('HTTP 500', $this->failure()['detail']);
+    }
+
+    public function testAProviderFailingOnTheBoxKeyIsThatKeysProblem(): void
+    {
+        $this->ml->failWith = ['/summarize' => 502];
+
+        self::assertNull($this->ml_client->summarize('anything', new AiCredentials(textEnabled: true)));
+        self::assertSame([MlClient::BOX_TEXT_KEY], $this->openKeys());
+        self::assertStringContainsString('forced by the test', $this->failure()['detail']);
+    }
+
+    /**
+     * The account that chose a model its provider refused: every save sent the
+     * operator a "stopped working" and, from the embedding that followed on his
+     * own key, a "working again".
+     */
+    public function testAProviderFailingOnAnAccountsOwnKeyAlertsNobody(): void
+    {
+        $this->ml->failWith = ['/suggest-tags' => 502, '/summarize' => 502, '/suggest-title' => 502];
+        $own = new AiCredentials(textEnabled: true, provider: 'anthropic', apiKey: 'sk-ant-the-accounts-own', model: 'claude-sonnet-5-5');
+
+        $this->ml_client->suggestTags('t', 'a', [], $own);
+        $this->ml_client->summarize('a', $own);
+        $this->ml_client->suggestTitle('a', $own);
+
+        self::assertSame([], $this->health->failing);
+    }
+
+    public function testATextFailureAndAnEmbeddingSuccessDoNotCloseEachOther(): void
+    {
+        $box = new AiCredentials(textEnabled: true);
+
+        $this->ml->failWith = ['/suggest-tags' => 502];
+        $this->ml_client->suggestTags('t', 'a', [], $box);
+        $this->ml->failWith = [];
+        self::assertNotNull($this->ml_client->embedContent('a'));
+        self::assertSame([MlClient::BOX_TEXT_KEY], $this->openKeys());
+
+        $this->ml->failWith = ['/create-embeddings' => 502];
+        $this->ml_client->embedContent('a');
+        $this->ml->failWith = [];
+        self::assertNotNull($this->ml_client->summarize('a', $box));
+        self::assertSame([MlClient::BOX_EMBEDDING_KEY], $this->openKeys());
     }
 
     public function testEveryTextMethodReportsThroughTheSameProblem(): void

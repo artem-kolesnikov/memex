@@ -67,13 +67,13 @@ describe('the response envelope the SDK used to add', () => {
   test('a batch answered short is an error, not a half-stored note', async () => {
     helper.responses['/v1/embeddings'] = { status: 200, body: { data: [{ index: 0, embedding: [0.1] }] } }
     const res = await app.post('/api/v1/create-embeddings', { contents: ['One.', 'Two.'] })
-    assert.equal(res.status, 500)
+    assert.equal(res.status, 502)
 
     // Two rows both claiming index 1: position is what the caller maps back
     // onto its chunks, so this would store a vector against the wrong text.
     helper.responses['/v1/embeddings'] = { status: 200, body: { data: [{ index: 1, embedding: [0.1] }, { index: 1, embedding: [0.2] }] } }
     const dup = await app.post('/api/v1/create-embeddings', { contents: ['One.', 'Two.'] })
-    assert.equal(dup.status, 500)
+    assert.equal(dup.status, 502)
 
     const empty = await app.post('/api/v1/create-embeddings', { contents: [] })
     assert.equal(empty.status, 400)
@@ -96,11 +96,11 @@ describe('the response envelope the SDK used to add', () => {
   test('a malformed provider answer is an error, not a crash', async () => {
     helper.responses['/v1/embeddings'] = { status: 200, body: { data: [] } }
     const embeddings = await app.post('/api/v1/create-embeddings', { content: 'A note.' })
-    assert.equal(embeddings.status, 500)
+    assert.equal(embeddings.status, 502)
 
     helper.responses['/chat/completions'] = { status: 200, body: {} }
     const summary = await app.post('/api/v1/summarize', { content: 'A note.' })
-    assert.equal(summary.status, 500)
+    assert.equal(summary.status, 502)
   })
 })
 
@@ -191,7 +191,7 @@ describe('retry, which the SDK used to own', () => {
 
     const res = await app.post('/api/v1/summarize', { content: 'A note.' })
 
-    assert.equal(res.status, 500)
+    assert.equal(res.status, 502)
     assert.equal(helper.callCount('/chat/completions'), 1)
   })
 

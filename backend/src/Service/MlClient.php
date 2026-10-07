@@ -38,15 +38,22 @@ class MlClient
     private const ENRICH_TIMEOUT = 60;
 
     /**
-     * The one problem key for "ml-processor is not answering usefully".
+     * The problem key for "ml-processor is not answering usefully".
      *
      * Deliberately the systemd UNIT name, and deliberately the same key the
-     * `OnFailure=` hook records: whether the unit died or OpenAI is refusing
-     * upstream, the operator has one thing to look at and gets one email. The
-     * two observers see the same problem from opposite ends, so they must not
-     * open two incidents about it.
+     * `OnFailure=` hook records: the two observers see the same problem from
+     * opposite ends, so they must not open two incidents about it.
      */
     public const SERVICE_KEY = 'service:memex-ml-processor';
+
+    /**
+     * A provider failing on this box's key, which ml-processor answers 502:
+     * one key per budget, because a text call failing and an embedding call
+     * succeeding must not close each other's incident. A provider failing on
+     * an account's own key is that account's to fix and alerts nobody.
+     */
+    public const BOX_TEXT_KEY = 'dependency:openai-text';
+    public const BOX_EMBEDDING_KEY = 'dependency:openai-embeddings';
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -126,8 +133,8 @@ class MlClient
      * things count as failure and only two:
      *
      * - the request threw (unreachable, timed out, connection reset)
-     * - the response carried a non-success status (the service, or the
-     *   provider behind it, said no)
+     * - the response carried a non-success status: the service said no, or,
+     *   as a 502, the provider behind it did ({@see providerFailed()})
      *
      * A 2xx whose body is unusable is NOT a failure here — an empty summary is
      * a legitimate answer, and treating data as an outage is how an alerter
@@ -141,6 +148,45 @@ class MlClient
             self::SERVICE_KEY,
             sprintf('%s: %s', $what, $detail),
         );
+    }
+
+    /** @param string|null $boxKey the box key's problem key; null when the account's own key paid */
+    private function reportFailure(ResponseInterface $response, string $what, ?string $boxKey): void
+    {
+        $status = $response->getStatusCode();
+        if ($status !== 502) {
+            $this->reportDown($what, 'HTTP '.$status);
+
+            return;
+        }
+        if ($boxKey !== null) {
+            $this->health->serviceFailed($boxKey, sprintf('%s: %s', $what, $this->providerFailed($response)));
+        }
+    }
+
+    /** What ml-processor said the provider did: its name and status, or what was wrong with its answer. */
+    private function providerFailed(ResponseInterface $response): string
+    {
+        try {
+            $error = $response->toArray(false)['error'] ?? null;
+        } catch (\Throwable) {
+            $error = null;
+        }
+
+        return is_string($error) && $error !== '' ? mb_substr($error, 0, 200) : 'HTTP 502';
+    }
+
+    private function reportWorking(?string $boxKey): void
+    {
+        $this->health->serviceRecovered(self::SERVICE_KEY);
+        if ($boxKey !== null) {
+            $this->health->serviceRecovered($boxKey);
+        }
+    }
+
+    private static function textKey(AiCredentials $creds): ?string
+    {
+        return $creds->isOwnAccount() ? null : self::BOX_TEXT_KEY;
     }
 
     /** @return float[]|null the vault model's vector, or null to signal "use keyword fallback" */
@@ -203,13 +249,13 @@ class MlClient
                 'timeout' => self::ENRICH_TIMEOUT,
             ]);
             if ($response->getStatusCode() !== 201) {
-                $this->reportDown('summarize', 'HTTP '.$response->getStatusCode());
+                $this->reportFailure($response, 'summarize', self::textKey($creds));
                 $this->accountForFailure($response, ProviderSpend::SURFACE_TEXT, 'summarize', $creds);
 
                 return null;
             }
             $data = $response->toArray(false);
-            $this->health->serviceRecovered(self::SERVICE_KEY);
+            $this->reportWorking(self::textKey($creds));
             $this->account(ProviderSpend::SURFACE_TEXT, 'summarize', $data, $creds);
             $summary = $data['summary'] ?? null;
 
@@ -237,7 +283,7 @@ class MlClient
                 'timeout' => self::ENRICH_TIMEOUT,
             ]);
             if ($response->getStatusCode() !== 201) {
-                $this->reportDown('suggest-title', 'HTTP '.$response->getStatusCode());
+                $this->reportFailure($response, 'suggest-title', self::textKey($creds));
                 $this->accountForFailure($response, ProviderSpend::SURFACE_TEXT, 'suggest_title', $creds);
 
                 return null;
@@ -245,7 +291,7 @@ class MlClient
             $data = $response->toArray(false);
             $this->account(ProviderSpend::SURFACE_TEXT, 'suggest_title', $data, $creds);
             $title = $data['title'] ?? null;
-            $this->health->serviceRecovered(self::SERVICE_KEY);
+            $this->reportWorking(self::textKey($creds));
 
             return is_string($title) && trim($title) !== '' ? mb_substr(trim($title), 0, 500) : null;
         } catch (\Throwable $e) {
@@ -271,13 +317,13 @@ class MlClient
                 'timeout' => self::ENRICH_TIMEOUT,
             ]);
             if ($response->getStatusCode() !== 201) {
-                $this->reportDown('suggest-tags', 'HTTP '.$response->getStatusCode());
+                $this->reportFailure($response, 'suggest-tags', self::textKey($creds));
                 $this->accountForFailure($response, ProviderSpend::SURFACE_TEXT, 'suggest_tags', $creds);
 
                 return $empty;
             }
             $data = $response->toArray(false);
-            $this->health->serviceRecovered(self::SERVICE_KEY);
+            $this->reportWorking(self::textKey($creds));
             $this->account(ProviderSpend::SURFACE_TEXT, 'suggest_tags', $data, $creds);
 
             return [
@@ -318,6 +364,7 @@ class MlClient
         if ($creds->isOwn()) {
             $json['api_key'] = $creds->apiKey;
         }
+        $boxKey = $model->isLocal() || $creds->isOwn() ? null : self::BOX_EMBEDDING_KEY;
 
         try {
             $response = $this->httpClient->request('POST', $this->url('/api/v1/create-embeddings'), [
@@ -325,7 +372,7 @@ class MlClient
                 'timeout' => $timeout,
             ]);
             if ($response->getStatusCode() !== 201) {
-                $this->reportDown('create-embeddings', 'HTTP '.$response->getStatusCode());
+                $this->reportFailure($response, 'create-embeddings', $boxKey);
                 if ($paid) {
                     $this->accountForFailure(
                         $response,
@@ -372,7 +419,7 @@ class MlClient
 
                 return null;
             }
-            $this->health->serviceRecovered(self::SERVICE_KEY);
+            $this->reportWorking($boxKey);
 
             return $embeddings;
         } catch (\Throwable $e) {

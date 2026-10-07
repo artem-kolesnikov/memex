@@ -5,6 +5,16 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.4
+
+- Summaries, tags and titles work with every model your key offers. memex sent a fixed
+  temperature, which current Claude models (Opus 4.7 and Sonnet 5 on) and OpenAI's o-series
+  refuse, so on those models every description failed.
+- The Activity page records every change by every writer: you in the browser, each
+  connection and memex itself, from notes and proposals to verdicts, connections and skill
+  settings. It starts with this version; earlier changes are not added.
+- Dependencies patched.
+
 ## 1.9.3
 
 - The `app:seed-demo` command and the fictional accounts it wrote are gone from the image,

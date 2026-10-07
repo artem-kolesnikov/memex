@@ -107,11 +107,21 @@ const modelFor = (task) => {
   return defaultModels[task]
 }
 
-// GPT-5-family reasoning models reject an explicit temperature; older families
-// need temperature 0 for deterministic extraction.
+// Whether a model accepts a set temperature. Providers are withdrawing it:
+// Anthropic refuses one from Opus 4.7 and Sonnet 5 on, OpenAI from its o-series
+// and gpt-5 on (with max_tokens). So the list names the older models that still
+// take it, and a model released after this was written gets the provider's
+// default rather than a refusal on every call.
+const takesTemperature = (provider, model) => {
+  if (provider === 'openai') return /^(gpt-3\.5|gpt-4|chatgpt-4o)/.test(model)
+  if (provider === 'anthropic') return /^claude-(\d|instant)|^claude-(opus|sonnet|haiku)-4(-[0-6])?(-\d{8})?$/.test(model)
+  return true
+}
+
+// Older families need temperature 0 for deterministic extraction.
 const chatModelParams = (task, wantZeroTemp, override) => {
   const model = override || modelFor(task)
-  return (wantZeroTemp && !/^gpt-5/.test(model)) ? { model: model, temperature: 0 } : { model: model }
+  return (wantZeroTemp && takesTemperature('openai', model)) ? { model: model, temperature: 0 } : { model: model }
 }
 
 // Read provider keys from the shared runtime directory for each operation.
@@ -195,8 +205,8 @@ const withRetry = async (fn) => {
  * The distinction has to be carried on the error because the route wrappers
  * catch everything and answer 500: the "this provider needs its own key" guard
  * built a 400 that nothing ever read, so a misconfigured caller was told the
- * server had broken (found by Codex, 2026-09-08). An upstream failure stays a
- * 500 — the caller did nothing wrong and cannot fix it.
+ * server had broken (found by Codex, 2026-09-08). An upstream failure is a
+ * 502 — the caller did nothing wrong and cannot fix it.
  */
 const badRequest = (message) => {
   const err = new Error(message)
@@ -204,22 +214,36 @@ const badRequest = (message) => {
   return err
 }
 
+// The provider failed rather than this service: it refused the request,
+// answered something unusable, or could not be reached. Answered 502, so the
+// backend can tell a refused key or model from this service breaking.
+const upstream = (err) => {
+  err.upstream = true
+  return err
+}
+
 const providerError = (name, status, body) => {
   const err = new Error(`${name} returned ${status}`)
   err.status = status
   err.response = { status: status, data: body }
-  return err
+  return upstream(err)
 }
 
 const postJson = async (url, headers, body, label) => {
   const signal = operationContext.getStore().signal
   signal.throwIfAborted()
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify(body),
-    signal,
-  })
+  let response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+      signal,
+    })
+  } catch (err) {
+    signal.throwIfAborted()
+    throw upstream(err)
+  }
   let data = null
   try {
     data = await response.json()
@@ -277,8 +301,14 @@ const postJson = async (url, headers, body, label) => {
  */
 const billed = (err, usage) => {
   err.usage = usage
-  return err
+  return upstream(err)
 }
+
+// A provider failure's message names the provider and its status, never the
+// request, so it can go back to the caller for the operator's alert.
+const answerFailure = (res, err) => err.upstream
+  ? res.status(502).json({ error: err.message, usage: err.usage || null })
+  : res.status(500).json({ error: 'Server Error', usage: err.usage || null })
 
 const usageFrom = (provider, model, apiKey, data) => {
   const n = value => (Number.isFinite(value) ? value : null)
@@ -315,7 +345,7 @@ const anthropicText = async (model, apiKey, system, user, wantZeroTemp) => {
         max_tokens: OPENAI_MAX_TOKENS,
         system: system,
         messages: [{ role: 'user', content: user }],
-        ...(wantZeroTemp ? { temperature: 0 } : {}),
+        ...(wantZeroTemp && takesTemperature('anthropic', model) ? { temperature: 0 } : {}),
       },
       'anthropic'
   )
@@ -371,10 +401,11 @@ const openaiHeaders = (apiKey, boxKey) => ({ authorization: `Bearer ${apiKey || 
 const openaiChat = (params, apiKey) => withRetry(() => postJson(
     'https://api.openai.com/v1/chat/completions',
     openaiHeaders(apiKey, getTextApiKey),
-    // GPT-5-family models reject max_tokens (they take max_completion_tokens);
-    // leave them uncapped rather than break the call, mirroring
-    // chatModelParams. `params` spreads LAST so a caller can still override.
-    /^gpt-5/.test(params.model) ? params : { max_tokens: OPENAI_MAX_TOKENS, ...params },
+    // The models that refuse a temperature refuse max_tokens too (they take
+    // max_completion_tokens, which also counts their reasoning); leave them
+    // uncapped rather than break the call. `params` spreads LAST so a caller
+    // can still override.
+    takesTemperature('openai', params.model) ? { max_tokens: OPENAI_MAX_TOKENS, ...params } : params,
     'openai'
 ))
 
@@ -503,7 +534,7 @@ app.post('/api/v1/summarize', async (req, res) => {
     if (err.clientError) {
       return res.status(400).json({ error: err.message, usage: null })
     }
-    res.status(500).json({ error: 'Server Error', usage: err.usage || null })
+    answerFailure(res, err)
   }
 })
 
@@ -571,7 +602,7 @@ app.post('/api/v1/suggest-tags', async (req, res) => {
     if (err.clientError) {
       return res.status(400).json({ error: err.message, usage: null })
     }
-    res.status(500).json({ error: 'Server Error', usage: err.usage || null })
+    answerFailure(res, err)
   }
 })
 
@@ -607,7 +638,7 @@ app.post('/api/v1/suggest-title', async (req, res) => {
     if (err.clientError) {
       return res.status(400).json({ error: err.message, usage: null })
     }
-    res.status(500).json({ error: 'Server Error', usage: err.usage || null })
+    answerFailure(res, err)
   }
 })
 
@@ -684,7 +715,7 @@ app.post('/api/v1/create-embeddings', async (req, res) => {
     if (err.notInstalled) {
       return res.status(503).json({ error: err.message, usage: null })
     }
-    res.status(500).json({ error: 'Server Error', usage: err.usage || null })
+    answerFailure(res, err)
   }
 })
 
