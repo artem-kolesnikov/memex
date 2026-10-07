@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// The desktop workspace shell: a sidebar carrying the four destinations and
-// the account control, and a canvas beside it.
+// The desktop workspace shell: a sidebar carrying the destinations, the
+// workspaces and the account control, and a canvas beside it under a header
+// holding Docs, the theme and Settings.
 //
 // Below `lg` the sidebar is a sheet rather than a rail — 232px of chrome
 // against a 390px screen leaves 158px for the page — so it slides in from a
@@ -17,10 +18,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
 import { useLayoutStore } from '@/stores/layout'
 import PaneToggle from '@/components/PaneToggle.vue'
+import ShellTools from '@/components/ShellTools.vue'
+import { useWelcomeStore } from '@/stores/welcome'
 import { presetQuery, routeCriteria, sameCriteria, usePresetStore } from '@/stores/presets'
 import type { SearchPreset } from '@/api/client'
 import { useI18n } from 'vue-i18n'
-import { useTheme } from '@/lib/theme'
 import { editions } from '@/editions'
 
 declare global {
@@ -152,9 +154,10 @@ onUnmounted(() => clearInterval(inboxTimer))
 
 // The WORKSPACE is where the work happens; the ACCOUNT menu is the things you
 // do to your memex rather than in it. The map is a view of Notes, not a place
-// of its own (operator, 2026-09-26).
+// of its own (operator, 2026-09-26); the activity log is in the header.
 const WORKSPACE_LINKS = [
   { name: 'search', labelKey: 'app.nav.notes', icon: 'fa-solid fa-file-lines' },
+  { name: 'skills', labelKey: 'app.nav.skills', icon: 'fa-solid fa-graduation-cap' },
   { name: 'inbox', labelKey: 'app.nav.review_inbox', icon: 'fa-solid fa-inbox' },
 ] as const
 
@@ -228,19 +231,34 @@ async function removePreset() {
   }
 }
 
+const CONNECT_LINK = { name: 'settings', params: { pane: 'connections' }, hash: '#connect' } as const
+
 const ACCOUNT_LINKS = [
-  { key: 'activity', to: { name: 'activity' }, labelKey: 'app.nav.activity', icon: 'fa-solid fa-clock-rotate-left' },
-  { key: 'skills', to: { name: 'skills' }, labelKey: 'app.nav.skills', icon: 'fa-solid fa-graduation-cap' },
+  { key: 'docs', to: { name: 'docs' }, labelKey: 'app.nav.docs', icon: 'fa-solid fa-book-open' },
   { key: 'personalization', to: { name: 'settings', params: { pane: 'personalization' } }, labelKey: 'app.nav.personalization', icon: 'fa-solid fa-user-pen' },
+  { key: 'connect', to: CONNECT_LINK, labelKey: 'app.nav.connect', icon: 'fa-solid fa-plug' },
+  { key: 'settings', to: { name: 'settings' }, labelKey: 'app.nav.settings', icon: 'fa-solid fa-gear' },
 ] as const
 
-// Sunrise or Midnight from the account menu, the same setting Settings ›
-// General holds.
-const { theme, set: setTheme } = useTheme()
-const THEMES = [
-  { id: 'light', labelKey: 'general.themes.sunrise', icon: 'fa-solid fa-sun' },
-  { id: 'dark', labelKey: 'general.themes.midnight', icon: 'fa-solid fa-moon' },
-] as const
+// Whether an assistant has ever reached this memex, read the way the wizard
+// reads it: a token pasted nowhere is not a connection. Until one has, the
+// sidebar offers to connect one above the account row. Connecting happens in
+// another application, so the answer is read again when the tab comes back
+// into view and when Settings closes.
+const welcome = useWelcomeStore()
+const refreshConnected = () => {
+  if (auth.user !== null) void welcome.refresh()
+}
+const unconnected = computed(() => welcome.facts !== null && !welcome.facts.connected)
+watch(() => auth.user?.team.handle, refreshConnected, { immediate: true })
+watch(isSettings, (open, was) => {
+  if (was && !open) refreshConnected()
+})
+const onVisible = () => {
+  if (document.visibilityState === 'visible') refreshConnected()
+}
+onMounted(() => document.addEventListener('visibilitychange', onVisible))
+onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 
 const menuOpen = ref(false)
 const accountOpen = ref(false)
@@ -257,8 +275,10 @@ watch(
     presetMenu.value = null
     // The stage is the scroll container now, so arriving at a route has to
     // put it back at the top — the window scroll a browser would reset is no
-    // longer the one anybody is looking at.
-    if (!isSettings.value) document.querySelector('.app-stage')?.scrollTo({ top: 0 })
+    // longer the one anybody is looking at. A change of hash alone is a place
+    // on the same page, which the page scrolls to itself.
+    const samePage = to.path === from.path && JSON.stringify(to.query) === JSON.stringify(from.query)
+    if (!isSettings.value && !samePage) document.querySelector('.app-stage')?.scrollTo({ top: 0 })
   },
 )
 
@@ -324,7 +344,8 @@ async function logout() {
       <router-link class="app-brand" :to="{ name: 'search' }">
         <span class="app-brand-word">{{ $t('app.brand.word') }}</span>
       </router-link>
-      <router-link class="ms-auto position-relative btn btn-sm btn-outline-secondary" :to="{ name: 'inbox' }"
+      <ShellTools class="ms-auto" />
+      <router-link class="position-relative btn btn-sm btn-outline-secondary" :to="{ name: 'inbox' }"
                    :aria-label="$t('app.nav.review_inbox')">
         <i class="fa-solid fa-inbox"></i>
         <span class="app-nav-badge" v-if="inbox.count > 0">{{ inbox.count > 99 ? '99+' : inbox.count }}</span>
@@ -358,9 +379,10 @@ async function logout() {
         </router-link>
       </nav>
 
-      <section class="app-presets" v-if="presets.presets.length" :aria-label="$t('app.shell.workspace')">
-        <h2 class="app-presets-head">{{ $t('app.shell.workspace') }}</h2>
-        <div class="app-presets-list" @scroll="presetMenu = null">
+      <section class="app-presets" :aria-label="$t('app.shell.workspaces')">
+        <h2 class="app-presets-head">{{ $t('app.shell.workspaces') }}</h2>
+        <p class="app-presets-hint" v-if="presets.loaded && !presets.presets.length">{{ $t('app.shell.workspaces_hint') }}</p>
+        <div class="app-presets-list" v-else @scroll="presetMenu = null">
           <div v-for="preset in presets.presets" :key="preset.id" class="app-preset"
                :data-preset-id="preset.id" :class="{ 'is-menu-open': presetMenu === preset.id }">
             <router-link class="app-nav-link app-preset-link"
@@ -383,6 +405,12 @@ async function logout() {
 
       <div class="app-sidebar-spacer"></div>
 
+      <router-link v-if="unconnected" class="btn btn-primary app-connect" :to="CONNECT_LINK">
+        <i class="fa-solid fa-plug" aria-hidden="true"></i>
+        <span class="app-connect-label">{{ $t('app.nav.connect') }}</span>
+        <span class="app-nav-tooltip">{{ $t('app.nav.connect') }}</span>
+      </router-link>
+
       <div class="app-account" :class="{ 'is-open': accountOpen }">
         <button type="button" class="app-account-summary" :aria-expanded="accountOpen"
                 aria-haspopup="menu" @click.stop="accountOpen = !accountOpen">
@@ -398,6 +426,7 @@ async function logout() {
             <strong>{{ auth.user?.name || auth.user?.email }}</strong>
             <small>{{ auth.user?.email }}</small>
           </span>
+          <i class="fa-solid fa-chevron-up app-account-chevron" aria-hidden="true"></i>
         </button>
 
         <Transition name="app-account-menu" @enter="growMenu" @after-enter="settleMenu" @leave="shrinkMenu">
@@ -420,19 +449,6 @@ async function logout() {
                            :to="link.to">
                 <i :class="link.icon" class="fa-fw"></i>{{ $t(link.labelKey) }}
               </router-link>
-              <div class="app-account-split">
-                <router-link role="menuitem" :to="{ name: 'settings' }">
-                  <i class="fa-solid fa-gear fa-fw"></i>{{ $t('app.nav.settings') }}
-                </router-link>
-                <span class="app-account-segments" role="group" :aria-label="$t('app.shell.appearance')">
-                  <button v-for="option in THEMES" :key="option.id" type="button" role="menuitemradio"
-                          :class="{ 'is-on': theme === option.id }" :aria-checked="theme === option.id"
-                          :title="$t(option.labelKey)" :aria-label="$t(option.labelKey)"
-                          @click.stop="setTheme(option.id)">
-                    <i :class="option.icon"></i>
-                  </button>
-                </span>
-              </div>
               <hr>
               <button type="button" role="menuitem" :disabled="auth.loggingOut" @click="logout">
                 <i class="fa-solid fa-right-from-bracket fa-fw"></i>{{ $t('app.shell.sign_out') }}
@@ -444,6 +460,9 @@ async function logout() {
     </aside>
 
     <div class="app-stage">
+      <header class="app-stage-head container">
+        <ShellTools />
+      </header>
       <main class="flex-grow-1">
         <div v-if="auth.logoutError" class="app-notice app-notice-danger app-logout-error" role="alert">
           <span>{{ $t('app.shell.sign_out_failed') }} {{ auth.logoutError }}</span>

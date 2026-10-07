@@ -407,7 +407,7 @@ for (const leave of [false, true]) await scenario(`confirmation cancel during op
   await page.locator('#review-note-1').click()
   await page.locator('.mm-amend-toggle').click()
   await page.fill('.mm-note-form .mm-amend-title', 'Preserved early cancellation')
-  await page.locator('.mm-inbox-tools > button').click()
+  await page.locator('.mm-inbox-refresh').click()
   await page.locator('.modal.show[aria-labelledby="confirm-dialog-title"]').waitFor()
   assert(!(await page.evaluate(() => window.modalEvents)).includes('shown'), 'fixture must click during opening')
   await page.locator('.modal.show .modal-footer .btn-outline-secondary').click()
@@ -562,7 +562,7 @@ await scenario('Claude L2 stale preset failure is localized and remains a failur
   state.on['POST /api/presets'] = async json => { started.resolve(); await gate.promise; return json({ preset: { id: 17, name: 'Stale preset', q: 'synthetic', tags: [] } }) }
   await opened(page, 'notes?q=synthetic')
   await page.waitForSelector('html[lang="zz"]')
-  await page.getByRole('button', { name: 'Save filter', exact: true }).click()
+  await page.getByRole('button', { name: 'Save as workspace', exact: true }).click()
   await page.fill('#preset-name', 'Stale preset')
   await page.locator('.modal.show button[type="submit"]').click(); await waitForStart(started.promise)
   state.user = { ...me(2), locale: 'zz' }; await authAction(page, 'check')

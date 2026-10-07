@@ -1,7 +1,7 @@
 #!/usr/bin/env node --experimental-strip-types
 /**
- * Guard: the welcome note "Connect your first assistant" says what Settings ›
- * Assistants says.
+ * Guard: the welcome note "Connect your first assistant", and the Docs page,
+ * say what Settings › Assistants says.
  *
  * The note repeats every connection step in text, and it is copied into each
  * new account at sign-up, so a vendor's changed screen fixed in the guides and
@@ -14,17 +14,21 @@
  *
  * Usage: node --experimental-strip-types scripts/check-connect-note.mjs
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CLIENTS } from '../src/components/settings/connectGuides.ts'
 import { initPrompt } from '../src/components/settings/initPrompt.ts'
+import { PROFILE_PROMPT } from '../src/components/welcome/profilePrompt.ts'
+import { slug } from '../src/lib/docsDoc.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 // The address the note gives: the server writes its own in place of {{origin}}
 // when the note is copied in (App\Service\ShippedText).
 const MCP_URL = '{{origin}}/mcp'
 const NOTE = join(here, '../../backend/config/welcome/2-connect-your-first-assistant.md')
+// The Docs page carries the same steps, and the profile prompt Settings offers.
+const DOCS = join(here, '../../backend/config/docs/memex-docs.md')
 const messages = JSON.parse(readFileSync(join(here, '../src/locales/en.json'), 'utf8'))
 
 const flat = (text) => text.replace(/^\s*>\s?/gm, '').replace(/\s+/g, ' ').trim()
@@ -107,4 +111,46 @@ if (found.length > 0) {
   console.error(`FAIL backend/config/welcome/2-connect-your-first-assistant.md no longer says what Settings › Assistants says:\n  ${found.join('\n  ')}`)
   process.exit(1)
 }
-console.log(`Connect note passed: ${CLIENTS.map((c) => `${c.label} ${c.steps.length} steps`).join(', ')}, the prompt and the address match Settings.`)
+
+const docs = readFileSync(DOCS, 'utf8')
+const docsFound = problems(docs)
+if (!flat(docs).includes(flat(PROFILE_PROMPT))) docsFound.push('the profile prompt differs from profilePrompt.ts')
+
+// Every place that opens the Docs at a section names one that exists: the
+// Docs' own links, and the app's links to them.
+function anchors(text) {
+  return new Set([...text.matchAll(/^#{1,2} (.+)$/gm)].map((m) => slug(m[1].trim())))
+}
+function sources(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name)
+    if (statSync(path).isDirectory()) sources(path, out)
+    else if (/\.(vue|ts)$/.test(name)) out.push(path)
+  }
+  return out
+}
+function brokenAnchors(text, appFiles) {
+  const known = anchors(text)
+  const out = []
+  for (const m of text.matchAll(/\]\(#([a-z0-9-]+)\)/g)) {
+    if (!known.has(m[1])) out.push(`the Docs link to #${m[1]}, which is no heading`)
+  }
+  for (const [file, source] of appFiles) {
+    for (const m of source.matchAll(/name: 'docs', hash: '#([a-z0-9-]+)'/g)) {
+      if (!known.has(m[1])) out.push(`${file} opens the Docs at #${m[1]}, which is no heading`)
+    }
+  }
+  return out
+}
+const appFiles = sources(join(here, '../src')).map((path) => [path.slice(path.indexOf('src/')), readFileSync(path, 'utf8')])
+const anchorDrift = docs.replace('## Find notes', '## Finding notes')
+if (brokenAnchors(anchorDrift, appFiles).length === 0) {
+  console.error('FAIL the connect-note check cannot see a Docs section the app links to being renamed')
+  process.exit(1)
+}
+docsFound.push(...brokenAnchors(docs, appFiles))
+if (docsFound.length > 0) {
+  console.error(`FAIL backend/config/docs/memex-docs.md no longer says what Settings says:\n  ${docsFound.join('\n  ')}`)
+  process.exit(1)
+}
+console.log(`Connect note and Docs passed: ${CLIENTS.map((c) => `${c.label} ${c.steps.length} steps`).join(', ')}, the prompts and the address match Settings.`)

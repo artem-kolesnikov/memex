@@ -12,7 +12,8 @@ promise about the future; it describes memex as it is.
 {{edition:operator}}
 
 **About this guide.** memex serves it to your assistants as the `memex-guide` skill, so
-ask one anything about memex. It is never copied into your knowledge base, so it always
+ask one anything about memex. *Docs* in the web app covers the same ground as short
+how-tos for people. The guide is never copied into your knowledge base, so it always
 describes memex as it is now.
 
 ---
@@ -206,9 +207,16 @@ role, from a browser; no assistant can change its own role or another's.
 *Sign out* for each and *Sign out everywhere else*. A session lasts thirty days of
 inactivity. *Sign out* in the account menu ends the current one.
 
-**The account menu** opens from your name at the foot of the sidebar: *Activity log*
-(section 10), *Skills* (section 12), *Personalization* (Settings › Personalization),
-*Settings* with the *Sunrise* and *Midnight* switch beside it, and *Sign out*.
+**The sidebar** holds *Notes*, *Skills* (section 12) and *Review Inbox*, then your
+workspaces (section 6). Until an assistant has reached your memex, *Connect an assistant*
+sits above your name and opens Settings › Assistants (section 14).
+
+**The header** at the top right of every page holds *Activity log* (section 10), *Docs*,
+the *Sunrise* and *Midnight* switch, and the gear that opens Settings.
+
+**The account menu** opens from your name at the foot of the sidebar: *Docs*,
+*Personalization* (Settings › Personalization), *Connect an assistant*, *Settings*, and
+*Sign out*.
 
 **A new account** opens on the Notes list, holding five notes. memex wrote three of them:
 *Welcome to memex*, *Connect your first assistant* and *Make memex yours*, which say how to
@@ -224,7 +232,7 @@ for you; the welcome notes say how to start one.
 
 *Notes* is the home screen: every note in your knowledge base, newest change first, with a
 count. *List* and *Map* at the top switch between two views of the same search; the map is
-section 11.
+section 11. *New note* beside them opens the editor (section 8).
 
 **Searching.** Type in the box and press Enter or *Search*. memex first looks for notes that
 contain all your words literally, in title or body; if any do, those are the results, best
@@ -234,7 +242,8 @@ search for a phrase you remember finds the note that holds it, and a search for 
 finds notes that discuss it in other words.
 
 **Operators.** The search box and the assistant's `search` tool read the same expression
-language, for the question a plain search cannot ask: *this but not that*.
+language, for the question a plain search cannot ask: *this but not that*. The *?* beside
+the search box lists them.
 
 - `memex memory` — both words, anywhere in the title or body, in any order. This is the
   plain search and it has not changed.
@@ -265,12 +274,12 @@ expression the way they combine with any search. Malformed input never errors: a
 **Filters.** *All tags* narrows to notes carrying every tag you pick. *Status* offers *Any
 status*, *Verified*, *Pending review*, *Flagged for curation* and *Not described yet*. From
 a note's page you can also open *All notes added by* a particular assistant. Active filters
-show as chips with *Clear all*.
+show as chips, with *Save as workspace* and *Clear all* after them.
 
-**Saved filters.** *Save filter* stores the current search terms, tags and status under a
-name and an icon, in the sidebar under *Workspace*. Up to fifty. Removing one leaves your
-notes untouched. Merging a tag moves a saved filter onto the tag it merged into; removing
-a tag takes it out of the filter.
+**Workspaces.** *Save as workspace* stores the current search terms, tags and status under a
+name and an icon, in the sidebar under *Workspaces*; with none saved, that section says how
+to add one. Up to fifty. Removing one leaves your notes untouched. Merging a tag moves a
+workspace onto the tag it merged into; removing a tag takes it out of the workspace.
 
 **The list.** One row per note: the title, with a status mark before it (a clock for
 pending review, a flag for flagged; verified notes show no mark), its description beneath,
@@ -368,9 +377,9 @@ assistants can read the inbox but never approve or reject.
 
 ## 10. Activity log
 
-*Activity log* in the account menu. The journal of every change to your knowledge base,
-whoever made it, and every decision made about it: notes created, edited, deleted, restored
-or deleted for good, by you or an assistant; uploads and imports, one row each; proposals
+*Activity log*, in the header at the top right. The journal of every change to your
+knowledge base, whoever made it, and every decision made about it: notes created,
+edited, deleted, restored or deleted for good, by you or an assistant; uploads and imports, one row each; proposals
 filed, and your approvals and rejections; flags raised and resolved; tags removed, merged or
 allowed back; connections added, renamed, promoted and disconnected; skill settings; and the
 run summaries curators record. Each row names who did it: you, an assistant, or memex. Rows
@@ -423,11 +432,10 @@ Nothing runs because it exists; it runs because the work matched it.
 **Making one.** Tag a note `skill` and it is served once it is verified; a note your
 assistant proposes waits in the inbox first, like any note. Or press *New skill* on the
 Skills page, which opens the editor with the tag already set and a short scaffold — when to
-use it, steps, sources — for you to fill in. Or use *Import* to bring in a `SKILL.md` from
-another tool, a plain `.md`, or a zip of skill folders; each one lands as a verified note of
-your own.
+use it, steps, sources — for you to fill in. A `SKILL.md` from another tool comes in the
+same way as any note: hand it to your assistant, which proposes it as a skill.
 
-**The Skills page** (*Skills* in the account menu) has three sections: *Your enabled skills*,
+**The Skills page** (*Skills* in the sidebar) has three sections: *Your enabled skills*,
 *Available skills*, then *Built into Memex*. Your enabled skills are ready to use.
 Turning one off moves it into Available skills, alongside skills waiting for review.
 Turning it back on moves it into Your enabled skills. Failed saves show
@@ -545,7 +553,8 @@ individual notes can gain or lose any of them freely.
 
 ## 13. Settings
 
-Settings is a dialog over whatever you were doing. Six panes in two groups; on a phone,
+Settings is a dialog over whatever you were doing, opened from the gear at the top right or
+from the account menu. Six panes in two groups; on a phone,
 the section picker uses the same groups. Old settings links still reach their section.
 All panes share one content grid and section spacing. Paired fields use equal columns
 and stack on phones. Connections, sign-in accounts, browsers, and curators use the same
@@ -555,7 +564,7 @@ table layout, with labelled rows on phones and actions in the final column.
 
 **Personal → Preferences**
 - *Appearance*: *Sunrise* (light) or *Midnight* (dark), note text size and font (Sans,
-  Serif, Mono). These are remembered per browser. The account menu also switches themes.
+  Serif, Mono). These are remembered per browser. The header also switches themes.
 - *Language*: the interface language, from those installed.
 - *Date & time*: date format and time zone, per browser.
 - *Map*: layout, note shape, link style and labels, saved to your account.
@@ -622,7 +631,8 @@ Every connection speaks MCP, the standard assistants use to reach tools, at one 
 {{origin}}/mcp
 ```
 
-**Connect an assistant** (Settings › Assistants) opens the connection guides: four tabs,
+**Connect an assistant** (Settings › Assistants, also in the account menu, and above your
+name in the sidebar until an assistant has connected) opens the connection guides: four tabs,
 ChatGPT, Claude, Gemini Spark and *Other*, and for the first three every step as one
 numbered list: where to go in the assistant, the address to paste, *approve sign-in with
 Memex*, and the prompt to paste last. Each guide is a few minutes. ChatGPT's Developer
@@ -869,15 +879,6 @@ after the import connects them. If the archive contains notes you deliberately d
 before, memex says so and holds them out unless you tick *Import them again*. Imported
 notes become searchable by meaning as the index catches up over the following minutes.
 
-**Skills.** *Import* on the Skills page takes a `SKILL.md`, a plain `.md`, or a zip of skill
-folders. The frontmatter `name` becomes the slug and `description` becomes the summary; the
-rest of the file becomes the note body. `scripts/`, `references/` and `assets/`, if the
-package carries them, are not imported — memex holds markdown only — and are named in the
-report so you know what to bring over by hand. An invalid explicit name or malformed
-frontmatter is reported for that file without creating a note; other valid files still import.
-Without a name, the title or filename supplies one. Plain Markdown files, including
-frontmatter, must fit both the note-size and import-size limits before they are read.
-
 ## 21. Deleting, restoring, and what is kept
 
 **Deleting a note** moves it to Deleted notes, where it stays restorable for thirty days at
@@ -1058,7 +1059,7 @@ of each patch operation, and memex decodes them so the note keeps its literal co
 - **No files.** Markdown and text. A PDF becomes a note about the PDF.
 - **No transcripts.** memex holds what somebody chose to save, so "what did I say in March"
   works only for what was kept.
-- **No folders, no nested tags, no collections.** Tags, links and saved filters.
+- **No folders, no nested tags, no collections.** Tags, links and workspaces.
 - **Review is work.** Held writes accumulate if the inbox is never opened. It is fine to
   let them sit; they are not applied meanwhile.
 - **Connecting takes a settings pane and a few minutes**, not one click.

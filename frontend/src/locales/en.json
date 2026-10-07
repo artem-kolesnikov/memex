@@ -44,7 +44,9 @@
       "hide_rail": "Hide the side panel",
       "sign_out": "Sign out",
       "sign_out_failed": "Sign out was not confirmed. Please try again.",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "workspaces": "Workspaces",
+      "workspaces_hint": "Search or filter your notes, then press Save as workspace to keep the results here."
     },
     "nav": {
       "notes": "Notes",
@@ -52,7 +54,9 @@
       "settings": "Settings",
       "activity": "Activity log",
       "skills": "Skills",
-      "personalization": "Personalization"
+      "personalization": "Personalization",
+      "docs": "Docs",
+      "connect": "Connect an assistant"
     },
     "footer": {
       "copyright": "© {year} memex.tools",
@@ -172,14 +176,27 @@
       "label": "How the notes are shown",
       "list": "List",
       "map": "Map"
+    },
+    "help": {
+      "title": "Search operators",
+      "lede": "Plain words find notes that contain all of them, and memex searches by meaning when none do. Operators ask for exact matches.",
+      "and": "Both words, anywhere in the title or body, in any order.",
+      "or": "Either word. | means the same.",
+      "not": "Notes without the word. -ai and !ai mean the same.",
+      "group": "Parentheses group what goes together.",
+      "phrase": "The words next to each other, in this order.",
+      "uppercase": "Operators are uppercase. In lowercase, or and not are not operators.",
+      "binding": "Words side by side bind before OR: memex memory OR ai reads as (memex memory) OR ai.",
+      "exact": "A search with OR, NOT or quotes matches words as written and never searches by meaning.",
+      "more": "Searching, in the docs"
     }
   },
   "presets": {
-    "save": "Save filter",
+    "save": "Save as workspace",
     "options": "Options for {name}",
     "dialog": {
-      "create_title": "Save this filter",
-      "edit_title": "Edit saved filter",
+      "create_title": "Save as workspace",
+      "edit_title": "Edit workspace",
       "name": "Name",
       "choose_icon": "Choose an icon",
       "terms": "Search terms",
@@ -187,14 +204,14 @@
       "tags_placeholder": "Type to pick a tag",
       "tags_failed": "The tag list did not load, so nothing can be saved. Close and try again.",
       "status": "Status",
-      "name_required": "Give the filter a name.",
+      "name_required": "Give the workspace a name.",
       "no_criteria": "Choose at least one filter.",
-      "save_failed": "Could not save the filter"
+      "save_failed": "Could not save the workspace"
     },
     "remove": {
-      "title": "Remove saved filter?",
+      "title": "Remove workspace?",
       "body": "“{name}” leaves the sidebar. Your notes are not affected.",
-      "failed": "Could not remove the filter"
+      "failed": "Could not remove the workspace"
     }
   },
   "note": {
@@ -1614,7 +1631,6 @@
     "title": "Skills",
     "intro": "Instructions you keep in Memex and reuse with your assistants.",
     "new": "New skill",
-    "import": "Import",
     "export_all": "Export all",
     "load_failed": "Your skills could not be loaded. Reload to try again.",
     "empty_filtered": "Nothing matches this filter.",
@@ -1654,10 +1670,6 @@
     "catalogue": {
       "add": "Add",
       "add_failed": "That skill could not be added. Try again."
-    },
-    "import_report": {
-      "created": "No skills imported. | One skill imported. | {count} skills imported.",
-      "ignored": "Not imported (memex holds markdown only): {files}"
     },
     "scaffold": "_When to use this: say what task this covers and the words that signal it._\n\n## Steps\n\n1. \n\n## Sources\n\n- ",
     "dashboard": {
@@ -1824,6 +1836,12 @@
       "later": "Prefer to do this later?",
       "where": "Settings → Personalization → About you"
     }
+  },
+  "docs": {
+    "title": "Documentation",
+    "lede": "Everything you need to know about your memex. You can also ask your connected assistant about using memex.",
+    "contents": "Contents",
+    "failed": "The docs could not be loaded."
   },
   "not_found": {
     "code": "404",

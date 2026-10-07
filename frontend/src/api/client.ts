@@ -40,6 +40,8 @@ export interface NoteListItem {
 
 /** What the profile screens read: the account's profile notes, live on every call. */
 export interface WelcomeFacts {
+  /** A live connection has called memex at least once; a token pasted nowhere is not one. */
+  connected: boolean
   /** Every note carrying `user-profile`, oldest first; read live, never remembered. */
   profiles: ProfileRef[]
 }
@@ -940,6 +942,8 @@ export const api = {
   removeSignInMethod: (id: string) =>
     request<{ removed: boolean }>(`/api/me/identities/${id}`, { method: 'DELETE' }),
   welcome: () => request<{ facts: WelcomeFacts }>('/api/me/welcome'),
+  /** The Docs page's markdown, rendered for this server and this reader. */
+  docs: () => request<{ body: string }>('/api/docs'),
   sessions: () => request<{ sessions: BrowserSession[] }>('/api/me/sessions'),
   endSession: (id: string) =>
     request<{ ended: number }>(`/api/me/sessions/${id}`, { method: 'DELETE' }),
@@ -1304,13 +1308,6 @@ export const api = {
   skills: () => request<{ skills: SkillRow[]; connections: SkillConnection[] }>('/api/skills'),
   updateSkill: (noteId: number, patch: SkillPatch) =>
     request<{ skill: SkillRow }>(`/api/skills/${noteId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
-  importSkills: (files: File[]) => {
-    const form = new FormData()
-    files.forEach((f) => form.append('files[]', f))
-    return request<{ created: SkillRow[]; errors: { file: string; error: string }[]; ignored: string[] }>(
-      '/api/skills/import', { method: 'POST', body: form },
-    )
-  },
   exportSkillsUrl: () => '/api/skills/export',
   exportServedSkillUrl: (slug: string) => `/api/skills/served/${encodeURIComponent(slug)}/export`,
   addSkill: (slug: string) =>

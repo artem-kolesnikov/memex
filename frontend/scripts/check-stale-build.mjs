@@ -93,9 +93,7 @@ async function scenario(name, gone, body) {
   page.on('pageerror', (e) => errors.push(String(e)))
   try {
     await page.goto(`${BASE}/${HANDLE}/notes`)
-    await page.waitForSelector('.app-account-summary')
-    await page.click('.app-account-summary')
-    await page.getByRole('menuitem', { name: 'Activity log' }).click()
+    await page.getByRole('link', { name: 'Activity log' }).click()
     await body(page, seen, errors)
     console.log(`  ok   ${name}`)
   } catch (e) {

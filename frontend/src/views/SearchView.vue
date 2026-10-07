@@ -16,6 +16,7 @@ import HelpTip from '@/components/HelpTip.vue'
 import TagChipRow from '@/components/TagChipRow.vue'
 import ActorMark from '@/components/ActorMark.vue'
 import PresetDialog from '@/components/PresetDialog.vue'
+import SearchHelpDialog from '@/components/SearchHelpDialog.vue'
 import NotesMap from '@/components/NotesMap.vue'
 import { formatDate } from '@/lib/datetime'
 
@@ -69,6 +70,7 @@ const addedByName = ref<string>('')
 
 const allTags = ref<(TagRef & { note_count: number })[]>([])
 const savingPreset = ref(false)
+const searchHelp = ref(false)
 const presetDraft = computed(() => ({
   q: appliedQuery.value,
   tags: criteria.value.tagIds,
@@ -539,7 +541,7 @@ async function readUrl(requestId: number) {
   <div class="container" :class="{ 'mm-has-report-bar': selected.size > 0 && view === 'list' }">
     <header class="app-page-head d-flex align-items-center justify-content-between flex-wrap gap-3">
       <div>
-        <div class="mm-notes-title">
+        <div class="app-title-line">
           <h1>{{ $t('search.title') }}</h1>
           <nav class="app-segmented mm-notes-views" :aria-label="$t('search.view.label')">
             <button v-for="v in VIEWS" :key="v.key" type="button" class="app-segment"
@@ -548,13 +550,11 @@ async function readUrl(requestId: number) {
               <i :class="v.icon" aria-hidden="true"></i>
             </button>
           </nav>
+          <router-link class="btn btn-primary" :to="{ name: 'note-new' }">
+            <i class="fa-solid fa-plus me-1"></i> {{ $t('search.new_note') }}
+          </router-link>
         </div>
         <p class="app-page-lede" v-if="total">{{ $t('search.notes_in_memex', total) }}</p>
-      </div>
-      <div class="app-head-actions">
-        <router-link class="btn btn-primary" :to="{ name: 'note-new' }">
-          <i class="fa-solid fa-plus me-1"></i> {{ $t('search.new_note') }}
-        </router-link>
       </div>
     </header>
 
@@ -574,6 +574,10 @@ async function readUrl(requestId: number) {
             :placeholder="$t('search.placeholder')"
             @keyup.enter="applyCriteria"
           >
+          <button class="btn btn-outline-secondary mm-search-help" type="button" :title="$t('search.help.title')"
+                  :aria-label="$t('search.help.title')" @click="searchHelp = true">
+            <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+          </button>
           <button class="btn btn-primary" type="button" :disabled="loading" @click="applyCriteria">
             <span class="spinner-border spinner-border-sm me-1" role="status" v-if="loading"><span class="visually-hidden">{{ $t('search.loading') }}</span></span>
             {{ $t('common.search') }}
@@ -607,10 +611,10 @@ async function readUrl(requestId: number) {
         {{ chip.label }}
         <a href="javascript:void(0)" class="mm-chip-x" @click="removeChip(chip)" :aria-label="$t('common.remove')">×</a>
       </span>
-      <a href="javascript:void(0)" class="small ms-1" @click="clearAllCriteria">{{ $t('search.clear_all') }}</a>
-      <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @click="savingPreset = true">
+      <button type="button" class="btn btn-sm btn-outline-primary ms-1" @click="savingPreset = true">
         <i class="fa-regular fa-bookmark me-1"></i>{{ $t('presets.save') }}
       </button>
+      <a href="javascript:void(0)" class="small ms-1" @click="clearAllCriteria">{{ $t('search.clear_all') }}</a>
     </div>
 
     <NotesMap v-if="view === 'map'" :filter-ids="mapFilter" :notice="mapNotice" :searching="loading"
@@ -764,6 +768,7 @@ async function readUrl(requestId: number) {
   </div>
 
   <PresetDialog v-if="savingPreset" :preset="null" :initial="presetDraft" @close="savingPreset = false" />
+  <SearchHelpDialog v-if="searchHelp" @close="searchHelp = false" />
 
   <Transition name="slide-fade">
     <div class="app-selection-bar" role="status" v-if="selected.size > 0 && view === 'list'">

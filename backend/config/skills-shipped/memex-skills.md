@@ -48,7 +48,7 @@ here because the owner asked for a new skill, an imported one, or a better one.
 
 ## Importing one
 
-A `SKILL.md` from another tool imports from the Skills page. Its `name` becomes the slug,
-its `description` the summary, its body the note. `scripts/`, `references/` and `assets/`
-are not imported: memex holds markdown only. If a skill depends on one of those, say so and
+A `SKILL.md` from another tool comes in as a proposal: a new note tagged `skill`, its
+`description` the summary, its body the note. `scripts/`, `references/` and `assets/` do
+not come over: memex holds markdown only. If a skill depends on one of those, say so and
 write what it did into the body, or link a note that carries it.

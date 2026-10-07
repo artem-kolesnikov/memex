@@ -105,13 +105,9 @@ onMounted(() => {
 
 <template>
   <div class="container">
-    <header class="app-page-head d-flex align-items-end justify-content-between flex-wrap gap-3">
-      <div>
+    <header class="app-page-head">
+      <div class="app-title-line">
         <h1>{{ $t('activity.title') }}</h1>
-        <p class="app-page-lede">{{ $t('activity.lede') }}</p>
-      </div>
-
-      <div class="app-head-actions">
         <nav class="app-segmented" :aria-label="$t('activity.view_label')">
         <button
           v-for="v in VIEWS"
@@ -127,6 +123,7 @@ onMounted(() => {
         </button>
         </nav>
       </div>
+      <p class="app-page-lede">{{ $t('activity.lede') }}</p>
     </header>
 
     <ActivityJournal v-if="view === 'journal'" />

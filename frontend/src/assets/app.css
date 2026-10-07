@@ -275,6 +275,15 @@
     text-transform: uppercase;
 }
 
+.app-presets-hint {
+    margin: 0 8px 0 12px;
+    color: var(--mm-muted);
+    font-size: .72rem;
+    line-height: 1.45;
+}
+
+.is-collapsed .app-presets-hint { display: none; }
+
 .app-presets-list {
     display: grid;
     gap: 0;
@@ -452,6 +461,32 @@
     transform: translate(0, -50%);
 }
 
+/* Offered above the account row until an assistant has reached this memex;
+   from then on it is an item in the account menu. */
+.app-connect {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.is-collapsed .app-connect { width: 48px; padding: 0; }
+.is-collapsed .app-connect-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+.is-collapsed .app-connect:hover .app-nav-tooltip,
+.is-collapsed .app-connect:focus-visible .app-nav-tooltip {
+    opacity: 1;
+    transform: translate(0, -50%);
+}
+
 /* The account row and its menu are one blue surface: hovered, the row is lit;
    opened, the same box grows upward out of it and carries the menu. The fill
    is opaque, so the menu covers the saved filters above it and the row drawn
@@ -481,7 +516,7 @@
     position: relative;
     z-index: 1041;
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 28px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
     width: 100%;
@@ -504,6 +539,16 @@
 .app-shell:not(.is-collapsed) .app-account.is-open .app-account-summary { background: transparent; box-shadow: none; }
 
 .is-collapsed .app-account-summary { grid-template-columns: 36px; width: 48px; padding: 6px; }
+
+/* Says the row opens something: a name alone read as a label. */
+.app-account-chevron {
+    color: var(--app-account-icon);
+    font-size: .66rem;
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1);
+}
+
+.app-account.is-open .app-account-chevron { transform: rotate(180deg); }
+.is-collapsed .app-account-chevron { display: none; }
 .is-collapsed .app-account-avatar { justify-self: center; }
 
 .app-account-avatar {
@@ -619,36 +664,6 @@
 .app-account-menu a.is-active > i { color: var(--mm-primary); }
 .app-account-menu hr { border: 0; border-top: 1px solid rgba(var(--mm-primary-rgb), .22); margin: 4px 4px; opacity: 1; }
 
-/* Settings and the theme share a row: two glyphs at its end, the chosen one
-   lit the way an active destination is. */
-.app-account-split { display: flex; align-items: center; gap: 6px; }
-.app-account-split > a { flex: 1 1 auto; width: auto; }
-
-.app-account-segments {
-    display: inline-flex;
-    flex: none;
-    gap: 2px;
-    margin-right: 4px;
-    padding: 2px;
-    border-radius: 6px;
-    background: rgba(var(--mm-primary-rgb), .1);
-}
-
-.app-account-menu .app-account-segments button {
-    justify-content: center;
-    width: 24px;
-    min-height: 20px;
-    height: 20px;
-    padding: 0;
-    border-radius: 4px;
-}
-
-.app-account-segments button > i { width: auto; font-size: .72rem; }
-.app-account-segments button:hover { background: transparent; }
-.app-account-segments button:hover > i { color: var(--mm-ink); }
-.app-account-segments button.is-on { background: var(--mm-surface); box-shadow: 0 1px 2px rgba(36, 58, 72, .12); }
-.app-account-segments button.is-on > i { color: var(--mm-primary); }
-.app-account-segments button:focus-visible { outline: 0; box-shadow: var(--app-focus); }
 
 /* ── menus ────────────────────────────────────────────────────────────── */
 
@@ -760,7 +775,31 @@
     .app-stage .container { width: min(100%, 100% - 32px); }
 }
 
-.app-stage > main { padding: 36px 0 50px; }
+.app-stage > main { padding: 12px 0 50px; }
+
+/* The header's right end: Docs, the theme and Settings, above the page head.
+   On a phone the top bar carries them instead. */
+.app-stage-head {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 16px;
+}
+
+.app-shell-tools { display: flex; align-items: center; gap: 8px; }
+.app-shell-tools .app-segment { min-height: 26px; padding: 0 9px; font-size: .74rem; }
+.app-shell-tools .app-segment-button { min-height: 32px; padding: 0 10px; font-size: .74rem; }
+
+@media (max-width: 991.98px) {
+    .app-stage-head { display: none; }
+    .app-stage > main { padding-top: 24px; }
+    .app-topbar .app-shell-tools { gap: 6px; }
+    .app-topbar .app-shell-tools-label { display: none; }
+}
+
+/* The sheet carries the brand too, and the tools need the width. */
+@media (max-width: 399.98px) {
+    .app-topbar .app-brand { display: none; }
+}
 
 .app-stage .footer {
     margin-top: auto;
@@ -1037,7 +1076,13 @@
     .app-shell.is-collapsed .app-nav-icon { width: 24px; }
     .app-shell.is-collapsed .app-nav-label,
     .app-shell.is-collapsed .app-account-summary .app-account-copy { position: static; width: auto; height: auto; clip: auto; }
-    .app-shell.is-collapsed .app-account-summary { grid-template-columns: 28px minmax(0, 1fr); width: 100%; padding: 6px 8px; }
+    .app-shell.is-collapsed .app-account-summary { grid-template-columns: 28px minmax(0, 1fr) auto; width: 100%; padding: 6px 8px; }
+    .app-shell.is-collapsed .app-account-chevron { display: inline-block; }
+    .app-shell.is-collapsed .app-connect { width: 100%; padding: 0 14px; }
+    .app-shell.is-collapsed .app-connect-label { position: static; width: auto; height: auto; clip: auto; }
+    .app-shell.is-collapsed .app-presets-head { width: auto; margin-left: 12px; color: var(--mm-muted); }
+    .app-shell.is-collapsed .app-presets-head::after { content: none; }
+    .app-shell.is-collapsed .app-presets-hint { display: block; }
 
     .app-scrim {
         position: fixed;
@@ -1796,8 +1841,9 @@ body.app-settings-open .app-stage { overflow: hidden; }
 
 .mm-map-renderer .app-segment { min-height: 26px; padding: 0 10px; font-size: .74rem; }
 
-/* List or map, beside the title it switches: icons alone, named on hover. */
-.mm-notes-title { display: flex; align-items: center; gap: 14px; }
+/* A page title with the page's own controls beside it rather than at the far
+   edge, where they went unseen (operator, 2026-10-07). */
+.app-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
 .mm-notes-views .app-segment { min-height: 28px; padding: 0 10px; }
 
 .mm-map-find {
@@ -2093,6 +2139,40 @@ body.app-settings-open .app-stage { overflow: hidden; }
     color: var(--mm-primary);
     box-shadow: 0 1px 4px rgba(45, 61, 64, .18), 0 1px 0 var(--app-edge-light) inset;
 }
+
+/* A header button in the segmented material: raised and white at rest, the
+   way a chosen segment is, and sunk into the well when pointed at or when its
+   page is the one showing (operator, 2026-10-07). */
+.app-segment-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 8px;
+    background: var(--mm-surface);
+    box-shadow: 0 1px 4px rgba(45, 61, 64, .14), 0 1px 0 var(--app-edge-light) inset;
+    color: var(--mm-ink-soft);
+    font-size: .78rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.app-segment-button:hover,
+.app-segment-button.is-active {
+    background: var(--mm-highlight);
+    box-shadow: var(--app-shadow-inset);
+    color: var(--mm-ink);
+    text-decoration: none;
+}
+
+.app-segment-button.is-active { color: var(--mm-primary); }
+
+.app-segment-button:focus-visible { outline: 0; box-shadow: var(--app-focus); }
 
 /* ── ledger ───────────────────────────────────────────────────────────── */
 
@@ -4327,3 +4407,149 @@ h3, .h3, h4, .h4 { letter-spacing: -.018em; }
 }
 
 .mm-not-found-body { margin: 0 0 1.5rem; color: var(--mm-muted); }
+
+/* ── docs ─────────────────────────────────────────────────────────────── */
+
+/* The guide, with its parts and sections down the left and the text on the
+   right. Below `lg` the menu becomes a jump list over the text. */
+.mm-docs {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    align-items: start;
+    gap: 28px;
+}
+
+.mm-docs-nav {
+    position: sticky;
+    top: 18px;
+    display: grid;
+    gap: 1px;
+    max-height: calc(100dvh - 36px);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.mm-docs-part { display: grid; gap: 1px; margin-top: 12px; }
+
+.mm-docs-part-title,
+.mm-docs-link {
+    display: block;
+    padding: 5px 9px;
+    border-radius: 6px;
+    color: var(--mm-ink);
+    font-size: .86rem;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+.mm-docs-part-title {
+    color: var(--mm-ink-soft);
+    font-size: .74rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.mm-docs-part-title:hover,
+.mm-docs-link:hover { background: var(--mm-hover); color: var(--mm-ink); text-decoration: none; }
+
+.mm-docs-part-title.is-active,
+.mm-docs-link.is-active {
+    background: rgba(var(--mm-primary-rgb), .1);
+    color: var(--mm-primary);
+    font-weight: 600;
+}
+
+.mm-docs-jump { display: none; }
+
+.mm-docs-paper { padding: 34px 48px 46px; }
+
+.mm-docs-body h1 {
+    margin: 2em 0 .4em;
+    padding-top: 1.4em;
+    border-top: 1px solid var(--app-hairline);
+    color: var(--mm-ink);
+    font-size: 1.45rem;
+    letter-spacing: -.02em;
+}
+
+.mm-docs-body h2 {
+    margin-top: 1.8em;
+    color: var(--mm-ink);
+    font-size: 1.2rem;
+}
+
+.mm-docs-body > h1:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+.mm-docs-body h1,
+.mm-docs-body h2 { scroll-margin-top: 18px; }
+
+.mm-docs-body > hr { display: none; }
+
+/* The copy button on every address and prompt. */
+.mm-docs-copyable { position: relative; padding-right: 44px; }
+
+.mm-docs-body blockquote.mm-docs-copyable {
+    padding: 10px 44px 10px 14px;
+    border-left: 3px solid rgba(var(--mm-primary-rgb), .4);
+    border-radius: 0 8px 8px 0;
+    background: var(--mm-highlight);
+    color: var(--mm-ink);
+}
+
+.mm-docs-body blockquote.mm-docs-copyable p:last-of-type { margin-bottom: 0; }
+
+.mm-docs-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--app-hairline-strong);
+    border-radius: 6px;
+    background: var(--mm-surface);
+    color: var(--mm-muted);
+    font-size: .8rem;
+    cursor: pointer;
+}
+
+.mm-docs-copy:hover { color: var(--mm-ink); background: var(--mm-hover); }
+.mm-docs-copy:focus-visible { outline: 0; box-shadow: var(--app-focus); }
+
+@media (max-width: 991.98px) {
+    .mm-docs { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .mm-docs-nav { display: none; }
+    .mm-docs-jump { display: block; position: sticky; top: 8px; z-index: 3; }
+    .mm-docs-paper { padding: 24px 20px 28px; }
+}
+
+/* ── search help ──────────────────────────────────────────────────────── */
+
+.mm-search-help-lede { margin: 0 0 14px; color: var(--mm-ink-soft); font-size: .84rem; }
+
+.mm-search-help-list {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 8px 16px;
+    margin: 0 0 14px;
+    font-size: .84rem;
+}
+
+.mm-search-help-list dt { font-weight: 400; }
+.mm-search-help-list dd { margin: 0; color: var(--mm-ink-soft); }
+
+.mm-search-help-rules {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--mm-muted);
+    font-size: .78rem;
+}
+
+.mm-search-help-rules li + li { margin-top: 4px; }
+
+@media (max-width: 575.98px) {
+    .mm-search-help-list { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .mm-search-help-list dd { margin-bottom: 8px; }
+}

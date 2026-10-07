@@ -1102,25 +1102,23 @@ async function decide(entry: FeedEntry, approve: boolean) {
 
     <header class="app-page-head mm-inbox-head">
       <div>
-        <div class="app-heading-line">
+        <div class="app-title-line">
           <h1 id="inbox-heading" tabindex="-1">{{ $t('inbox.title') }}</h1>
           <span class="app-status app-status-pending" v-if="queueSize">{{ $t('inbox.waiting', { n: queueSize }) }}</span>
+          <button type="button" class="btn btn-sm btn-secondary mm-inbox-refresh" :disabled="loading || decisionBusy || batchBusy" @click="refreshQueue">
+            {{ $t('common.refresh') }}
+          </button>
         </div>
         <p class="app-page-lede">
           {{ $t('inbox.lede') }}
         </p>
       </div>
-      <div class="mm-inbox-tools">
-        <button type="button" class="btn btn-sm btn-secondary" :disabled="loading || decisionBusy || batchBusy" @click="refreshQueue">
-          {{ $t('common.refresh') }}
-        </button>
-        <template v-if="!loading && !loadError && !inboxZero">
+      <div class="mm-inbox-tools" v-if="!loading && !loadError && !inboxZero">
         <label class="visually-hidden" for="kind-filter">{{ $t('inbox.filter_label') }}</label>
         <select id="kind-filter" class="form-select form-select-sm mm-kind-filter" v-model="kindFilter">
           <option value="">{{ $t('inbox.everything') }}</option>
           <option v-for="kind in availableKinds" :key="kind" :value="kind">{{ kindLabel(kind) }}</option>
         </select>
-        </template>
       </div>
     </header>
 

@@ -24,6 +24,8 @@ const spaceRoutes: RouteRecordRaw[] = [
   // its own since 2026-09-10: a skill is writing the owner does, not a setting,
   // and inside Settings › Connections nothing could link to it.
   { path: 'skills', name: 'skills', component: () => import('@/views/SkillsView.vue') },
+  // The guide assistants load as the `memex-guide` skill, as a page to read.
+  { path: 'docs', name: 'docs', component: () => import('@/views/DocsView.vue') },
   // The first-run wizard. Inside the handle like every signed-in page, and
   // outside the app's chrome: it is the screen somebody sees before they have
   // anything the nav points at.

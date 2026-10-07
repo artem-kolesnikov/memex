@@ -28,7 +28,7 @@ class SearchPresetController extends ApiController
     #[Route('/api/presets', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $this->assertSessionAuth($request, 'Saved filters');
+        $this->assertSessionAuth($request, 'Workspaces');
 
         $presets = $this->em->getRepository(SearchPreset::class)->findBy([], ['name' => 'ASC']);
 
@@ -38,11 +38,11 @@ class SearchPresetController extends ApiController
     #[Route('/api/presets', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $this->assertSessionAuth($request, 'Saved filters');
+        $this->assertSessionAuth($request, 'Workspaces');
 
         $count = $this->em->getRepository(SearchPreset::class)->count([]);
         if ($count >= SearchPreset::MAX_PER_TEAM) {
-            return $this->json($this->json400('At most '.SearchPreset::MAX_PER_TEAM.' saved filters'), Response::HTTP_BAD_REQUEST);
+            return $this->json($this->json400('At most '.SearchPreset::MAX_PER_TEAM.' workspaces'), Response::HTTP_BAD_REQUEST);
         }
 
         $preset = new SearchPreset('');
@@ -59,7 +59,7 @@ class SearchPresetController extends ApiController
     #[Route('/api/presets/{id}', methods: ['PATCH'])]
     public function update(int $id, Request $request): JsonResponse
     {
-        $this->assertSessionAuth($request, 'Saved filters');
+        $this->assertSessionAuth($request, 'Workspaces');
 
         $preset = $this->find($id);
         $problem = $this->fill($preset, $request);
@@ -73,7 +73,7 @@ class SearchPresetController extends ApiController
     #[Route('/api/presets/{id}', methods: ['DELETE'])]
     public function remove(int $id, Request $request): JsonResponse
     {
-        $this->assertSessionAuth($request, 'Saved filters');
+        $this->assertSessionAuth($request, 'Workspaces');
 
         $this->em->remove($this->find($id));
         $this->em->flush();
@@ -85,7 +85,7 @@ class SearchPresetController extends ApiController
     {
         $preset = $this->em->getRepository(SearchPreset::class)->find($id);
         if ($preset === null) {
-            throw $this->createNotFoundException('No such saved filter');
+            throw $this->createNotFoundException('No such workspace');
         }
 
         return $preset;
@@ -102,7 +102,7 @@ class SearchPresetController extends ApiController
 
         $name = trim(preg_replace('/\s+/u', ' ', (string) ($data['name'] ?? '')) ?? '');
         if ($name === '') {
-            return $this->json($this->json400('A saved filter needs a name'), Response::HTTP_BAD_REQUEST);
+            return $this->json($this->json400('A workspace needs a name'), Response::HTTP_BAD_REQUEST);
         }
         if (mb_strlen($name) > SearchPreset::MAX_NAME) {
             return $this->json($this->json400('The name must be at most '.SearchPreset::MAX_NAME.' characters'), Response::HTTP_BAD_REQUEST);
@@ -151,7 +151,7 @@ class SearchPresetController extends ApiController
         $preset->setIcon($icon);
         $preset->setCriteria($query, $tagIds, $status, $addedBy);
         if ($preset->isEmpty()) {
-            return $this->json($this->json400('A saved filter needs at least one criterion'), Response::HTTP_BAD_REQUEST);
+            return $this->json($this->json400('A workspace needs at least one filter'), Response::HTTP_BAD_REQUEST);
         }
 
         return null;
@@ -162,7 +162,7 @@ class SearchPresetController extends ApiController
         try {
             $this->em->flush();
         } catch (UniqueConstraintViolationException) {
-            return $this->json($this->json400('A saved filter with that name already exists'), Response::HTTP_CONFLICT);
+            return $this->json($this->json400('A workspace with that name already exists'), Response::HTTP_CONFLICT);
         }
 
         return $this->json(['preset' => $this->toArrays([$preset])[0]], $status);

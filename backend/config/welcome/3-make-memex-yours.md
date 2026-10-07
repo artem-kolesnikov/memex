@@ -37,7 +37,7 @@ Below yours are the skills built into memex, which every assistant gets.
 
 memex gives it built-in instructions for writing a skill, and it proposes one; the new skill
 waits in your Review inbox, and once you approve it every assistant can use it. You can also
-write one by hand on the Skills page, or import a `SKILL.md` from another tool there.
+write one by hand on the Skills page.
 
 ## Your profile
 

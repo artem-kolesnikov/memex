@@ -34,24 +34,28 @@ export function sameCriteria(a: UrlCriteria, b: UrlCriteria): boolean {
 }
 
 /**
- * The saved filters pinned to the sidebar. One list, because the sidebar
- * draws it and the notes page adds to it.
+ * The workspaces (saved filters) pinned to the sidebar. One list, because the
+ * sidebar draws it and the notes page adds to it.
  */
 export const usePresetStore = defineStore('presets', () => {
   const presets = ref<SearchPreset[]>([])
   const icons = ref<IconChoice[]>([])
+  /** The list has been read once, so an empty one means none rather than not yet. */
+  const loaded = ref(false)
 
   const byName = (list: SearchPreset[]) => [...list].sort((a, b) => a.name.localeCompare(b.name))
 
   async function load(): Promise<void> {
     if (useAuthStore().user === null) {
       presets.value = []
+      loaded.value = false
       return
     }
     try {
       const answer = await api.presets()
       presets.value = byName(answer.presets)
       icons.value = answer.icons
+      loaded.value = true
     } catch {
       /* the sidebar keeps what it has */
     }
@@ -74,5 +78,5 @@ export const usePresetStore = defineStore('presets', () => {
     presets.value = presets.value.filter((p) => p.id !== id)
   }
 
-  return { presets, icons, load, create, update, remove }
+  return { presets, icons, loaded, load, create, update, remove }
 })

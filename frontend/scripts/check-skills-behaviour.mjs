@@ -217,20 +217,6 @@ await scenario('New skill opens the editor with the tag set and the scaffold in 
   assert(body.includes('When to use this') && body.includes('Steps'), `body: ${body}`)
 })
 
-await scenario('every uploaded file rejected shows the structured report', async (page, state, { expectText }) => {
-  await page.route('**/api/skills/import', (route) => route.fulfill({
-    status: 400,
-    contentType: 'application/json',
-    body: JSON.stringify({ created: [], errors: [{ file: 'bad.md', error: 'A skill is already served as house-style' }], ignored: [] }),
-  }))
-  await page.goto(SKILLS)
-  await page.setInputFiles('input[type=file]', { name: 'bad.md', mimeType: 'text/markdown', buffer: Buffer.from('# Bad\n') })
-  await page.waitForTimeout(200)
-  await expectText('bad.md')
-  await expectText('A skill is already served as house-style')
-})
-
-
 await scenario('one enable switch opens all supported skill access paths', async (page, state) => {
   state.row.enabled = false
   state.row.status = 'paused'
