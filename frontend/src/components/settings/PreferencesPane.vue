@@ -2,6 +2,7 @@
 // How memex looks and reads. The theme, the note text size and the typeface are
 // per device, and all three are applied by public/theme-boot.js
 // before the app mounts, so nothing resizes under the reader half a second in.
+// The layout is per device too, kept with the sidebar's state.
 //
 // The reader no longer picks colours. Two themes are the whole choice, and any
 // accent an account stored while the picker existed is cleared on arrival here
@@ -11,6 +12,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, type InstalledLocale } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useLayoutStore, type LayoutMode } from '@/stores/layout'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
 import { toastError } from '@/components/toastService'
@@ -30,6 +32,14 @@ import {
 const TEXT_MIN = 10
 const TEXT_MAX = 20
 
+// The layouts as pictures of themselves, as the themes are: a page at a time,
+// a list page in two frames, or frames only on a window wide enough.
+const LAYOUTS: { id: LayoutMode; labelKey: string; subKey: string; adviceKey: string }[] = [
+  { id: 'windowed', labelKey: 'general.layout.windowed', subKey: 'general.layout.windowed_kind', adviceKey: 'general.layout.windowed_advice' },
+  { id: 'framed', labelKey: 'general.layout.framed', subKey: 'general.layout.framed_kind', adviceKey: 'general.layout.framed_advice' },
+  { id: 'dynamic', labelKey: 'general.layout.dynamic', subKey: 'general.layout.dynamic_kind', adviceKey: 'general.layout.dynamic_advice' },
+]
+
 const MD_FONTS = [
   { id: 'sans', labelKey: 'general.fonts.sans' },
   { id: 'serif', labelKey: 'general.fonts.serif' },
@@ -37,6 +47,7 @@ const MD_FONTS = [
 ]
 
 const auth = useAuthStore()
+const layout = useLayoutStore()
 const lifetime = useOperationLifetime()
 const { t } = useI18n()
 const installed = ref<InstalledLocale[]>([])
@@ -103,6 +114,43 @@ function chooseAppearance(which: 'text' | 'font', value: string) {
 
 <template>
   <div class="mm-block">
+    <h3 class="mm-block-title">{{ $t('general.layout.title') }}</h3>
+    <p class="mm-note">{{ $t('general.layout.select') }}</p>
+
+    <div class="mm-wiz-scope mm-settings-themes">
+      <div class="mm-wiz-theme-options mm-layout-options" role="radiogroup" :aria-label="$t('general.layout.title')">
+        <label v-for="option in LAYOUTS" :key="option.id" class="mm-wiz-theme-option">
+          <input :id="`pref-layout-${option.id}`" type="radio" name="pref-layout" :value="option.id"
+                 :checked="layout.layoutMode === option.id"
+                 :aria-label="$t('general.layout.aria', { name: $t(option.labelKey), kind: $t(option.subKey) })"
+                 @change="layout.setLayoutMode(option.id)">
+          <span class="mm-wiz-theme-image mm-layout-image" aria-hidden="true">
+            <span class="mm-layout-mini" :class="{ 'is-framed': option.id !== 'windowed' }">
+              <span class="mm-layout-mini-sidebar"><img src="/favicon.svg" alt=""><i></i><i></i><i></i></span>
+              <template v-if="option.id === 'windowed'">
+                <span class="mm-layout-mini-page"><b></b><i></i><i></i><i></i><i></i></span>
+              </template>
+              <template v-else>
+                <span class="mm-layout-mini-list"><b></b><i class="is-open"></i><i></i><i></i><i></i></span>
+                <span class="mm-layout-mini-detail"><span><b></b><i></i><i></i><i></i></span></span>
+              </template>
+            </span>
+            <!-- Dynamic: the same app on a narrow screen, in front of the wide one. -->
+            <span v-if="option.id === 'dynamic'" class="mm-layout-mini mm-layout-mini-narrow">
+              <span class="mm-layout-mini-page"><b></b><i></i><i></i><i></i><i></i></span>
+            </span>
+          </span>
+          <span class="mm-wiz-theme-caption">
+            <span class="mm-wiz-radio-dot" aria-hidden="true"></span>{{ $t(option.labelKey) }}
+          </span>
+          <span class="mm-choice-kind">{{ $t(option.subKey) }}</span>
+          <span class="mm-layout-advice">{{ $t(option.adviceKey) }}</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="mm-block">
     <h3 class="mm-block-title">{{ $t('general.appearance.title') }}</h3>
     <p class="mm-note">{{ $t('general.appearance.select_theme') }}</p>
 
@@ -128,6 +176,7 @@ function chooseAppearance(which: 'text' | 'font', value: string) {
         </select>
       </div>
     </div>
+
   </div>
 
   <div class="mm-block">

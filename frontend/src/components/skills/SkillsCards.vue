@@ -1,24 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
 import type { SkillRow } from '@/api/client'
 import { formatDateTime } from '@/lib/datetime'
 import SkillUseExample from './SkillUseExample.vue'
+import { skillOffered, useSkillGroups } from './skillGroups'
 
 const props = defineProps<{ rows: SkillRow[]; savingId: number | null; saveError: { id: number; message: string } | null }>()
 const emit = defineEmits<{ open: [row: SkillRow]; add: [row: SkillRow]; toggle: [row: SkillRow] }>()
-const { t } = useI18n()
-function offered(row: SkillRow): boolean {
-  return (row.kind === 'shipped' && row.status !== 'switched_off') || (row.status === 'served' && row.enabled && (row.auto || row.command))
-}
-const builtIn = computed(() => props.rows.filter(r => r.kind === 'shipped' && r.status !== 'switched_off'))
-const personal = computed(() => props.rows.filter(r => r.kind === 'note' && offered(r)))
-const available = computed(() => [...builtIn.value, ...personal.value])
-const personalColors = computed(() => new Map(props.rows.filter(r => r.kind === 'note').sort((a, b) => (a.note_id ?? 0) - (b.note_id ?? 0)).map((row, index) => [row.slug, `var(--mm-skill-${index % 6})`])))
-function skillColor(row: SkillRow): string {
-  return row.kind === 'shipped' ? `var(--mm-skill-built-in-${props.rows.filter(r => r.kind === 'shipped').findIndex(r => r.slug === row.slug) % 5})` : personalColors.value.get(row.slug) ?? 'var(--mm-primary)'
-}
-const contextSize = computed(() => available.value.reduce((sum, row) => sum + row.size_tokens, 0))
+const { builtIn, personal, available, skillColor, contextSize, builtInSize, stateLabel, groups } = useSkillGroups(() => props.rows)
+const offered = skillOffered
 const hoveredAlias = ref<string | null>(null)
 const focusedAlias = ref<string | null>(null)
 const selectedAlias = ref<string | null>(null)
@@ -28,7 +18,6 @@ const segments = computed(() => available.value.map(row => ({
   color: skillColor(row),
 })))
 const inspected = computed(() => segments.value.find(row => row.slug === (hoveredAlias.value ?? focusedAlias.value ?? selectedAlias.value)))
-const builtInSize = computed(() => builtIn.value.reduce((sum, row) => sum + row.size_tokens, 0))
 function clearInspection() {
   hoveredAlias.value = null
   focusedAlias.value = null
@@ -36,18 +25,6 @@ function clearInspection() {
 }
 const compactNumber = (value: number) => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(value)
 const share = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(contextSize.value > 0 ? value / contextSize.value * 100 : 0)
-function stateLabel(row: SkillRow): string {
-  if (row.kind === 'shipped') return t('skills.cards.always_on')
-  if (row.status === 'pending') return t('skills.state.pending')
-  if (row.kind === 'catalogue') return t('skills.state.offered')
-  if (!row.enabled) return t('skills.state.paused')
-  return offered(row) ? t('skills.cards.on') : t('skills.state.paused')
-}
-const groups = computed(() => [
-  { kind: 'active', title: t('skills.groups.active'), help: t('skills.groups.active_help'), rows: props.rows.filter(r => r.kind === 'note' && offered(r)) },
-  { kind: 'available', title: t('skills.groups.available'), help: t('skills.groups.available_help'), rows: props.rows.filter(r => r.kind === 'catalogue' || (r.kind === 'note' && !offered(r))) },
-  { kind: 'system', title: t('skills.groups.system'), help: t('skills.groups.system_help'), rows: props.rows.filter(r => r.kind === 'shipped') },
-])
 const number = (value: number) => new Intl.NumberFormat().format(value)
 </script>
 

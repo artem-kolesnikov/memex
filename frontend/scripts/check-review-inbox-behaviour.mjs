@@ -597,7 +597,7 @@ await scenario('unlocking a proposal replaces the diff rather than sitting besid
   }))
   assert(state.panes === 1, `expected one editable pane, got ${state.panes}`)
   assert(state.diffsLeft === 0, 'the read-only diff is still on screen beside the editor')
-  assert(state.fields.length === 4, `expected title, body, tags and description, got ${JSON.stringify(state.fields)}`)
+  assert(JSON.stringify(state.fields) === JSON.stringify(['Title', 'Tags', 'Description', 'Body']), `expected title, tags, description and body, in the read view's order, got ${JSON.stringify(state.fields)}`)
   assert(/new body/.test(state.body), `the editor did not open on the proposed text: ${JSON.stringify(state.body.slice(0, 40))}`)
 })
 
@@ -734,7 +734,7 @@ await scenario('a delete offers nothing to unlock', {}, async (page) => {
 // under a panel of the absorbed note, and a pending note showed an editor.
 // Four shapes for one question, and the operator had to learn all four.
 
-const FIELD_ORDER = ['BODY', 'TAGS', 'DESCRIPTION']
+const FIELD_ORDER = ['TAGS', 'DESCRIPTION', 'BODY']
 
 for (const [what, opener, expect] of [
   ['an edit', '#review-proposal-501', /new body/],
@@ -742,7 +742,7 @@ for (const [what, opener, expect] of [
   ['a merge', '#review-proposal-505', /keeper text/],
   ['a new note', '#review-note-13', /The whole note\./],
 ]) {
-  await scenario(`${what} is shown as body, tags and description, in that order`, {}, async (page) => {
+  await scenario(`${what} is shown as tags, description and body, in that order`, {}, async (page) => {
     await page.click(opener)
     await page.waitForSelector('.mm-evidence .mm-doc')
     const state = await page.evaluate(() => ({

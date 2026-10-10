@@ -3,7 +3,7 @@
 // sidebar. Memex extras: pending approve/reject, proposal alert, backlinks,
 // MD export, wiki-link routing.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError, noteApprovalSnapshot, type NoteDetail, type NoteRevision } from '@/api/client'
 import { renderNote } from '@/lib/markdown'
@@ -15,6 +15,7 @@ import NoteMap from '@/components/NoteMap.vue'
 import PaneToggle from '@/components/PaneToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
+import { usePageRoute } from '@/lib/pageRoute'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
 import { useSystemTags } from '@/lib/systemTags'
@@ -23,12 +24,18 @@ import { formatDate, formatDateTime } from '@/lib/datetime'
 const { isSystemTag, systemReason } = useSystemTags()
 const { t } = useI18n()
 
-const route = useRoute()
+const route = usePageRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const layout = useLayoutStore()
 const lifetime = useOperationLifetime()
 const outcomeUnknown = ref(false)
+
+// In the notes list's reading pane the note comes from the list, not the
+// address bar, and closing it or moving to another note is the list's to do.
+const props = defineProps<{ noteId?: number; inPane?: boolean }>()
+const emit = defineEmits<{ close: []; open: [id: number]; edit: [id: number]; changed: [] }>()
+const noteId = computed(() => props.noteId ?? Number(route.params.id))
 
 const note = ref<NoteDetail | null>(null)
 const loading = ref(true)
@@ -170,7 +177,7 @@ async function load() {
   outcomeUnknown.value = false
   lifetime.invalidate()
   const mine = lifetime.capture()
-  const id = Number(route.params.id)
+  const id = noteId.value
   loading.value = true
   loadError.value = null
   note.value = null
@@ -291,6 +298,7 @@ async function restoreRevision(revision: NoteRevision) {
     await api.restoreRevision(note.value.id, revision.id)
     if (!lifetime.current(mine)) return
     toastSuccess(t('note.history.restored_title'), t('note.history.restored_body', { date: formatDateTime(revision.content_updated_at) }))
+    emit('changed')
     await load()
   } catch (e) {
     if (!lifetime.current(mine)) return
@@ -320,6 +328,7 @@ async function forgetHistory() {
 // makes to a page of this knowledge base (the welcome notes link to Settings)
 // — route them through the SPA router.
 function onBodyClick(event: MouseEvent) {
+  if (event.defaultPrevented) return
   const anchor = (event.target as HTMLElement).closest('a')
   const href = anchor?.getAttribute('href')
   const own = auth.user ? `/${auth.user.team.handle}/` : null
@@ -327,6 +336,23 @@ function onBodyClick(event: MouseEvent) {
     event.preventDefault()
     router.push(href)
   }
+}
+
+// In the reading frame every way to another note or to this one's editor
+// stays in the frames: a wiki-link, a backlink, Edit. Caught on the way down,
+// before a RouterLink navigates.
+function onPaneClick(event: MouseEvent) {
+  if (!props.inPane || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  const anchor = (event.target as HTMLElement).closest('a')
+  if (!anchor) return
+  const href = anchor.getAttribute('href') ?? ''
+  const own = auth.user ? `/${auth.user.team.handle}/notes/` : null
+  if (own === null || !href.startsWith(own)) return
+  const target = /^(\d+)(\/edit)?$/.exec(href.slice(own.length))
+  if (!target) return
+  event.preventDefault()
+  if (target[2]) emit('edit', Number(target[1]))
+  else emit('open', Number(target[1]))
 }
 
 // Flagging for curation. The comment is the whole feature: the queue can find
@@ -358,6 +384,7 @@ async function saveFlag() {
     note.value.flagged = true
     flagEditorOpen.value = false
     toastSuccess(t('note.flag.flagged_for_curation'), t('note.flag.flagged_body'))
+    emit('changed')
   } catch (e) {
     if (!lifetime.current(mine)) return
     toastError(t('note.flag.flag_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
@@ -379,6 +406,7 @@ async function withdrawFlag() {
     note.value.flagged = false
     flagEditorOpen.value = false
     toastSuccess(t('note.flag.withdrawn'))
+    emit('changed')
   } catch (e) {
     if (!lifetime.current(mine)) return
     toastError(t('note.flag.withdraw_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
@@ -406,6 +434,7 @@ async function approve() {
     await api.approveNote(note.value.id, noteApprovalSnapshot(note.value.version))
     if (!lifetime.current(mine)) return
     toastSuccess(t('note.review.approved'), note.value.title)
+    emit('changed')
     await load()
   } catch (e) {
     if (!lifetime.current(mine)) return
@@ -423,8 +452,11 @@ async function reject() {
     if (!lifetime.current(mine)) return
     toastSuccess(t('note.review.rejected'))
     // Inside the try, after the call: navigating away from a reject that
-    // failed is what made the failure invisible.
-    router.push({ name: 'inbox' })
+    // failed is what made the failure invisible. In the pane the list it sits
+    // beside is where the reader already is.
+    emit('changed')
+    if (props.inPane) emit('close')
+    else router.push({ name: 'inbox' })
   } catch (e) {
     if (!lifetime.current(mine)) return
     toastError(t('note.review.reject_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
@@ -444,11 +476,11 @@ watch(sessionEpoch, () => {
   }
   if (flagSaving.value) outcomeUnknown.value = true
 })
-watch([() => route.params.id, () => route.params.handle, () => auth.user?.team.handle], load, { immediate: true })
+watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, { immediate: true })
 </script>
 
 <template>
-  <div class="container">
+  <div :class="inPane ? 'mm-pane-note' : 'container'" @click.capture="onPaneClick">
     <OperationOutcomeNotice v-if="outcomeUnknown" />
     <div v-if="loadError" class="app-state app-state-error">
       <h1>{{ $t('note.load_failed') }}</h1>
@@ -468,7 +500,7 @@ watch([() => route.params.id, () => route.params.handle, () => auth.user?.team.h
     </template>
 
     <template v-if="!loading && note">
-      <nav class="app-breadcrumbs mm-note-breadcrumbs" :aria-label="$t('note.breadcrumb.label')">
+      <nav v-if="!inPane" class="app-breadcrumbs mm-note-breadcrumbs" :aria-label="$t('note.breadcrumb.label')">
         <RouterLink :to="{ name: 'search' }">{{ $t('note.breadcrumb.notes') }}</RouterLink>
         <span aria-hidden="true">›</span>
         <strong aria-current="page">{{ $t('note.breadcrumb.current') }}</strong>
@@ -524,6 +556,10 @@ watch([() => route.params.id, () => route.params.handle, () => auth.user?.team.h
             <i class="fa-regular fa-circle-down"></i> {{ $t('note.actions.download') }}
           </a>
         </div>
+        <button v-if="inPane" type="button" class="btn btn-sm btn-outline-secondary mm-pane-close"
+                :title="$t('note.pane.close')" :aria-label="$t('note.pane.close')" @click="emit('close')">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </header>
 
       <!-- The standing instruction, shown above the note itself: anyone reading
@@ -591,9 +627,10 @@ watch([() => route.params.id, () => route.params.handle, () => auth.user?.team.h
         </i18n-t>
       </div>
 
-      <div class="mm-reading-desk" :class="{ 'is-wide': layout.railHidden.note }">
+      <div class="mm-reading-desk" :class="{ 'is-wide': layout.railHidden[inPane ? 'pane' : 'note'] }">
+        <PaneToggle v-if="inPane" pane="pane" class="mm-pane-info" />
         <article class="app-paper mm-note-paper">
-          <PaneToggle pane="note" class="mm-desk-toggle" />
+          <PaneToggle v-if="!inPane" pane="note" class="mm-desk-toggle" />
           <template v-if="note.summary">
             <div ref="summaryBody" class="mm-note-abstract mm-summary"
                  :class="{ 'is-clamped': summaryClipped && !summaryExpanded }">

@@ -19,6 +19,9 @@ const props = defineProps<{
    *  itself. A title the proposal CHANGES is always shown either way — that is
    *  the one case where the header is out of date. */
   headed?: boolean
+  /** In frames the document is one sheet with its fields ruled off inside it,
+   *  rather than a box per field inside a box. */
+  sheet?: boolean
 }>()
 
 const showTitle = computed(() => props.doc.titleBefore !== null || props.headed === false)
@@ -43,7 +46,7 @@ const summaryChanged = computed(() => props.doc.summary.before !== props.doc.sum
 </script>
 
 <template>
-  <div class="mm-doc">
+  <div class="mm-doc" :class="{ 'app-paper mm-doc-sheet': sheet }">
     <h4 class="mm-doc-heading">
       <span class="mm-doc-what">{{ doc.heading }}</span>
       <template v-if="showTitle">
@@ -67,20 +70,7 @@ const summaryChanged = computed(() => props.doc.summary.before !== props.doc.sum
       </div>
     </div>
 
-    <div class="app-panel mm-doc-field">
-      <span class="mm-doc-label">{{ $t('inbox.doc.body') }}</span>
-      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-      <div class="mm-diff mm-diff-body" v-if="bodyChanged" v-html="lineDiffHtml(doc.body.before, doc.body.after)"></div>
-      <div class="mm-diff mm-diff-body mm-diff-plain" v-else>{{ doc.body.after }}</div>
-      <!-- The absorbed note's text belongs to the body it is being folded
-           into, as the removal it is. Unlabelled on purpose: the row above the
-           card already names the note, and saying it again here was the third
-           time on one card (operator, 2026-09-07). -->
-      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-      <div class="mm-diff mm-diff-body mm-doc-destroyed" v-if="doc.destroyed" v-html="lineDiffHtml(doc.destroyed.body, '')"></div>
-    </div>
-
-    <div class="app-panel mm-doc-field">
+    <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">
       <span class="mm-doc-label">{{ $t('inbox.doc.tags') }}</span>
       <div class="mm-doc-tags">
         <span
@@ -94,12 +84,25 @@ const summaryChanged = computed(() => props.doc.summary.before !== props.doc.sum
       </div>
     </div>
 
-    <div class="app-panel mm-doc-field">
+    <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">
       <span class="mm-doc-label">{{ $t('inbox.doc.summary') }}</span>
       <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
       <div class="mm-diff mm-diff-body mm-diff-summary" v-if="summaryChanged" v-html="lineDiffHtml(doc.summary.before, doc.summary.after)"></div>
       <p class="mm-doc-summary" v-else-if="doc.summary.after">{{ doc.summary.after }}</p>
       <span class="mm-doc-none" v-else>{{ $t('inbox.doc.no_summary') }}</span>
+    </div>
+
+    <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">
+      <span class="mm-doc-label">{{ $t('inbox.doc.body') }}</span>
+      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
+      <div class="mm-diff mm-diff-body" v-if="bodyChanged" v-html="lineDiffHtml(doc.body.before, doc.body.after)"></div>
+      <div class="mm-diff mm-diff-body mm-diff-plain" v-else>{{ doc.body.after }}</div>
+      <!-- The absorbed note's text belongs to the body it is being folded
+           into, as the removal it is. Unlabelled on purpose: the row above the
+           card already names the note, and saying it again here was the third
+           time on one card (operator, 2026-09-07). -->
+      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
+      <div class="mm-diff mm-diff-body mm-doc-destroyed" v-if="doc.destroyed" v-html="lineDiffHtml(doc.destroyed.body, '')"></div>
     </div>
   </div>
 </template>

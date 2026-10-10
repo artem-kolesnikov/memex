@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useFrameNavigation } from '@/lib/frameNavigation'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
@@ -24,6 +25,7 @@ import ProposedDocument from '@/components/ProposedDocument.vue'
 import { toastError, toastSuccess } from '@/components/toastService'
 import { useInboxStore } from '@/stores/inbox'
 import { useAuthStore } from '@/stores/auth'
+import { useLayoutStore } from '@/stores/layout'
 import { lineDiffHtml, resolvePatch } from '@/lib/diffs'
 import { proposedDoc, type ProposedDoc } from '@/lib/proposedDoc'
 import { formatDateTime } from '@/lib/datetime'
@@ -61,6 +63,9 @@ type FeedEntry =
 const { t, locale } = useI18n()
 const inbox = useInboxStore()
 const auth = useAuthStore()
+// In frames (Preferences › Appearance) the open review is shown beside the
+// queue, in the shell's detail frame, rather than under its card.
+const layout = useLayoutStore()
 const loading = ref(true)
 const loadError = ref<string | null>(null)
 const items = ref<NoteRow[]>([])
@@ -1089,6 +1094,10 @@ async function decide(entry: FeedEntry, approve: boolean) {
     if (lifetime.current(mine)) decisionBusy.value = false
   }
 }
+useFrameNavigation(() => openKey.value, () => {
+  const entry = feed.value.find((entry) => entry.key === openKey.value)
+  if (entry) void toggleCard(entry)
+})
 </script>
 
 <template>
@@ -1119,6 +1128,12 @@ async function decide(entry: FeedEntry, approve: boolean) {
           <option value="">{{ $t('inbox.everything') }}</option>
           <option v-for="kind in availableKinds" :key="kind" :value="kind">{{ kindLabel(kind) }}</option>
         </select>
+        <button
+          type="button"
+          class="btn btn-sm btn-secondary"
+          v-if="layout.framed && feed.length"
+          @click="selected.size ? clearSelection() : selectAllVisible()"
+        >{{ selected.size ? $t('inbox.clear_selection') : $t('inbox.select_all_shown') }}</button>
       </div>
     </header>
 
@@ -1165,7 +1180,7 @@ async function decide(entry: FeedEntry, approve: boolean) {
       <button type="button" class="btn btn-sm btn-secondary" @click="retry">{{ $t('common.retry') }}</button>
     </div>
 
-    <div class="app-tray mm-review-tray" v-else-if="loading" aria-busy="true">
+    <div class="mm-review-tray" :class="layout.framed ? 'app-note-scroll' : 'app-tray'" v-else-if="loading" aria-busy="true">
       <header class="mm-review-head">
         <span class="app-skeleton mm-skeleton-count"></span>
       </header>
@@ -1190,8 +1205,8 @@ async function decide(entry: FeedEntry, approve: boolean) {
       <p>{{ $t('inbox.empty_body') }}</p>
     </div>
 
-    <section class="app-tray mm-review-tray" v-else :aria-label="$t('inbox.pending_reviews')">
-      <header class="mm-review-head">
+    <section class="mm-review-tray" :class="layout.framed ? 'app-note-scroll' : 'app-tray'" v-else :aria-label="$t('inbox.pending_reviews')">
+      <header class="mm-review-head" v-if="!layout.framed">
         <button
           type="button"
           class="btn btn-sm btn-secondary"
@@ -1208,14 +1223,52 @@ async function decide(entry: FeedEntry, approve: boolean) {
         </div>
       </div>
 
-      <ul class="mm-review-body" v-else>
+      <ul :class="layout.framed ? 'app-note-list' : 'mm-review-body'" v-else>
         <li
-          class="mm-review-card"
-          :class="{ 'is-open': openKey === entry.key }"
+          :class="layout.framed
+            ? ['app-note-row', { 'is-selected': selected.has(entry.key), 'is-open': openKey === entry.key }]
+            : ['mm-review-card', { 'is-open': openKey === entry.key }]"
           v-for="{ entry, card } in cards"
           :key="entry.key"
         >
-          <div class="mm-review-summary" @click="summaryClick(entry, $event)">
+          <!-- In frames a queue item is a row of the notes list: what it is
+               about, when and by whom, and what kind of change. The reason and
+               the rest are in the review beside it. -->
+          <template v-if="layout.framed">
+            <label class="app-note-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                :aria-label="$t('inbox.select_item', { kind: card.chip.toLowerCase(), identity: card.identity })"
+                :checked="selected.has(entry.key)"
+                @change="toggleSelected(entry.key)"
+              >
+            </label>
+            <button
+              type="button"
+              class="app-note-main"
+              :title="card.title"
+              :id="expandId(entry.key)"
+              :aria-expanded="openKey === entry.key"
+              :aria-controls="panelId(entry.key)"
+              @click="toggleCard(entry)"
+            >
+              <span class="app-note-title">{{ card.title }}</span>
+            </button>
+            <div class="app-note-meta">
+              <span class="app-note-date" :title="formatDateTime(entry.at)">{{ age(entry.at) }}</span>
+              <span class="app-note-by">
+                <ActorMark v-if="entry.kind === 'note' && entry.note.edited_by" :actor="entry.note.edited_by" />
+                <template v-else>{{ entry.kind === 'note' ? entry.note.source : entry.proposal.proposed_by }}</template>
+              </span>
+              <span class="app-note-tags mm-review-tags">
+                <span class="mm-review-kind" :class="card.chipClass">{{ card.chip }}</span>
+                <span class="mm-review-id">{{ card.identity }}</span>
+                <span class="mm-review-noteref" v-if="card.noteRef">{{ card.noteRef }}</span>
+              </span>
+            </div>
+          </template>
+          <div class="mm-review-summary" v-else @click="summaryClick(entry, $event)">
             <input
               class="form-check-input mm-review-check"
               type="checkbox"
@@ -1290,7 +1343,48 @@ async function decide(entry: FeedEntry, approve: boolean) {
             <button type="button" class="btn btn-sm btn-link" @click="toggleCard(entry)">{{ $t('inbox.try_again') }}</button>
           </div>
 
+          <Teleport defer to="#app-frame-detail" :disabled="!layout.framed">
           <section class="mm-review-panel" :id="panelId(entry.key)" v-if="openKey === entry.key">
+            <header v-if="layout.framed" class="mm-review-frame-head">
+              <div class="mm-review-title-line">
+                <span class="mm-review-id">{{ card.identity }}</span>
+                <span class="mm-review-kind" :class="card.chipClass">{{ card.chip }}</span>
+              </div>
+              <h2 class="mm-review-frame-title">{{ card.title }}</h2>
+              <button type="button" class="btn btn-sm btn-outline-secondary mm-pane-close" :title="$t('note.pane.close')"
+                      :aria-label="$t('note.pane.close')" @click="toggleCard(entry)">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+              <!-- What the queue row shows in the page layout and leaves out as a
+                   row in frames: when, by whom, what it consumes, and why. -->
+              <div class="mm-review-frame-facts">
+                <div class="mm-review-meta">
+                  <span>{{ formatDateTime(entry.at) }}</span>
+                  <span>{{ $t('inbox.by') }}</span>
+                  <ActorMark v-if="entry.kind === 'note' && entry.note.edited_by" :actor="entry.note.edited_by" />
+                  <span v-else-if="entry.kind === 'note'">{{ entry.note.source }}</span>
+                  <span v-else>{{ entry.proposal.proposed_by }}</span>
+                  <span class="mm-review-noteref" v-if="card.noteRef">{{ card.noteRef }}</span>
+                </div>
+                <p class="mm-review-relation" v-if="card.relation">
+                  <i class="fa-solid fa-code-merge mm-relation-merge" v-if="card.chipClass === 'is-merge'" aria-hidden="true"></i>
+                  <i class="fa-solid fa-trash-can mm-relation-delete" aria-hidden="true"></i>
+                  <span>{{ card.relation.title }}</span>
+                  <span class="mm-review-noteref" v-if="card.relation.noteRef">{{ card.relation.noteRef }}</span>
+                </p>
+                <div class="mm-review-reason" v-if="card.reason">
+                  <b>{{ $t('inbox.reason') }}</b>
+                  <div class="mm-reason-md" v-if="card.reasonBlock" v-html="card.reasonHtml"></div>
+                  <span v-else v-html="card.reasonHtml"></span>
+                </div>
+                <div class="mm-review-signals" v-if="card.signals.length">
+                  <span class="mm-signal" :class="{ 'is-risk': signal.risk }" v-for="signal in card.signals" :key="signal.text">
+                    {{ signal.text }}
+                  </span>
+                </div>
+              </div>
+            </header>
+            <div :id="`frame-actions-${entry.key.replace(':', '-')}`" class="mm-frame-actions"></div>
             <div class="mm-review-intro">
               <div class="mm-loading-evidence" v-if="entry.kind === 'proposal' && !entry.proposal.detailLoaded">
                 <span class="spinner-border spinner-border-sm" role="status"></span> {{ $t('inbox.loading_changes') }}
@@ -1330,14 +1424,6 @@ async function decide(entry: FeedEntry, approve: boolean) {
                       </div>
                     </template>
 
-                    <label class="form-label" :for="`${expandId(entry.key)}-amend-body`">{{ $t('inbox.amend.body_label') }}</label>
-                    <MarkdownEditor
-                      v-model="amendedBody"
-                      :disabled="decisionBusy"
-                      :label="$t('inbox.amend.label')"
-                      :track-changes-against="trackAgainst(entry)"
-                    />
-
                     <label class="form-label">{{ $t('inbox.amend.tags_label') }}</label>
                     <TagInput v-model="amendedTags" :options="tagVocabulary" :disabled="decisionBusy" />
                     <div class="mm-was" v-if="droppedTags(entry).length">
@@ -1353,6 +1439,14 @@ async function decide(entry: FeedEntry, approve: boolean) {
                       rows="2"
                       :disabled="decisionBusy"
                     ></textarea>
+
+                    <label class="form-label" :for="`${expandId(entry.key)}-amend-body`">{{ $t('inbox.amend.body_label') }}</label>
+                    <MarkdownEditor
+                      v-model="amendedBody"
+                      :disabled="decisionBusy"
+                      :label="$t('inbox.amend.label')"
+                      :track-changes-against="trackAgainst(entry)"
+                    />
 
                     <div class="mm-note">
                       {{ amendHint(entry) }}<span v-if="amendedBody.trim() === ''"> {{ $t('inbox.amend.cannot_empty') }}</span>
@@ -1372,6 +1466,7 @@ async function decide(entry: FeedEntry, approve: boolean) {
                     v-else-if="docOf(entry)"
                     :doc="docOf(entry)!"
                     :headed="true"
+                    :sheet="layout.framed"
                   />
                 </div>
               </template>
@@ -1388,6 +1483,7 @@ async function decide(entry: FeedEntry, approve: boolean) {
               </div>
             </div>
 
+            <Teleport defer :to="`#frame-actions-${entry.key.replace(':', '-')}`" :disabled="!layout.framed">
             <footer class="mm-decision-footer">
               <button
                 type="button"
@@ -1422,7 +1518,9 @@ async function decide(entry: FeedEntry, approve: boolean) {
                 </button>
               </div>
             </footer>
+            </Teleport>
           </section>
+          </Teleport>
         </li>
       </ul>
 
@@ -1448,6 +1546,13 @@ async function decide(entry: FeedEntry, approve: boolean) {
         {{ $t(moreLoading ? 'common.loading' : 'inbox.load_more') }}
       </button>
     </div>
+
+    <Teleport v-if="layout.framed && openKey === null" defer to="#app-frame-detail">
+      <div class="app-frame-empty">
+        <i class="fa-solid fa-inbox app-frame-empty-icon" aria-hidden="true"></i>
+        <p class="app-frame-empty-title">{{ $t('inbox.frame_empty') }}</p>
+      </div>
+    </Teleport>
 
     <ConfirmDialog v-if="discardDialogOpen"
       :title="$t('inbox.discard_amendment_title')"

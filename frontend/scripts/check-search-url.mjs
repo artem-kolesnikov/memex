@@ -83,6 +83,17 @@ const read = new Set([
   ...[...source.matchAll(/route\.query\.([a-zA-Z_][\w]*)/g)].map((m) => m[1]),
 ])
 
+// Written by the reading frame: the keys `showInFrame()` is handed. They name
+// what the frame holds rather than the search, so syncUrl() carries them over
+// instead of writing them and currentUrlCriteria() leaves them out; they are
+// held to the same rule, written where they are read.
+const frameWritten = new Set([...source.matchAll(/showInFrame\(\{\s*([a-zA-Z_][\w]*)\s*:/g)].map((m) => m[1]))
+for (const key of frameWritten) {
+  if (!read.has(key)) {
+    problems.push(`${FILE}: the reading frame writes '${key}' to the URL but never reads it back.`)
+  }
+}
+
 const sorted = (set) => [...set].sort().join(', ') || '(none)'
 
 if (written.size === 0) problems.push(`${FILE}: syncUrl() writes no keys — parsing is broken or the function is gone`)
@@ -97,7 +108,7 @@ for (const key of written) {
   }
 }
 for (const key of read) {
-  if (!written.has(key)) {
+  if (!written.has(key) && !frameWritten.has(key)) {
     problems.push(
       `${FILE}: '${key}' is read from the URL but never written. ` +
         'The page can be opened in a state it can never produce a link for.',
@@ -187,5 +198,5 @@ if (problems.length) {
 }
 
 console.log(
-  `Search URL contract passed: replace-only, and the same keys are written and read (${sorted(written)}).`,
+  `Search URL contract passed: replace-only, and the same keys are written and read (${sorted(written)}; the frame's: ${sorted(frameWritten)}).`,
 )

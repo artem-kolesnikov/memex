@@ -245,9 +245,9 @@ const contracts = [
     'production: a field is drawn without what it replaces, so it can no longer read as a change',
   ],
   [
-    src.evidence.indexOf("inbox.doc.body") < src.evidence.indexOf("inbox.doc.tags")
-      && src.evidence.indexOf("inbox.doc.tags") < src.evidence.indexOf("inbox.doc.summary"),
-    'production: the three fields are no longer body, tags, description in that order',
+    src.evidence.indexOf("inbox.doc.tags") < src.evidence.indexOf("inbox.doc.summary")
+      && src.evidence.indexOf("inbox.doc.summary") < src.evidence.indexOf("inbox.doc.body"),
+    'production: the three fields are no longer tags, description, body in that order',
   ],
 
   // ── the card is titled by its RESULT ──

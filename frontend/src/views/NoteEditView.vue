@@ -34,7 +34,8 @@
 // switched that on; words the model invents are named in the toast and never
 // written.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
+import { DIALOG_ROUTES, usePageRoute } from '@/lib/pageRoute'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError, type AnalyzeAllowance, type AnalyzeResult, type EditProposalItem } from '@/api/client'
 import AnalyzeAllowanceNote from '@/components/AnalyzeAllowanceNote.vue'
@@ -52,13 +53,21 @@ import { useAuthStore } from '@/stores/auth'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
 
-const route = useRoute()
+const route = usePageRoute()
 const router = useRouter()
 const { t } = useI18n()
 const layout = useLayoutStore()
 const auth = useAuthStore()
 
-const noteId = computed(() => (route.params.id ? Number(route.params.id) : null))
+// In the notes list's reading frame the note (or none, for a new one) comes
+// from the list, and saving, cancelling or deleting hands the frame back to it.
+const props = defineProps<{ noteId?: number | null; inPane?: boolean }>()
+const emit = defineEmits<{ saved: [id: number]; cancel: []; deleted: [] }>()
+
+const noteId = computed(() => {
+  if (props.inPane) return props.noteId ?? null
+  return route.params.id ? Number(route.params.id) : null
+})
 const isAddForm = computed(() => noteId.value === null)
 
 const lifetime = useOperationLifetime()
@@ -304,13 +313,19 @@ function mayDiscardDraft() {
   return !dirty.value || window.confirm(t('editor.confirm_leave'))
 }
 
-onBeforeRouteLeave(mayDiscardDraft)
+// Settings and the Activity log open over the editor, which stays as it was.
+onBeforeRouteLeave((to) => DIALOG_ROUTES.includes(String(to.name)) || mayDiscardDraft())
 // Every edit URL is the SAME route record, so moving from one note's editor to
 // another reuses this component: without these two the guard never runs, the
 // draft and `loadedVersion` stay with the note you left, and `noteId` follows
 // the URL — a Save would then write the old draft over the new note against a
 // precondition that is not its own.
-onBeforeRouteUpdate(mayDiscardDraft)
+onBeforeRouteUpdate((to) => {
+  // In the reading frame the list moves the address too (a search, a page);
+  // only leaving this editor is a reason to ask.
+  if (props.inPane && to.query.edit === route.query.edit) return true
+  return mayDiscardDraft()
+})
 watch([noteId, () => route.params.handle, () => auth.user?.team.handle], () => {
   leaving = false
   load()
@@ -414,7 +429,8 @@ async function onFileChosen(event: Event) {
 
 function cancel() {
   leaving = true
-  router.push(isAddForm.value ? { name: 'search' } : { name: 'note', params: { id: noteId.value! } })
+  if (props.inPane) emit('cancel')
+  else router.push(isAddForm.value ? { name: 'search' } : { name: 'note', params: { id: noteId.value! } })
 }
 
 /**
@@ -459,7 +475,9 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
   saving.value = true
   saveError.value = null
   try {
-    // Back to the list after saving (mm2 behavior — operator preference).
+    // Back to the list after saving (mm2 behavior — operator preference); in
+    // the reading frame, back to the note beside it.
+    let savedId = 0
     if (isAddForm.value) {
       const result = await api.createNote({
         title: entity.value.title.trim(),
@@ -470,6 +488,7 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
       })
       if (!lifetime.current(mine)) return
       toastSuccess(t('editor.created'), savedWith(result.note.title, result.suggested_tags))
+      savedId = result.note.id
     } else {
       // The precondition is dropped only for a save the person asked to be an
       // overwrite. An ordinary Save after a conflict is refused again, on
@@ -486,11 +505,13 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
       })
       if (!lifetime.current(mine)) return
       toastSuccess(t('editor.updated'), savedWith(result.note.title, result.suggested_tags))
+      savedId = result.note.id
     }
     if (!lifetime.current(mine)) return
     conflict.value = false
     leaving = true
-    router.push({ name: 'search' })
+    if (props.inPane) emit('saved', savedId)
+    else router.push({ name: 'search' })
   } catch (e) {
     if (!lifetime.current(mine)) return
     // 409 is not a failure to report as one: nothing is wrong with what was
@@ -569,7 +590,8 @@ async function deleteEntity() {
     toastSuccess(t('editor.deleted'), entity.value.title)
     leaving = true
     deleteDialogOpen.value = false
-    router.push({ name: 'search' })
+    if (props.inPane) emit('deleted')
+    else router.push({ name: 'search' })
   } catch (e) {
     if (!lifetime.current(mine)) return
     // A draft that landed between opening this note and pressing Delete. The
@@ -675,7 +697,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
 </script>
 
 <template>
-  <div class="container">
+  <div :class="inPane ? 'mm-pane-note mm-pane-edit' : 'container'">
     <OperationOutcomeNotice v-if="outcomeUnknown" />
     <template v-if="loading">
       <div class="mm-writing-skeleton" aria-hidden="true">
@@ -692,7 +714,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
     </template>
 
     <template v-else-if="loadFailed">
-      <nav class="app-breadcrumbs mm-editor-breadcrumbs" :aria-label="$t('editor.breadcrumb')">
+      <nav v-if="!inPane" class="app-breadcrumbs mm-editor-breadcrumbs" :aria-label="$t('editor.breadcrumb')">
         <RouterLink :to="{ name: 'search' }">{{ $t('editor.notes') }}</RouterLink>
         <span aria-hidden="true">›</span>
         <strong aria-current="page">{{ $t('common.edit') }}</strong>
@@ -708,7 +730,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
     </template>
 
     <template v-else>
-      <nav class="app-breadcrumbs mm-editor-breadcrumbs" :aria-label="$t('editor.breadcrumb')">
+      <nav v-if="!inPane" class="app-breadcrumbs mm-editor-breadcrumbs" :aria-label="$t('editor.breadcrumb')">
         <RouterLink :to="{ name: 'search' }">{{ $t('editor.notes') }}</RouterLink>
         <span aria-hidden="true">›</span>
         <template v-if="!isAddForm">
@@ -823,9 +845,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
           </div>
         </div>
 
-        <div class="mm-writing-desk" :class="{ 'is-preview': previewMode, 'is-wide': layout.railHidden.editor }">
+        <div class="mm-writing-desk" :class="{ 'is-preview': previewMode, 'is-wide': layout.railHidden[inPane ? 'pane' : 'editor'] }">
+          <PaneToggle v-if="inPane" pane="pane" class="mm-pane-info" />
           <section class="app-paper mm-writing-paper" :aria-label="$t('editor.draft')">
-            <PaneToggle pane="editor" class="mm-desk-toggle" />
+            <PaneToggle v-if="!inPane" pane="editor" class="mm-desk-toggle" />
             <div class="mm-paper-body" ref="bodyRegion">
               <MarkdownEditor v-model="entity.bodyMd"
                               :disabled="saving || outcomeUnknown"

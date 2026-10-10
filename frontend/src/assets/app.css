@@ -30,6 +30,9 @@
     --app-brand-cyan: #00bdf2;
     --app-warm-gold: #d9b657;
     --app-paper-edge: linear-gradient(90deg, var(--app-brand-cyan), #85d8e8 64%, var(--app-warm-gold));
+    /* The canvas's warm corner, bottom left: the stage's, and in frames the
+       third frame's too, since the list covers the stage's own. */
+    --app-canvas-warm: radial-gradient(circle at 5% 96%, rgba(217, 182, 87, .16), transparent 31rem);
 
     /* The top highlight that makes a small object read as raised. Held in two
        tiers because it is drawn in white, and there is no white to draw with
@@ -48,6 +51,10 @@
        it scores 5.8:1 and higher. */
     --mm-primary-fill: var(--mm-primary);
 
+    /* A skill's switch: on is green and off is red, whatever the accent. */
+    --app-switch-on: #2f8a57;
+    --app-switch-off: #c4473c;
+
     --app-shadow-small: 0 1px 1px rgba(255, 255, 255, .9) inset, 0 2px 7px rgba(43, 65, 78, .10);
     --app-shadow-raised: 0 1px 0 rgba(255, 255, 255, .95) inset, 0 1px 1px rgba(36, 58, 72, .08), 0 9px 26px rgba(42, 62, 75, .11);
     --app-shadow-inset: inset 0 1px 2px rgba(31, 49, 61, .13), 0 1px 0 rgba(255, 255, 255, .86);
@@ -63,6 +70,9 @@
     /* Ivory reads at 4.73:1 here, and the button still holds 3.17:1 against
        the paper it sits on. */
     --mm-primary-fill: #0c79a1;
+    --app-canvas-warm: none;
+    --app-switch-on: #3f9e69;
+    --app-switch-off: #c95a50;
 
     --app-shadow-small: 0 1px 3px rgba(0, 0, 0, .34);
     --app-shadow-raised: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px rgba(0, 0, 0, .38);
@@ -113,15 +123,13 @@
     margin: 0 0 16px;
 }
 
-.app-sidebar-head .app-pane-toggle { margin-left: auto; }
-
 .app-brand {
     display: flex;
     align-items: center;
     gap: 9px;
     min-width: 0;
     height: 44px;
-    margin: 0 4px;
+    margin: 0 4px 0 10px;
     color: var(--mm-ink);
     text-decoration: none;
 }
@@ -137,9 +145,9 @@
 .app-brand:hover,
 .app-brand:hover .app-brand-word { text-decoration: none; }
 
-.is-collapsed .app-sidebar-head { justify-content: center; }
-.is-collapsed .app-sidebar-head .app-pane-toggle { margin-left: 0; }
-.is-collapsed .app-brand { display: none; }
+/* Collapsed, the rail keeps the mark where it was, and only the word goes.
+   The switch lives in the stage's head, outside the rail. */
+.is-collapsed .app-brand-word { display: none; }
 
 .app-nav { display: grid; gap: 2px; }
 
@@ -151,7 +159,9 @@
     gap: 8px;
     width: 100%;
     min-height: 36px;
-    padding: 4px 8px;
+    /* The icon's centre is the collapsed rail's, 36px in, so collapsing moves
+       no icon sideways. */
+    padding: 4px 8px 4px 12px;
     border: 0;
     border-radius: 8px;
     background: transparent;
@@ -492,7 +502,7 @@
    is opaque, so the menu covers the saved filters above it and the row drawn
    over the menu does not double the tint. */
 .app-account {
-    --app-account-row: 44px;
+    --app-account-row: 48px;
     /* The selected destination's tint, made opaque. */
     --app-account-fill: linear-gradient(rgba(var(--mm-primary-rgb), .1), rgba(var(--mm-primary-rgb), .1)), var(--mm-chrome);
     --app-account-shadow: 0 1px 2px rgba(36, 58, 72, .08), 0 6px 18px rgba(42, 62, 75, .15);
@@ -521,7 +531,7 @@
     gap: 10px;
     width: 100%;
     min-height: var(--app-account-row);
-    padding: 6px 8px;
+    padding: 6px 8px 6px 10px;
     border: 0;
     border-radius: 8px;
     background: transparent;
@@ -722,7 +732,7 @@
     background:
         radial-gradient(circle at 89% 7%, rgba(0, 189, 242, .14), transparent 29rem),
         radial-gradient(circle at 55% -5%, rgba(0, 189, 242, .075), transparent 23rem),
-        radial-gradient(circle at 5% 96%, rgba(217, 182, 87, .16), transparent 31rem),
+        var(--app-canvas-warm),
         var(--mm-bg);
 }
 
@@ -763,22 +773,25 @@
 
 /* The content measure. Every route still lays out inside a Bootstrap
    `.container`, so the measure is set here once rather than in each of them:
-   the reference's 1160px column with a 64px gutter, centred on the canvas. */
+   the reference's 1160px column with a 64px gutter. Centred until the gap
+   beside the navigation reaches 96px; past that the column stays by the
+   navigation it belongs to and the spare width collects on the right. */
 .app-stage .container {
     width: min(1160px, 100% - 64px);
     max-width: none;
-    margin-inline: auto;
+    margin-inline: clamp(32px, (100% - 1160px) / 2, 96px) auto;
     padding-inline: 0;
 }
 
 @media (max-width: 991.98px) {
-    .app-stage .container { width: min(100%, 100% - 32px); }
+    .app-stage .container { width: min(100%, 100% - 32px); margin-inline: auto; }
 }
 
 .app-stage > main { padding: 12px 0 50px; }
 
-/* The header's right end: Docs, the theme and Settings, above the page head.
-   On a phone the top bar carries them instead. */
+/* The header above the page head: the sidebar's switch at its left end, Docs,
+   the theme and Settings at its right. On a phone the top bar carries the
+   tools and its menu button opens the sidebar instead. */
 .app-stage-head {
     display: flex;
     justify-content: flex-end;
@@ -788,6 +801,7 @@
 .app-shell-tools { display: flex; align-items: center; gap: 8px; }
 .app-shell-tools .app-segment { min-height: 26px; padding: 0 9px; font-size: .74rem; }
 .app-shell-tools .app-segment-button { min-height: 32px; padding: 0 10px; font-size: .74rem; }
+.app-stage-head .app-sidebar-toggle { min-height: 32px; margin-right: auto; padding: 0 10px; font-size: .8rem; }
 
 @media (max-width: 991.98px) {
     .app-stage-head { display: none; }
@@ -1072,11 +1086,12 @@
        open or absent, and a 72px rail permanently eating a fifth of the width
        is the thing this breakpoint exists to prevent. */
     .app-shell.is-collapsed .app-sidebar { width: var(--app-sidebar-expanded); }
-    .app-shell.is-collapsed .app-nav-link { grid-template-columns: 24px minmax(0, 1fr) auto; width: 100%; padding: 4px 8px; }
+    .app-shell.is-collapsed .app-nav-link { grid-template-columns: 24px minmax(0, 1fr) auto; width: 100%; padding: 4px 8px 4px 12px; }
+    .app-shell.is-collapsed .app-brand-word { display: inline; }
     .app-shell.is-collapsed .app-nav-icon { width: 24px; }
     .app-shell.is-collapsed .app-nav-label,
     .app-shell.is-collapsed .app-account-summary .app-account-copy { position: static; width: auto; height: auto; clip: auto; }
-    .app-shell.is-collapsed .app-account-summary { grid-template-columns: 28px minmax(0, 1fr) auto; width: 100%; padding: 6px 8px; }
+    .app-shell.is-collapsed .app-account-summary { grid-template-columns: 28px minmax(0, 1fr) auto; width: 100%; padding: 6px 8px 6px 10px; }
     .app-shell.is-collapsed .app-account-chevron { display: inline-block; }
     .app-shell.is-collapsed .app-connect { width: 100%; padding: 0 14px; }
     .app-shell.is-collapsed .app-connect-label { position: static; width: auto; height: auto; clip: auto; }
@@ -1148,6 +1163,7 @@
 }
 
 .app-note-row:last-child { border-bottom: 0; }
+.app-note-more { display: flex; justify-content: center; padding: 16px; color: var(--mm-muted); }
 .app-note-row:hover { background: var(--mm-hover); }
 .app-note-row.is-selected { background: var(--mm-highlight); }
 
@@ -1396,6 +1412,69 @@ body.app-settings-open,
 body.app-settings-open .app-stage { overflow: hidden; }
 
 .mm-settings-themes .mm-wiz-theme-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* The layout cards: the app drawn small in the theme it is in, as a page at a
+   time, as a list beside what it opened, or as both, a narrow screen in
+   front of a wide one. */
+.mm-settings-themes .mm-layout-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 575.98px) {
+    .mm-settings-themes .mm-layout-options { grid-template-columns: minmax(0, 1fr); }
+}
+
+.mm-layout-image { position: relative; background: var(--mm-bg); border-color: var(--app-panel-border); }
+.mm-layout-options .mm-wiz-theme-option input { z-index: 1; }
+/* A theme or a layout is named the same way: the radio, then the name, then
+   what it is on the line below. */
+.mm-settings-themes .mm-wiz-theme-caption { gap: 8px; font-size: .875rem; font-weight: 600; }
+.mm-settings-themes .mm-wiz-radio-dot { flex: none; margin-left: 0; }
+.mm-choice-kind { display: block; margin-top: 4px; color: var(--mm-ink-soft); font-size: .8rem; }
+.mm-layout-advice { display: block; margin-top: 4px; color: var(--mm-ink-soft); font-size: .8rem; }
+
+.mm-layout-mini {
+    display: grid;
+    grid-template-columns: 39px minmax(0, 1fr);
+    width: min(200px, 100%);
+    height: 90px;
+    overflow: hidden;
+    border: 1px solid var(--app-panel-border);
+    border-radius: 5px;
+    background: var(--mm-bg);
+}
+
+.mm-layout-mini.is-framed { grid-template-columns: 39px 52px minmax(0, 1fr); }
+
+.mm-layout-mini i,
+.mm-layout-mini b { display: block; height: 3px; border-radius: 2px; background: var(--mm-line); }
+.mm-layout-mini b { width: 46%; height: 4px; margin-bottom: 8px; background: var(--mm-muted); opacity: .55; }
+.mm-layout-mini i + i { margin-top: 6px; }
+
+.mm-layout-mini-sidebar { padding: 9px 6px; border-right: 1px solid var(--app-hairline); background: var(--app-paper); }
+.mm-layout-mini-sidebar img { display: block; width: 10px; height: 10px; margin-bottom: 8px; }
+.mm-layout-mini-sidebar i:nth-of-type(2) { background: var(--mm-primary); opacity: .45; }
+
+.mm-layout-mini-page { width: 72%; padding: 11px 0; margin-left: 12px; }
+
+.mm-layout-mini-list { padding: 9px 6px; border-right: 1px solid var(--mm-line); background: var(--app-paper); }
+.mm-layout-mini-list b { width: 70%; }
+.mm-layout-mini-list i { height: 6px; }
+.mm-layout-mini-list i.is-open { box-shadow: inset 2px 0 0 var(--mm-primary); background: var(--mm-hover); }
+
+.mm-layout-mini-detail { padding: 8px 7px 0; }
+.mm-layout-mini-narrow {
+    position: absolute;
+    right: 12%;
+    bottom: -8px;
+    grid-template-columns: minmax(0, 1fr);
+    width: 50px;
+    height: 68px;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .2);
+}
+
+.mm-layout-mini-narrow .mm-layout-mini-page { width: auto; margin: 0; padding: 9px 7px; background: var(--app-paper); }
+
+.mm-layout-mini-detail > span { display: block; height: 100%; padding: 7px 8px; border: 1px solid var(--app-hairline); border-radius: 3px 3px 0 0; background: var(--app-paper); }
 
 .app-settings-nav-group + .app-settings-nav-group { margin-top: 28px; }
 .app-settings-group-title {
@@ -2711,9 +2790,8 @@ body.app-settings-open .app-stage { overflow: hidden; }
 .mm-note-breadcrumbs,
 .mm-editor-breadcrumbs { margin-bottom: 24px; }
 
-/* The sidebar's switch sits on the sidebar and fills while it shows; a
-   rail's sits on the paper beside it and fills while the rail is away, an
-   offer of the pane rather than a report of it. */
+/* A rail's switch sits on the paper beside it and fills while the rail is
+   away, an offer of the pane rather than a report of it. */
 .app-pane-toggle {
     display: inline-flex;
     align-items: center;
@@ -2760,7 +2838,7 @@ body.app-settings-open .app-stage { overflow: hidden; }
     margin-bottom: 22px;
 }
 
-.mm-note-eyebrow { margin-bottom: 7px; }
+.mm-note-eyebrow { margin-bottom: 7px; line-height: 1.5; }
 
 .mm-note-heading .mm-note-title,
 .mm-note-heading .mm-title-input {
@@ -3578,6 +3656,351 @@ body.app-settings-open .app-stage { overflow: hidden; }
     .mm-revision-delta { justify-content: flex-start; }
     .mm-revision-detail { margin: 0 16px 14px; }
 }
+
+/* ── frames: a list and what it opens ────────────────────────────────── */
+
+/* With Framed chosen in Preferences, or Dynamic on a wide enough
+   stage, a list page is two frames edge to edge: the page itself as the list,
+   at the width the reader dragged it to, and beside it what the page opens
+   from it. Each scrolls on its own; the stage stops scrolling and keeps only
+   its header above them. */
+.app-frame {
+    min-width: 0;
+    min-height: 0;
+    background: var(--app-paper);
+}
+
+/* Dense metadata must remain readable: ink-soft is 4.82:1 on Sunrise paper. */
+.app-stage.is-framed { --mm-muted: var(--mm-ink-soft); display: flex; flex-direction: column; overflow: hidden; }
+/* The signed-in window never scrolls (the stage or a frame does), so it keeps
+   no gutter for a scrollbar it never shows: the scrollbar that does show runs
+   down the window's edge. */
+html:has(.app-shell) { scrollbar-gutter: auto; }
+.app-stage.is-framed > main { flex: 1 1 auto; min-height: 0; padding: 0; }
+.app-stage.is-framed > .app-stage-head { width: auto; margin: 0; padding: 10px 16px; }
+
+.app-frames {
+    display: grid;
+    grid-template-columns: var(--app-list-width) 1px minmax(0, 1fr);
+}
+
+/* No rule under the header, as in Windowed: the divider runs up through it to
+   the top of the window instead. */
+.app-stage.is-framed > .app-stage-head {
+    background: linear-gradient(var(--mm-rule), var(--mm-rule)) no-repeat var(--app-list-width) 0 / 1px 100%;
+}
+
+.app-frame-divider {
+    position: relative;
+    z-index: 4;
+    background: var(--mm-rule);
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.app-frame-divider::before { content: ""; position: absolute; inset: 0 -7px; }
+/* The hairline remains the boundary; the grip makes its affordance visible. */
+.app-frame-divider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -2px;
+    width: 5px;
+    height: 36px;
+    border-inline: 1px solid var(--mm-ink-soft);
+    border-radius: 3px;
+    background: var(--app-paper);
+}
+.app-frame-divider:focus-visible::after { outline: 2px solid var(--mm-primary); outline-offset: 3px; }
+.app-frame-divider:hover,
+.app-frame-divider.is-dragging,
+.app-frame-divider:focus-visible { outline: 0; background: var(--mm-primary); }
+
+.app-frame-list { container-type: inline-size; display: flex; flex-direction: column; overflow: hidden; background: transparent; }
+
+.app-frame-list > .container {
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 14px 16px 24px;
+    overflow-y: auto;
+}
+
+.app-frame-list .app-page-head { margin-bottom: 14px; }
+
+.app-stage.is-framed .app-selection-bar { right: auto; width: var(--app-list-width); }
+
+/* A list in frames, the notes list's on every page: the head, search and
+   filters stay put, the rows scroll under them and the pager holds the bottom
+   edge. A row is one control from edge to edge, the checkbox laid over it. */
+.app-frame-list > .app-notes,
+.app-frame-list > .mm-inbox,
+.app-frame-list > .mm-skills { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.app-frame-list > .mm-inbox > *,
+.app-frame-list > .mm-skills > * { flex: none; margin-inline: 16px; }
+.app-frame-list > .mm-inbox > .app-page-head,
+.app-frame-list > .mm-skills > .app-page-head { margin: 0; padding: 14px 16px 12px; }
+.app-frame-list > .app-notes > .app-page-head { margin: 0; padding: 14px 16px 10px; }
+.app-frame-list > .app-notes > .app-page-head > div { flex: 1 1 auto; }
+.app-frame-list .mm-map-open { margin-left: auto; }
+.app-frame-list > .app-notes > .app-notes-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin: 0; padding: 0 16px 12px; }
+.app-frame-list > .app-notes > .app-notes-toolbar > :first-child { grid-column: 1 / -1; }
+.app-frame-list > .app-notes > .app-notes-chips { margin: 0 !important; padding: 0 16px 10px; }
+
+.app-frame-list .app-note-scroll {
+    --bs-gutter-x: 0;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    overflow-y: auto;
+    border-top: 1px solid var(--mm-rule);
+    background: var(--app-paper);
+}
+
+.app-frame-list .app-note-scroll > .col,
+.app-frame-list .app-note-scroll > .col > div { display: flex; flex: 1 0 auto; flex-direction: column; }
+.app-frame-list .app-note-list { flex: 1 0 auto; }
+/* In frames the head keeps only its select control, over the rows' checkboxes. */
+.app-frame-list .app-note-list-head { grid-template-columns: 32px minmax(0, 1fr); padding: 6px 16px 6px 6px; border-bottom-color: var(--mm-rule); background: none; }
+.app-frame-list .app-note-list-title,
+.app-frame-list .app-note-list-modified { display: none; }
+.app-frame-list .app-note-row { position: relative; grid-template-columns: 32px minmax(0, 1fr); padding-inline: 6px 16px; cursor: pointer; }
+.app-frame-list .app-note-main::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.app-frame-list .app-note-check { position: relative; z-index: 2; opacity: 1; }
+.app-frame-list .app-note-main:focus-visible { outline: 0; }
+.app-frame-list .app-note-main:focus-visible::after { outline: 2px solid var(--mm-primary); outline-offset: -3px; }
+.app-frame-list .app-note-row { padding-block: 12px; border-bottom-color: var(--mm-rule); }
+.app-frame-list .app-note-meta { color: var(--mm-ink-soft); }
+.app-frame-list .app-note-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+@container (max-width: 360px) {
+    .app-frame-list .app-title-line { flex-wrap: wrap; }
+    .mm-skill-row-head { flex-wrap: wrap; }
+    .mm-skills-summary .form-select { width: 100%; }
+}
+.app-frame-list .app-note-meta { grid-column: 2; grid-template-columns: auto minmax(0, 1fr); padding-top: 5px; }
+.app-frame-list .app-note-row.is-plain { grid-template-columns: minmax(0, 1fr); padding-inline: 16px; }
+.app-frame-list .app-note-row.is-plain .app-note-meta { grid-column: 1; }
+.app-frame-list ul.app-note-list { margin: 0; padding: 0; list-style: none; }
+.app-frame-list button.app-note-main { width: 100%; padding: 0; border: 0; background: none; font: inherit; text-align: left; }
+.app-frame-list .app-note-row > .mm-review-detail-error { position: relative; z-index: 2; grid-column: 1 / -1; }
+.app-frame-list .mm-review-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* A batch decision in the narrow list: the count and its reason on the first
+   line, the two buttons together on the second. */
+.app-frame-list .mm-batch-line { row-gap: 5px; }
+.app-frame-list .mm-batch-line::after { content: ""; flex-basis: 100%; order: 1; }
+.app-frame-list .mm-batch-line > .btn { order: 2; }
+.app-frame-list .app-tray-footer { position: sticky; bottom: 0; z-index: 3; flex-wrap: nowrap; border-top: 1px solid var(--mm-line); }
+.app-frame-list .app-tray-footer .app-rows-control { display: none; }
+.app-frame-list .app-state { margin: 16px; }
+
+.app-note-row.is-open { background: var(--mm-hover); box-shadow: inset 3px 0 0 var(--mm-primary); }
+.app-note-row.is-open .app-note-title { color: var(--mm-primary); }
+
+/* The reading frame: what the list opened, laid out as on its own page — title
+   and actions in one row, the content beside its details — or a quiet line
+   saying what to do when nothing is open. */
+/* On the themed canvas rather than on paper, so what it holds is a sheet on a
+   desk as on the note page (boxed, operator 2026-10-10). */
+.app-frame-reading { position: relative; display: flex; flex-direction: column; container-type: inline-size; background: transparent; }
+.app-frame-reading > .app-frame-content { flex: 1 0 auto; }
+
+/* The third frame is one scroller: what the list opened, and after it the
+   footer, which a short page holds at the bottom and a long one reaches at
+   the end of its scroll, as a page does. */
+.app-frame-column { display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; background: var(--app-canvas-warm); }
+.app-frame-column > .app-frame-reading { flex: 1 0 auto; }
+.app-frame-column > .app-frame-foot { flex: none; }
+.app-frame-footer { display: flex; align-items: center; min-height: 58px; margin: 0; padding: 9px 28px; }
+.app-frame-footer > .container { width: auto; margin: 0; padding: 0; }
+.app-frame-reading:focus-visible { outline: 2px solid var(--mm-primary); outline-offset: -3px; }
+.app-frame-content { position: relative; }
+.app-frame-single .mm-pane-note { padding: 0; }
+
+.app-frame-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 6px;
+    padding: 24px;
+    color: var(--mm-muted);
+    font-size: .85rem;
+    text-align: center;
+}
+
+.app-frame-empty-icon { margin-bottom: 8px; color: var(--mm-muted); font-size: 2.75rem; opacity: .55; }
+.app-frame-empty-title { margin: 0; color: var(--mm-ink-soft); font-size: 22px; font-weight: 700; }
+
+.mm-pane-note { padding: 22px 28px 40px; }
+.mm-pane-note > * { max-width: 1120px; }
+.mm-pane-note .mm-note-title { font-size: 1.45rem; }
+.mm-pane-note .mm-note-actions { padding-top: 6px; }
+
+/* The close button has the corner to itself: however the actions beside it
+   wrap, it stays on their first line. */
+.mm-pane-note .mm-note-heading:has(> .mm-pane-close) { grid-template-columns: minmax(0, 1fr) fit-content(50%) auto; column-gap: 8px; }
+.mm-pane-note .mm-note-heading:has(> .mm-pane-close) > .mm-note-identity { padding-right: 20px; }
+.mm-pane-note .mm-note-heading > .mm-pane-close { margin-top: 6px; }
+
+/* The reader's and the editor's Info switch sit in the same place: the top
+   corner of the column it shows and hides. */
+.mm-pane-note .mm-reading-desk,
+.mm-pane-note .mm-writing-desk { position: relative; }
+.mm-pane-note .mm-pane-info { position: absolute; top: 9px; right: 9px; z-index: 3; }
+.mm-pane-edit .mm-editor-rail > :first-child .mm-field-label { padding-right: 28px; }
+.mm-pane-note .mm-note-paper { min-height: 0; }
+.mm-pane-note .mm-reading-desk.is-wide .mm-note-context { display: none; }
+.mm-pane-note .mm-reading-desk.is-wide { grid-template-columns: minmax(0, 1fr); }
+.mm-pane-note .mm-note-context { top: 0; }
+
+/* In a narrow reading frame the note leads, followed by its metadata and
+   related notes. The shell measures the frame rather than the viewport. */
+.app-frame-reading.is-narrow .mm-note-heading { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.app-frame-reading.is-narrow .mm-note-heading:has(> .mm-pane-close) { grid-template-columns: minmax(0, 1fr) auto; }
+.app-frame-reading.is-narrow .mm-note-heading:has(> .mm-pane-close) > .mm-note-identity { padding-right: 0; }
+.app-frame-reading.is-narrow .mm-note-heading:has(> .mm-pane-close) > .mm-note-actions { grid-column: 1 / -1; }
+.app-frame-reading.is-narrow .mm-note-heading > .mm-pane-close { grid-column: 2; grid-row: 1; margin-top: 0; }
+.app-frame-reading.is-narrow .mm-note-actions { justify-content: flex-start; padding-top: 0; }
+.app-frame-reading.is-narrow .mm-reading-desk,
+.app-frame-reading.is-narrow .mm-reading-desk.is-wide,
+.app-frame-reading.is-narrow .mm-writing-desk,
+.app-frame-reading.is-narrow .mm-writing-desk.is-wide { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.app-frame-reading.is-narrow .mm-note-context,
+.app-frame-reading.is-narrow .mm-reading-desk.is-wide .mm-note-context { display: contents; }
+.app-frame-reading.is-narrow .mm-context-details { order: 2; }
+.app-frame-reading.is-narrow .mm-note-paper { order: 1; }
+.app-frame-reading.is-narrow .mm-context-map { order: 3; }
+.app-frame-reading.is-narrow .mm-context-backlinks { order: 4; }
+.app-frame-reading.is-narrow .mm-context-panel + .mm-context-panel { border-top: 0; }
+.app-frame-reading.is-narrow .mm-writing-desk.is-wide .mm-editor-rail { display: grid; }
+.app-frame-reading.is-narrow .mm-editor-rail { position: static; padding-left: 0; border-left: 0; }
+.app-frame-reading.is-narrow .mm-pane-info,
+.app-frame-reading.is-narrow .mm-desk-toggle { display: none; }
+
+/* The other list pages in frames: the review and the skill each open in the
+   detail frame with their name and a close button above them. In the list
+   their breadcrumbs and the inbox's Review buttons give way to the narrower
+   frame. */
+.app-frame-list .app-breadcrumbs { display: none; }
+
+/* The skills in frames: whose skills, and how many are on and their size, in
+   a box above the rows, and each row marked enabled or disabled at its name; the
+   switch is the open skill's, green on and red off. */
+.app-frame-list > .mm-skills > .mm-skills-list { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; margin: 0; }
+.mm-skills-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0 16px 14px; padding: 14px 16px; }
+.mm-skills-summary .form-select { width: 100%; }
+.mm-skills-summary-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0; color: var(--mm-ink-soft); font-size: .8rem; }
+.mm-skills-summary-line strong { color: var(--mm-ink); font-size: 1rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+.mm-skill-row-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mm-skill-row-head > .app-note-main { flex: 1 1 auto; min-width: 0; }
+.mm-skill-row > .app-note-summary { margin-top: 3px; }
+.mm-skill-row .mm-skill-state { flex: none; padding-block: 2px; }
+.mm-skill-row.is-off .app-note-title { color: var(--mm-ink); }
+.mm-skill-row.is-off > .app-note-summary { color: var(--mm-ink-soft); }
+
+.mm-skill-switch { display: flex; flex: none; align-items: center; min-height: 0; margin: 0; padding: 0; }
+.mm-skill-switch .form-check-input,
+.mm-skill-switch .form-check-input:focus {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+    float: none;
+    margin: 0;
+    border-color: var(--app-switch-off);
+    background-color: var(--app-switch-off);
+}
+.mm-skill-switch .form-check-input:checked { border-color: var(--app-switch-on); background-color: var(--app-switch-on); }
+.mm-skill-switch .form-check-input:disabled { opacity: .55; }
+
+/* The queue's loading skeleton in frames: the rows it stands in for. */
+.app-frame-list .mm-review-tray .mm-review-body { gap: 0; padding: 0; }
+.app-frame-list .mm-review-tray .mm-review-card { border: 0; border-bottom: 1px solid var(--app-hairline); border-radius: 0; background: transparent; box-shadow: none; }
+
+/* The review in frames: what it is and why, then the verdict, then the
+   document as one sheet with its fields ruled off inside it. */
+.app-frame-reading > .mm-review-panel { display: flex; flex-direction: column; }
+.app-frame-reading > .mm-review-panel > * { flex: none; }
+.app-frame-reading .mm-review-frame-head { order: -3; }
+.app-frame-reading .mm-frame-actions { order: -2; }
+.app-frame-reading .mm-review-frame-facts { grid-column: 1 / -1; display: grid; gap: 8px; margin-top: 6px; }
+.app-frame-reading .mm-review-frame-facts .mm-review-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--mm-muted); font-size: .76rem; }
+.app-frame-reading .mm-review-frame-facts > * { margin: 0; }
+.app-frame-reading .mm-decision-error { order: -1; margin-bottom: 14px; }
+.app-frame-reading .mm-decision-footer { order: -2; min-height: 0; margin-bottom: 16px; padding: 0 0 14px; border-top: 0; border-bottom: 1px solid var(--mm-line); background: none; }
+.app-frame-reading .mm-review-intro { padding: 0; }
+.app-frame-reading .mm-evidence { padding: 0; border: 0; background: none; box-shadow: none; }
+.app-frame-reading .mm-evidence.is-editing { padding: 20px 24px; border: 1px solid var(--app-panel-border); border-radius: 12px; background: var(--app-paper); box-shadow: var(--app-shadow-raised); }
+
+.mm-doc-sheet,
+.mm-frame-sheet { padding: 20px 24px 22px; }
+.mm-doc-sheet .mm-doc-field { padding: 14px 0 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.mm-doc-sheet .mm-doc-field + .mm-doc-field { margin-top: 14px; border-top: 1px solid var(--mm-line); }
+
+.app-frame-reading > .mm-review-panel {
+    max-width: none;
+    margin: 0;
+    padding: 22px 28px 40px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* The measure holds what the frame shows, never the frame's scroller, so the
+   scrollbar stays on the window's edge however wide the frame is dragged. */
+.app-frame-reading > :not(.app-frame-content) > * { max-width: 1120px; }
+
+.mm-review-frame-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 16px;
+    align-items: start;
+    margin-bottom: 18px;
+}
+
+.mm-review-frame-head .mm-pane-close { grid-column: 2; grid-row: 1 / span 2; }
+.mm-review-frame-title { margin: 0; color: var(--mm-ink); font-size: 1.3rem; font-weight: 650; line-height: 1.25; }
+
+/* A skill opens as a note does, its switch before its name; its rail holds
+   what changes it. */
+.mm-skill-title-line { display: flex; align-items: center; gap: 12px; }
+.mm-skill-title-line > .mm-skill-switch { font-size: 1.15rem; }
+.mm-skill-aside { margin: 0; color: var(--mm-muted); font-size: .75rem; line-height: 1.5; }
+.mm-skill-alias { display: flex; gap: 8px; margin-top: 10px; }
+.mm-skill-alias .form-control { min-width: 0; font-size: .8rem; }
+.mm-skill-frame .mm-context-panel > code { display: block; margin-top: 8px; font-size: .78rem; }
+.mm-skill-usage { display: grid; gap: 6px; margin: 0; padding: 0; color: var(--mm-ink-soft); font-size: .75rem; list-style: none; }
+.mm-skill-usage > li { display: flex; align-items: center; gap: 6px; }
+.app-frame-reading.is-narrow .mm-skill-frame .mm-context-panel { order: 3; }
+
+@container (max-width: 650px) {
+    .mm-pane-note { padding-inline: 18px; }
+    .mm-pane-note .mm-note-paper { padding: 24px; }
+    .mm-frame-sheet { padding: 20px; }
+    .mm-decision-footer, .mm-decision-actions { flex-wrap: wrap; }
+}
+
+/* The Activity log, a dialog over the page in every layout, as large as the
+   map: its title and views in the head, the Journal or the passes scrolling
+   under them. */
+.mm-activity-dialog .modal-dialog { max-width: min(1480px, calc(100vw - 64px)); margin-block: 24px; }
+.mm-activity-dialog .modal-content { height: calc(100vh - 48px); }
+.mm-activity-dialog .modal-header { align-items: center; gap: 16px; padding: 14px 18px; }
+.mm-activity-dialog .modal-header .app-title-line { flex: 1 1 auto; min-width: 0; }
+.mm-activity-dialog .modal-title { margin: 0; font-size: 1.3rem; }
+.mm-activity-dialog .modal-body { min-height: 0; padding: 14px 18px 24px; overflow-y: auto; }
+.mm-activity-dialog .app-page-lede { margin-bottom: 14px; }
+
+/* The map of the notes list, opened from the header in frames: wide enough for
+   the map and both its side panels. */
+.mm-map-dialog .modal-dialog { max-width: min(1480px, calc(100vw - 64px)); margin-block: 24px; }
+.mm-map-dialog .modal-content { height: calc(100vh - 48px); }
+.mm-map-dialog .modal-body { display: flex; flex-direction: column; min-height: 0; padding: 14px 18px 18px; }
+.mm-map-dialog .mm-notes-map { flex: 1 1 auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.mm-map-dialog .mm-notes-map::before { display: none; }
 
 /* ── controls ─────────────────────────────────────────────────────────── */
 

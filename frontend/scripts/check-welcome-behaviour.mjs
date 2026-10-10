@@ -80,7 +80,7 @@ function apiStub(state, on = {}) {
     if (key === 'GET /api/me/welcome') return json({ facts: facts(state.facts) })
     if (key === 'POST /api/tokens') return json({ id: 9, name: request.postDataJSON().name, token: 'mxt_test' }, 201)
     if (key === 'GET /api/inbox/count') return json({ pending_notes: 0, edit_proposals: 0, total: 0 })
-    if (key.startsWith('GET /api/notes')) return json({ notes: [], total: 0, tags: [], tag_counts: [], presets: [] })
+    if (key.startsWith('GET /api/notes')) return json({ items: [], total: 0, semantic_unavailable: false })
     if (key.startsWith('GET /api/stats')) return json({ total: 0 })
     return json({}, 200)
   }
@@ -641,7 +641,7 @@ for (const width of [1440, 390]) {
       const box = el.getBoundingClientRect()
       return { left: box.left, right: box.right }
     }))
-    assert(prefs.length === 4, `Expected four Preferences containers; got ${prefs.length}`)
+    assert(prefs.length === 5, `Expected five Preferences containers; got ${prefs.length}`)
     assert(prefs.every(box => Math.abs(box.left - prefs[0].left) < 1 && Math.abs(box.right - prefs[0].right) < 1), `Preferences edges differ: ${JSON.stringify(prefs)}`)
   }, { viewport: { width, height: 900 }, on: {
     'GET /api/me/identities': (route, json) => json({ identities: [{ id: 1, provider: 'google', label: 'Google', icon: 'fa-brands fa-google', email: 'user@example.test', linked_at: '2026-09-01', last_used_at: '2026-09-25' }], available: [] }),

@@ -108,6 +108,7 @@
     }
   },
   "search": {
+    "select_all_shown": "All shown",
     "status": {
       "any": "Any status",
       "verified": "Verified",
@@ -140,7 +141,6 @@
     "active": "Active:",
     "clear_all": "Clear all",
     "select_rows": "Select rows",
-    "select_all_on_page": "All on this page",
     "columns": {
       "title": "Title",
       "modified": "Modified",
@@ -149,15 +149,6 @@
     },
     "last_modified": "Last modified:",
     "by_word": "by",
-    "showing": "Showing {from}–{to} of {total}",
-    "pagination": "Pagination",
-    "prev": "Prev",
-    "next": "Next",
-    "page_of": "Page {page} of {total}",
-    "go_to": "Go to",
-    "rows": "Rows",
-    "rows_per_page": "Rows per page",
-    "per_page": "/ page",
     "empty": {
       "title": "Your memex is empty.",
       "keep": "Everything that ends up here, you'll be able to read, edit, and take with you.",
@@ -190,6 +181,11 @@
       "binding": "Words side by side bind before OR: memex memory OR ai reads as (memex memory) OR ai.",
       "exact": "A search with OR, NOT or quotes matches words as written and never searches by meaning.",
       "more": "Searching, in the docs"
+    },
+    "pane": {
+      "label": "Reading pane",
+      "resize": "Resize the list",
+      "empty": "Select a note from the list"
     }
   },
   "presets": {
@@ -336,6 +332,9 @@
     },
     "helptip": {
       "label": "What this does"
+    },
+    "pane": {
+      "close": "Close"
     }
   },
   "map": {
@@ -727,7 +726,8 @@
     "discard_amendment_body": "Your unsaved changes will be lost. The pending note or proposal will stay in the inbox.",
     "discard_amendment_confirm": "Discard amendment",
     "load_more": "Load more pending notes",
-    "loaded_pending": "Showing {shown} of {total} pending notes."
+    "loaded_pending": "Showing {shown} of {total} pending notes.",
+    "frame_empty": "Select an item to review it"
   },
   "activity": {
     "views": {
@@ -1138,6 +1138,20 @@
       "select_theme": "Select your preferred theme",
       "text_size": "Notes text size",
       "typeface": "Note font"
+    },
+    "layout": {
+      "title": "Layout",
+      "select": "Choose a layout for this device.",
+      "windowed": "Windowed",
+      "windowed_kind": "One page at a time",
+      "framed": "Framed",
+      "framed_kind": "The list and what you open, side by side",
+      "dynamic": "Dynamic",
+      "dynamic_kind": "Adjusts to the window size",
+      "windowed_advice": "Best for smaller screens and devices",
+      "framed_advice": "Best for wide screens and larger monitors",
+      "dynamic_advice": "Framed on a wide window, windowed on a narrow one",
+      "aria": "{name}: {kind}"
     },
     "datetime": {
       "title": "Date & time",
@@ -1790,6 +1804,19 @@
       "auto_help": "The assistant can also choose this skill when your request matches its description.",
       "command_hint": "Select {name} from the app’s command menu first.",
       "command_help": "First select {name} from your app’s command menu, if it supports Memex commands."
+    },
+    "frame_empty": "Select a skill to see it",
+    "pane": {
+      "eyebrow": "Skill"
+    },
+    "list": {
+      "kind": "Skills to show",
+      "user": "User skills",
+      "system": "System skills",
+      "last_used": "Last used {when}",
+      "never_used": "Never used",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
     }
   },
   "welcome": {
@@ -1851,5 +1878,12 @@
     "title": "Page not found",
     "body": "The page you’re looking for doesn’t exist or has moved.",
     "back": "Back to memex"
+  },
+  "frames": {
+    "detail": "Detail — F6 returns to the list",
+    "width": "List width: {width} pixels",
+    "resize_help": "Drag to resize · Arrow keys adjust · Home resets",
+    "skills_empty": "No skills in this list.",
+    "select_note": "Select {title}"
   }
 }

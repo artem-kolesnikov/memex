@@ -1,12 +1,9 @@
 <script setup lang="ts">
-// The header's right end, on every page: the activity log, Docs, the theme and
-// Settings. In the stage above the page head on a desktop, in the top bar on a
-// phone.
-import { useRoute } from 'vue-router'
+// The header's right end, on every page: Docs, the theme and Settings. In the
+// stage above the page head on a desktop, in the top bar on a phone.
 import { docsPage } from '@/lib/docs'
 import { useTheme } from '@/lib/theme'
 
-const route = useRoute()
 const { theme, set: setTheme } = useTheme()
 const THEMES = [
   { id: 'light', labelKey: 'general.themes.sunrise', icon: 'fa-solid fa-sun' },
@@ -16,11 +13,6 @@ const THEMES = [
 
 <template>
   <div class="app-shell-tools">
-    <router-link class="app-segment-button" :class="{ 'is-active': route.name === 'activity' }"
-                 :to="{ name: 'activity' }" :title="$t('app.nav.activity')">
-      <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
-      <span class="app-shell-tools-label">{{ $t('app.nav.activity') }}</span>
-    </router-link>
     <a class="app-segment-button" :href="docsPage()" target="_blank" rel="noopener" :title="$t('app.nav.docs')">
       <i class="fa-solid fa-book-open" aria-hidden="true"></i>
       <span class="app-shell-tools-label">{{ $t('app.nav.docs') }}</span>

@@ -13,6 +13,9 @@
 // The view lives in the URL as `?view=`, so both halves are linkable, and the
 // digest and the journal load separately — a failure in one is not an empty
 // state in the other.
+//
+// It is a dialog over the page that was showing, as Settings is, and as large
+// as the map (operator, 2026-10-10): the log is looked into, not worked in.
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -20,6 +23,7 @@ import { api, type CurationRun } from '@/api/client'
 import ActivityJournal from '@/components/ActivityJournal.vue'
 import CurationRuns from '@/components/CurationRuns.vue'
 import { toastError } from '@/components/toastService'
+import { useBootstrapModal } from '@/lib/bootstrapModal'
 
 const route = useRoute()
 const router = useRouter()
@@ -98,44 +102,70 @@ function open(key: ViewKey) {
 watch(view, (v) => {
   if (v === 'curation') loadRuns()
 })
+
+// Closing walks back past every entry the dialog added (a view switched, a pass
+// opened in the Journal) to the page it was opened over. Opened from nowhere,
+// by a typed or shared address, it leaves for the notes list.
+const opened = window.history.state as { position?: number; back?: string | null } | null
+function leave() {
+  const here = (window.history.state as { position?: number } | null)?.position
+  const before = typeof opened?.back === 'string' ? router.resolve(opened.back).name : undefined
+  if (typeof opened?.position === 'number' && typeof here === 'number'
+      && typeof before === 'string' && before !== 'activity' && before !== 'not-found') {
+    router.go(opened.position - here - 1)
+    return
+  }
+  router.replace({ name: 'search' })
+}
+const dialog = ref<HTMLElement | null>(null)
+const { hide } = useBootstrapModal(dialog, { onHidden: leave })
 onMounted(() => {
   if (view.value === 'curation') loadRuns()
 })
 </script>
 
 <template>
-  <div class="container">
-    <header class="app-page-head">
-      <div class="app-title-line">
-        <h1>{{ $t('activity.title') }}</h1>
-        <nav class="app-segmented" :aria-label="$t('activity.view_label')">
-        <button
-          v-for="v in VIEWS"
-          :key="v.key"
-          type="button"
-          class="app-segment"
-          :class="{ 'is-active': view === v.key }"
-          :aria-pressed="view === v.key"
-          :title="$t(v.hintKey)"
-          @click="open(v.key)"
-        >
-          {{ $t(v.labelKey) }}
-        </button>
-        </nav>
+  <Teleport to="body">
+    <div ref="dialog" class="modal fade app-dialog mm-activity-dialog" tabindex="-1" aria-labelledby="activity-dialog-title">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="app-title-line">
+              <h1 id="activity-dialog-title" class="modal-title">{{ $t('activity.title') }}</h1>
+              <nav class="app-segmented" :aria-label="$t('activity.view_label')">
+                <button
+                  v-for="v in VIEWS"
+                  :key="v.key"
+                  type="button"
+                  class="app-segment"
+                  :class="{ 'is-active': view === v.key }"
+                  :aria-pressed="view === v.key"
+                  :title="$t(v.hintKey)"
+                  @click="open(v.key)"
+                >
+                  {{ $t(v.labelKey) }}
+                </button>
+              </nav>
+            </div>
+            <button type="button" class="btn-close" :aria-label="$t('common.close')" @click="hide"></button>
+          </div>
+          <div class="modal-body">
+            <p class="app-page-lede">{{ $t('activity.lede') }}</p>
+
+            <ActivityJournal v-if="view === 'journal'" />
+
+            <template v-else>
+              <p class="alert alert-warning" v-if="runsFailed">
+                {{ $t('activity.passes_failed') }}
+                <button type="button" class="btn btn-link p-0 align-baseline" @click="retryRuns">
+                  {{ $t('activity.try_again') }}
+                </button>
+              </p>
+              <CurationRuns v-else :runs="runs" :runs-total="runsTotal" :loading="runsLoading" />
+            </template>
+          </div>
+        </div>
       </div>
-      <p class="app-page-lede">{{ $t('activity.lede') }}</p>
-    </header>
-
-    <ActivityJournal v-if="view === 'journal'" />
-
-    <template v-else>
-      <p class="alert alert-warning" v-if="runsFailed">
-        {{ $t('activity.passes_failed') }}
-        <button type="button" class="btn btn-link p-0 align-baseline" @click="retryRuns">
-          {{ $t('activity.try_again') }}
-        </button>
-      </p>
-      <CurationRuns v-else :runs="runs" :runs-total="runsTotal" :loading="runsLoading" />
-    </template>
-  </div>
+    </div>
+  </Teleport>
 </template>

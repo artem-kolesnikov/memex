@@ -38,6 +38,8 @@ const props = defineProps<{
   notice?: string
   /** A search is on its way, so `filterIds` still answers the previous one. */
   searching?: boolean
+  /** Held in a box that sets its height (the map dialog), not fitted to the window. */
+  contained?: boolean
 }>()
 
 const emit = defineEmits<{ 'clear-filters': []; tag: [name: string] }>()
@@ -483,7 +485,7 @@ const DESK_MIN = 460
 let deskWatcher: ResizeObserver | null = null
 
 function fitDesk() {
-  if (desk.value === null) return
+  if (desk.value === null || props.contained) return
   // Below the desktop layout the map takes a share of the screen instead, and
   // the page scrolls past it (app.css).
   if (window.innerWidth < 992) {

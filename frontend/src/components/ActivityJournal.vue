@@ -252,8 +252,8 @@ function goTo(target: number) {
   if (!Number.isFinite(target)) return
   page.value = Math.min(Math.max(1, target), pages.value)
   schedule(0)
-  // The stage scrolls, not the window: the shell is locked to the viewport.
-  document.querySelector('.app-stage')?.scrollTo({ top: 0, behavior: 'smooth' })
+  // The dialog's body scrolls, not the window.
+  document.querySelector('.mm-activity-dialog .modal-body')?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function clearFilters() {

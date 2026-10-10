@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { api, type SkillConnection, type SkillPatch, type SkillRow } from '@/api/client'
+import { api, type SkillConnection, type SkillRow } from '@/api/client'
 import AgentMark from '@/components/AgentMark.vue'
 import { formatDateTime } from '@/lib/datetime'
 import SkillConnections from './SkillConnections.vue'
 import SkillUseExample from './SkillUseExample.vue'
+import { useSkillEditing, type SkillDraft } from './skillEditing'
 
-const props = defineProps<{ skill: SkillRow; connections: SkillConnection[] }>()
+const props = defineProps<{ skill: SkillRow; connections: SkillConnection[]; draft: SkillDraft }>()
 const emit = defineEmits<{ close: []; updated: [row: SkillRow] }>()
-const { t } = useI18n()
 
 const dialog = ref<HTMLElement | null>(null)
 let modal: { show(): void; hide(): void; dispose(): void } | null = null
@@ -34,36 +33,11 @@ function close() {
   modal?.hide()
 }
 
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-
 const editable = computed(() => props.skill.kind === 'note')
 const available = computed(() => props.skill.status === 'built_in' || (props.skill.status === 'served' && props.skill.enabled && (props.skill.auto || props.skill.command)))
-const slugDraft = ref(props.skill.slug)
-const error = ref<string | null>(null)
-const saving = ref(false)
+const { slugDraft, error, saving, patch, rename } = useSkillEditing(() => props.skill, props.draft, (row) => emit('updated', row))
 const byId = computed(() => new Map(props.connections.map((c) => [c.id, c])))
 
-async function patch(p: SkillPatch) {
-  if (props.skill.note_id === null) return
-  saving.value = true
-  error.value = null
-  try {
-    const r = await api.updateSkill(props.skill.note_id, p)
-    emit('updated', r.skill)
-    slugDraft.value = r.skill.slug
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : t('common.unknown_error')
-  } finally {
-    saving.value = false
-  }
-}
-function rename() {
-  if (slugDraft.value.length > 64 || !SLUG_RE.test(slugDraft.value)) {
-    error.value = t('skills.panel.slug_invalid')
-    return
-  }
-  void patch({ slug: slugDraft.value })
-}
 function connectionName(id: number): string {
   const c = byId.value.get(id)
   return c ? c.display_name || c.label : String(id)
@@ -96,7 +70,7 @@ function connectionName(id: number): string {
             <p class="small text-muted" v-if="skill.status === 'pending'">{{ $t('skills.panel.pending_note') }}</p>
             <p class="skill-system-note" v-if="skill.kind === 'shipped'"><i class="fa-solid fa-lock" aria-hidden="true"></i>{{ $t('skills.panel.origin_shipped') }}</p>
 
-            <SkillConnections v-if="editable" class="skill-panel-section" :grants="skill.grants" :connections="connections" :disabled="saving || skill.status === 'pending'" @save="patch({ grants: $event })" />
+            <SkillConnections v-if="editable" class="skill-panel-section" :grants="skill.grants" :connections="connections" :draft="draft" :disabled="saving || skill.status === 'pending'" @save="patch({ grants: $event })" />
 
             <div class="skill-setup-columns">
               <section class="skill-setup-column skill-alias-section">

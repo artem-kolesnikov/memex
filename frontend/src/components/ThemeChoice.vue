@@ -2,13 +2,12 @@
 // The two themes as pictures of themselves, chosen with a radio. One control
 // for the first-run wizard and Settings › General, so the two cannot drift.
 import { useTheme, type Theme } from '@/lib/theme'
-import WizardIcon from '@/components/welcome/WizardIcon.vue'
 
 const { theme, set: setTheme } = useTheme()
 
-const THEMES: { id: Theme; labelKey: string; subKey: string; icon: string }[] = [
-  { id: 'light', labelKey: 'general.themes.sunrise', subKey: 'general.themes.light_kind', icon: 'sun' },
-  { id: 'dark', labelKey: 'general.themes.midnight', subKey: 'general.themes.dark_kind', icon: 'moon' },
+const THEMES: { id: Theme; labelKey: string; subKey: string }[] = [
+  { id: 'light', labelKey: 'general.themes.sunrise', subKey: 'general.themes.light_kind' },
+  { id: 'dark', labelKey: 'general.themes.midnight', subKey: 'general.themes.dark_kind' },
 ]
 </script>
 
@@ -25,9 +24,9 @@ const THEMES: { id: Theme; labelKey: string; subKey: string; icon: string }[] = 
         </span>
       </span>
       <span class="mm-wiz-theme-caption">
-        <WizardIcon :name="option.icon" />{{ $t(option.labelKey) }}<small>{{ $t(option.subKey) }}</small>
-        <span class="mm-wiz-radio-dot" aria-hidden="true"></span>
+        <span class="mm-wiz-radio-dot" aria-hidden="true"></span>{{ $t(option.labelKey) }}
       </span>
+      <span class="mm-choice-kind">{{ $t(option.subKey) }}</span>
     </label>
   </div>
 </template>

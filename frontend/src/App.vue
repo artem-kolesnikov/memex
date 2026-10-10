@@ -16,8 +16,8 @@ import PresetDialog from '@/components/PresetDialog.vue'
 import { toastError } from '@/components/toastService'
 import { useAuthStore } from '@/stores/auth'
 import { useInboxStore } from '@/stores/inbox'
-import { useLayoutStore } from '@/stores/layout'
-import PaneToggle from '@/components/PaneToggle.vue'
+import { LIST_WIDTH_DEFAULT, useLayoutStore } from '@/stores/layout'
+import { DIALOG_ROUTES, providePageRoute } from '@/lib/pageRoute'
 import ShellTools from '@/components/ShellTools.vue'
 import { useWelcomeStore } from '@/stores/welcome'
 import { presetQuery, routeCriteria, sameCriteria, usePresetStore } from '@/stores/presets'
@@ -64,17 +64,18 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const sidebarLabel = computed(() => (layout.sidebarCollapsed ? t('app.shell.expand_sidebar') : t('app.shell.collapse_sidebar')))
 
 const showChrome = computed(() => route.name !== 'login' && auth.user !== null)
 
-// Settings is a dialog rather than a destination, so the stage keeps showing a
-// page while it is open. Only the routes that read nothing from the URL can
-// stand in for one: with Settings matched, `useRoute()` hands them its params,
-// and these answer that with their own defaults instead of a wrong fetch.
-const SETTINGS_BACKDROP_ROUTES = ['search', 'inbox', 'activity']
-// The first-run wizard is the second dialog rendered this way: a new account
+// Settings and the Activity log are dialogs rather than destinations, so the
+// stage keeps showing a page while one is open. Only the pages that read their
+// address through `usePageRoute()` can stand in for one: with a dialog matched,
+// `useRoute()` would hand them its params and they would fetch the wrong thing.
+const SETTINGS_BACKDROP_ROUTES = ['search', 'inbox', 'skills', 'note', 'note-edit', 'note-new']
+// The first-run wizard is the third dialog rendered this way: a new account
 // is sent to it before it has seen any page, so the backdrop is the notes list.
-const isSettings = computed(() => route.name === 'settings' || route.name === 'welcome')
+const isDialog = computed(() => DIALOG_ROUTES.includes(String(route.name)))
 // Empty until a page worth drawing has been visited. NOT resolved here: the
 // notes list is inside the reader's own knowledge base, and at setup there is
 // no session yet to say which — resolving would throw for a missing handle.
@@ -82,28 +83,52 @@ const isSettings = computed(() => route.name === 'settings' || route.name === 'w
 // of Settings drew the not-found page behind it.
 const backdropPath = ref('')
 const backdropView = shallowRef<Component | null>(null)
+// The address the open dialog stands over, which closing it returns to.
+let underDialog = ''
 
+// The page under a dialog is the page that was showing, kept mounted rather
+// than drawn again: it holds what the reader had open — a note in the reading
+// frame, a review, a search. Its component is taken as the route arrives, so
+// the dialog opening finds the same component already in place.
+const backdropRoute = shallowRef<typeof router.currentRoute.value | null>(null)
 watch(
-  () => route.fullPath,
-  () => {
-    if (SETTINGS_BACKDROP_ROUTES.includes(String(route.name))) backdropPath.value = route.fullPath
+  () => router.currentRoute.value,
+  (current) => {
+    if (!SETTINGS_BACKDROP_ROUTES.includes(String(current.name))) return
+    backdropPath.value = current.fullPath
+    backdropRoute.value = current
+    const held = current.matched[current.matched.length - 1]?.components?.default
+    if (held !== undefined && typeof held !== 'function') backdropView.value = held as Component
   },
   { immediate: true },
 )
 
+// What the page reads as its route: its own while a dialog is over it.
+const pageRoute = computed(() =>
+  isDialog.value && backdropRoute.value !== null ? backdropRoute.value : router.currentRoute.value,
+)
+providePageRoute(pageRoute)
+
 // The record still holds the import function until the router has visited that
 // route once, and RouterView is not in play here to resolve it.
 watch(
-  isSettings,
+  isDialog,
   async (open) => {
     if (!open) return
+    underDialog = backdropPath.value
     // The LAST matched record, not the first: every page is nested inside the
     // handle route, whose record is a grouping with no component of its own, so
     // matched[0] resolved to undefined and the backdrop went blank.
     // By now there is a session, so the notes list has an address to fall back
     // on: Settings is only reachable signed in.
+    if (backdropView.value !== null && backdropPath.value) return
     const path = backdropPath.value || router.resolve({ name: 'search' }).fullPath
-    const matched = router.resolve(path).matched
+    const resolved = router.resolve(path)
+    // A dialog opened by its address has no page under it yet: the notes list
+    // stands in, reading its own address and not the dialog's, which it would
+    // otherwise rewrite as a search it does not understand.
+    if (backdropRoute.value === null) backdropRoute.value = resolved as typeof router.currentRoute.value
+    const matched = resolved.matched
     const held = matched[matched.length - 1]?.components?.default
     if (typeof held !== 'function') {
       backdropView.value = (held as Component) ?? null
@@ -139,6 +164,89 @@ const footerLinks = editions.flatMap((edition) => edition.footerLinks ?? [])
 // (operator, 2026-08-23). See stores/inbox.ts.
 const inbox = useInboxStore()
 const layout = useLayoutStore()
+
+/**
+ * Frames: with Framed chosen (Preferences › Layout), or Dynamic on a stage wide
+ * enough, a list page is two frames — the page's list, and beside it whatever
+ * the page opens from it, which the page sends to `#app-frame-detail`. The
+ * stage stops scrolling and keeps only its header above them. Otherwise every
+ * page is the page it always was.
+ */
+const FRAMED_ROUTES = ['search', 'inbox', 'skills']
+const LIST_MIN = 320
+const READING_MIN = 600
+const READING_COLUMN_MIN = 820
+const stageEl = ref<HTMLElement | null>(null)
+const stageWidth = ref(0)
+let stageObserver: ResizeObserver | null = null
+
+const framed = computed(
+  () => layout.framesEnabled
+    && FRAMED_ROUTES.includes(String(pageRoute.value.name)),
+)
+// Too narrow for a column beside what it shows: the reading frame stacks it.
+const readingNarrow = computed(() => stageWidth.value - layout.frameWidth - 1 < READING_COLUMN_MIN)
+
+/** The dragged width, held inside what the window leaves the reading frame.
+ *  A window narrower than both minimums, framed because the reader chose
+ *  Framed, shares itself between them instead. */
+function fitListWidth(width: number): number {
+  const stage = stageWidth.value
+  if (stage === 0) return width
+  const listMin = Math.min(LIST_MIN, stage * 0.4)
+  const readingMin = Math.min(READING_MIN, stage * 0.6)
+  return Math.round(Math.max(listMin, Math.min(width, stage - readingMin)))
+}
+
+watch(stageWidth, (width) => { layout.stageWidth = width })
+watch(framed, (on) => { layout.framed = on }, { immediate: true })
+watch([() => layout.listWidth, stageWidth], () => { layout.frameWidth = fitListWidth(layout.listWidth) }, { immediate: true })
+
+watch(stageEl, (el) => {
+  stageObserver?.disconnect()
+  stageObserver = null
+  if (!el) return
+  stageObserver = new ResizeObserver((entries) => { stageWidth.value = entries[0]?.contentRect.width ?? 0 })
+  stageObserver.observe(el)
+})
+onUnmounted(() => stageObserver?.disconnect())
+
+// The divider between the frames: dragged, or moved with the arrow keys, and
+// back to the default width on a double click.
+const resizing = ref(false)
+
+function startResize(event: PointerEvent) {
+  const handle = event.currentTarget as HTMLElement
+  const left = handle.parentElement?.getBoundingClientRect().left ?? 0
+  if (event.button !== 0) return
+  event.preventDefault()
+  handle.focus()
+  handle.setPointerCapture(event.pointerId)
+  resizing.value = true
+  const move = (e: PointerEvent) => layout.setListWidth(fitListWidth(e.clientX - left), false)
+  const end = () => {
+    handle.removeEventListener('pointermove', move)
+    handle.removeEventListener('pointerup', end)
+    handle.removeEventListener('pointercancel', end)
+    resizing.value = false
+    layout.setListWidth(layout.frameWidth, true)
+  }
+  handle.addEventListener('pointermove', move)
+  handle.addEventListener('pointerup', end)
+  handle.addEventListener('pointercancel', end)
+}
+
+function nudgeResize(event: KeyboardEvent) {
+  if (event.key === 'Home') { event.preventDefault(); resetResize(); return }
+  const step = { ArrowLeft: -16, ArrowRight: 16 }[event.key]
+  if (step === undefined) return
+  event.preventDefault()
+  layout.setListWidth(fitListWidth(layout.frameWidth + step), true)
+}
+
+function resetResize() {
+  layout.setListWidth(fitListWidth(LIST_WIDTH_DEFAULT), true)
+}
 const refreshInbox = () => {
   inbox.refresh()
 }
@@ -155,7 +263,8 @@ onUnmounted(() => clearInterval(inboxTimer))
 
 // The WORKSPACE is where the work happens; the ACCOUNT menu is the things you
 // do to your memex rather than in it. The map is a view of Notes, not a place
-// of its own (operator, 2026-09-26); the activity log is in the header.
+// of its own (operator, 2026-09-26); the activity log is in the account menu,
+// a dialog over the page (operator, 2026-10-10).
 const WORKSPACE_LINKS = [
   { name: 'search', labelKey: 'app.nav.notes', icon: 'fa-solid fa-file-lines' },
   { name: 'skills', labelKey: 'app.nav.skills', icon: 'fa-solid fa-graduation-cap' },
@@ -237,6 +346,7 @@ const CONNECT_LINK = { name: 'settings', params: { pane: 'connections' }, hash: 
 const ACCOUNT_LINKS = [
   { key: 'personalization', to: { name: 'settings', params: { pane: 'personalization' } }, labelKey: 'app.nav.personalization', icon: 'fa-solid fa-user-pen' },
   { key: 'connect', to: CONNECT_LINK, labelKey: 'app.nav.connect', icon: 'fa-solid fa-plug' },
+  { key: 'activity', to: { name: 'activity' }, labelKey: 'app.nav.activity', icon: 'fa-solid fa-clock-rotate-left' },
   { key: 'settings', to: { name: 'settings' }, labelKey: 'app.nav.settings', icon: 'fa-solid fa-gear' },
 ] as const
 
@@ -251,7 +361,7 @@ const refreshConnected = () => {
 }
 const unconnected = computed(() => welcome.facts !== null && !welcome.facts.connected)
 watch(() => auth.user?.team.handle, refreshConnected, { immediate: true })
-watch(isSettings, (open, was) => {
+watch(isDialog, (open, was) => {
   if (was && !open) refreshConnected()
 })
 const onVisible = () => {
@@ -276,14 +386,18 @@ watch(
     // The stage is the scroll container now, so arriving at a route has to
     // put it back at the top — the window scroll a browser would reset is no
     // longer the one anybody is looking at. A change of hash alone is a place
-    // on the same page, which the page scrolls to itself.
+    // on the same page, which the page scrolls to itself. Closing a dialog
+    // returns to the page that stayed under it, where the reader left it.
     const samePage = to.path === from.path && JSON.stringify(to.query) === JSON.stringify(from.query)
-    if (!isSettings.value && !samePage) document.querySelector('.app-stage')?.scrollTo({ top: 0 })
+    const fromDialog = DIALOG_ROUTES.includes(String(from.name)) && to.fullPath === underDialog
+    if (!isDialog.value && !samePage && !fromDialog) document.querySelector('.app-stage')?.scrollTo({ top: 0 })
   },
 )
 
+// Escape closes one thing: a menu it closes here is not also the reading frame.
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
+  if (menuOpen.value || accountOpen.value || presetMenu.value !== null) event.preventDefault()
   menuOpen.value = false
   accountOpen.value = false
   presetMenu.value = null
@@ -354,13 +468,12 @@ async function logout() {
 
     <div class="app-scrim" v-if="menuOpen" @click="menuOpen = false"></div>
 
-    <aside class="app-sidebar" :aria-label="$t('app.shell.primary_navigation')" @scroll="presetMenu = null">
+    <aside id="app-sidebar" class="app-sidebar" :aria-label="$t('app.shell.primary_navigation')" @scroll="presetMenu = null">
       <div class="app-sidebar-head">
         <router-link class="app-brand" :to="{ name: 'search' }" :aria-label="$t('app.shell.home')">
           <BrandMark class="app-brand-mark" />
           <span class="app-brand-word">{{ $t('app.brand.word') }}</span>
         </router-link>
-        <PaneToggle pane="sidebar" />
       </div>
 
       <nav class="app-nav" :aria-label="$t('app.shell.workspace')">
@@ -462,30 +575,54 @@ async function logout() {
       </div>
     </aside>
 
-    <div class="app-stage">
+    <div ref="stageEl" class="app-stage" :class="{ 'is-framed': framed }"
+         :style="framed ? { '--app-list-width': `${layout.frameWidth}px` } : undefined">
       <header class="app-stage-head container">
+        <button type="button" class="app-segment-button app-sidebar-toggle" aria-controls="app-sidebar"
+                :aria-expanded="!layout.sidebarCollapsed" :aria-label="sidebarLabel" :title="sidebarLabel"
+                @click="layout.toggleSidebar()">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
         <ShellTools />
       </header>
-      <main class="flex-grow-1">
-        <div v-if="auth.logoutError" class="app-notice app-notice-danger app-logout-error" role="alert">
-          <span>{{ $t('app.shell.sign_out_failed') }} {{ auth.logoutError }}</span>
-          <button type="button" class="btn btn-sm btn-secondary" :disabled="auth.loggingOut" @click="logout">{{ $t('common.retry') }}</button>
+      <main class="flex-grow-1" :class="{ 'app-frames': framed }">
+        <div id="app-frame-list" class="app-page" :class="{ 'app-frame app-frame-list': framed }">
+          <div v-if="auth.logoutError" class="app-notice app-notice-danger app-logout-error" role="alert">
+            <span>{{ $t('app.shell.sign_out_failed') }} {{ auth.logoutError }}</span>
+            <button type="button" class="btn btn-sm btn-secondary" :disabled="auth.loggingOut" @click="logout">{{ $t('common.retry') }}</button>
+          </div>
+          <RouterView v-slot="{ Component }">
+            <component :is="isDialog ? backdropView : Component" />
+            <component :is="Component" v-if="isDialog" />
+          </RouterView>
         </div>
-        <component :is="backdropView" v-if="isSettings && backdropView !== null" />
-        <RouterView />
+        <div v-if="framed" class="app-frame-divider" :class="{ 'is-dragging': resizing }" role="separator" tabindex="0"
+             aria-orientation="vertical" :aria-valuemin="fitListWidth(0)" :aria-valuemax="fitListWidth(Number.MAX_SAFE_INTEGER)"
+             :aria-valuenow="layout.frameWidth" :aria-valuetext="$t('frames.width', { width: layout.frameWidth })"
+             :title="$t('frames.resize_help')" aria-controls="app-frame-list app-frame-detail" :aria-label="$t('search.pane.resize')"
+             @pointerdown="startResize" @keydown="nudgeResize" @dblclick="resetResize"></div>
+        <!-- Keep the teleport destinations mounted across layout changes. -->
+        <div v-show="framed" class="app-frame app-frame-column">
+          <section id="app-frame-detail" class="app-frame-reading" tabindex="-1" :aria-label="$t('frames.detail')" :class="{ 'is-narrow': readingNarrow }"></section>
+          <div id="app-frame-foot" class="app-frame-foot"></div>
+        </div>
+
       </main>
 
-      <footer class="footer py-3">
-        <div class="container d-flex flex-wrap justify-content-between gap-2">
-          <span class="text-muted small">{{ $t('app.footer.copyright', { year: currentYear }) }}</span>
-          <span class="text-muted small">
-            <template v-for="(link, i) in footerLinks" :key="link.href">
-              <span v-if="i > 0" class="mx-1">|</span>
-              <a :href="link.href">{{ $t(link.labelKey) }}</a>
-            </template>
-          </span>
-        </div>
-      </footer>
+      <!-- In frames the footer closes the third frame, under what it shows. -->
+      <Teleport defer to="#app-frame-foot" :disabled="!framed">
+        <footer class="footer" :class="framed ? 'app-frame-footer' : 'py-3'">
+          <div class="container d-flex flex-wrap justify-content-between gap-2">
+            <span class="text-muted small">{{ $t('app.footer.copyright', { year: currentYear }) }}</span>
+            <span class="text-muted small">
+              <template v-for="(link, i) in footerLinks" :key="link.href">
+                <span v-if="i > 0" class="mx-1">|</span>
+                <a :href="link.href">{{ $t(link.labelKey) }}</a>
+              </template>
+            </span>
+          </div>
+        </footer>
+      </Teleport>
     </div>
   </div>
 

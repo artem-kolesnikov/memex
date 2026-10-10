@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, toRef, watch } from 'vue'
 import type { SkillConnection } from '@/api/client'
+import type { SkillDraft } from './skillEditing'
 
-const props = defineProps<{ grants: number[]; connections: SkillConnection[]; disabled: boolean }>()
+const props = defineProps<{ grants: number[]; connections: SkillConnection[]; disabled: boolean; draft: SkillDraft }>()
 const emit = defineEmits<{ save: [grants: number[]] }>()
-const all = ref(true)
-const selected = ref<number[]>([])
+const all = toRef(props.draft, 'all')
+const selected = toRef(props.draft, 'grants')
+// Saved grants replace the draft; the draft itself outlives this component.
 watch(() => props.grants, (grants) => {
   all.value = grants.length === 0
   selected.value = [...grants]
-}, { immediate: true })
+})
 const changed = computed(() => all.value !== (props.grants.length === 0) || (!all.value && [...selected.value].sort().join() !== [...props.grants].sort().join()))
 function choose(id: number, checked: boolean) {
   if (all.value) selected.value = props.connections.map(c => c.id)

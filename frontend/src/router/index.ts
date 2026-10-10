@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useLayoutStore } from '@/stores/layout'
 
 // Every page of the app lives inside the knowledge base it belongs to. There
 // is no handle-less spelling of any of them: note numbers restart at 1 per
@@ -156,6 +157,17 @@ router.beforeEach(async (to) => {
   // and nothing else — no request is made about the one in the URL, so this
   // says only "not yours" and cannot tell anybody which handles exist.
   if (asked !== '' && asked !== handle) return { name: 'search', params: { handle } }
+
+  // In frames (Preferences › Appearance) a note, its editor and a new note all
+  // open in the notes list's reading frame, whichever page linked to them: a
+  // reader who chose frames is not dropped onto a full page by a link.
+  if (useLayoutStore().framesEnabled) {
+    if (to.name === 'note') return { name: 'search', params: { handle }, query: { open: String(to.params.id) } }
+    if (to.name === 'note-edit') return { name: 'search', params: { handle }, query: { edit: String(to.params.id) } }
+    if (to.name === 'note-new') {
+      return { name: 'search', params: { handle }, query: to.query.skill === '1' ? { edit: 'new', skill: '1' } : { edit: 'new' } }
+    }
+  }
 
   // No branch for a MISSING handle: there is nowhere one can arrive from. A
   // named push has it filled in by `withHandle` before resolution, and

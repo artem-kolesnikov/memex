@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { useFrameNavigation } from '@/lib/frameNavigation'
 // The notes list: search input-group + inline facets + active chips; one row
-// per note with a select checkbox; result count + per-page; pagination
-// footer; sticky export bar for the selection.
+// per note with a select checkbox, read on as the reader scrolls; sticky
+// export bar for the selection.
 //
 // And the same notes as a map: a second view of one search, not a page of its
 // own (operator, 2026-09-26). The search, tags and status stay where they are
 // and dim whatever they leave out; only the box beneath them changes.
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import MultiSelect from 'primevue/multiselect'
 import { api, type NoteListItem, type TagRef } from '@/api/client'
@@ -19,10 +20,17 @@ import PresetDialog from '@/components/PresetDialog.vue'
 import SearchHelpDialog from '@/components/SearchHelpDialog.vue'
 import NotesMap from '@/components/NotesMap.vue'
 import { formatDate } from '@/lib/datetime'
+import { useLayoutStore } from '@/stores/layout'
+import { usePageRoute } from '@/lib/pageRoute'
 
-const route = useRoute()
+const NoteView = defineAsyncComponent(() => import('@/views/NoteView.vue'))
+const NoteEditView = defineAsyncComponent(() => import('@/views/NoteEditView.vue'))
+const NotesMapDialog = defineAsyncComponent(() => import('@/components/NotesMapDialog.vue'))
+
+const route = usePageRoute()
 const router = useRouter()
 const { t } = useI18n()
+const layout = useLayoutStore()
 
 const loading = ref(true)
 const items = ref<NoteListItem[]>([])
@@ -32,8 +40,16 @@ const semanticUnavailable = ref(false)
 // The applied query carried OR, NOT or a phrase, so an empty result is the
 // answer to that expression and not a search that fell short.
 const keywordOnly = ref(false)
-const page = ref(1)
-const perPage = ref(50)
+// The list is read 50 notes at a time, the next 50 as the reader scrolls to
+// the end of what is loaded: no pages to step through.
+const PAGE_SIZE = 50
+const loadedPages = ref(0)
+const loadingMore = ref(false)
+// Reading on stops at a page that failed, until Retry, and at one that brought
+// nothing new, which a note written while the reader scrolls can leave short.
+const moreFailed = ref(false)
+const listEnded = ref(false)
+const sentinel = ref<HTMLElement | null>(null)
 const selected = ref<Set<number>>(new Set())
 
 type View = 'list' | 'map'
@@ -113,10 +129,6 @@ const statusOptions = [
   { labelKey: 'search.status.flagged', value: STATUS_FLAGGED },
   { labelKey: 'search.status.undescribed', value: STATUS_UNDESCRIBED },
 ]
-const totalPages = computed(() => Math.ceil(total.value / perPage.value))
-const pageRangeStart = computed(() => (total.value ? (page.value - 1) * perPage.value + 1 : 0))
-const pageRangeEnd = computed(() => Math.min(page.value * perPage.value, total.value))
-const onLastPage = computed(() => page.value >= totalPages.value)
 
 interface Chip {
   key: string
@@ -202,7 +214,6 @@ function clearAllCriteria() {
 
 async function applyCriteria() {
   appliedQuery.value = query.value.trim()
-  page.value = 1
   syncUrl()
   await reload()
 }
@@ -274,7 +285,13 @@ function syncUrl() {
   // pressing Search twice.
   if (JSON.stringify(next) === JSON.stringify(currentUrlCriteria())) return
 
-  router.replace({ query: next })
+  // Whatever the reading frame holds stays there across a new search.
+  const kept: Record<string, string[]> = {}
+  for (const key of ['open', 'edit']) {
+    const values = queryValues(key)
+    if (values.length) kept[key] = values
+  }
+  router.replace({ query: { ...next, ...kept } })
 }
 
 /**
@@ -302,11 +319,8 @@ function currentUrlCriteria(): Record<string, string[]> {
   return current
 }
 
-async function reload() {
-  const requestId = ++reloadRequestId
-  loading.value = true
-  try {
-    const search = {
+function searchParams() {
+  return {
       q: appliedQuery.value || undefined,
       tags: criteria.value.tagIds.length ? criteria.value.tagIds : undefined,
       // "Flagged" occupies the status control but is not one: it must not be
@@ -319,19 +333,52 @@ async function reload() {
       flagged: criteria.value.status === STATUS_FLAGGED || undefined,
       undescribed: criteria.value.status === STATUS_UNDESCRIBED || undefined,
       added_by: criteria.value.addedBy ?? undefined,
-    }
+  }
+}
+
+function merged(lists: NoteListItem[][]): NoteListItem[] {
+  const seen = new Set<number>()
+  return lists.flat().filter((note) => {
+    if (seen.has(note.id)) return false
+    seen.add(note.id)
+    return true
+  })
+}
+
+/**
+ * A new search starts at the top. A refresh after a change (a save, a delete,
+ * an approval) reads again as much as was loaded, so the reader keeps their
+ * place in the list.
+ */
+async function reload(keep = false) {
+  const requestId = ++reloadRequestId
+  loading.value = !keep
+  moreFailed.value = false
+  listEnded.value = false
+  try {
+    const search = searchParams()
     if (view.value === 'map') {
       const found = await api.matchingNoteIds(search)
       if (requestId !== reloadRequestId) return
       mapIds.value = found.ids
-      total.value = found.ids.length
-      semanticUnavailable.value = found.semantic_unavailable
-      keywordOnly.value = found.keyword_only
-      return
+      // In frames the map is a dialog over the list, which still needs its page.
+      if (!framed.value) {
+        total.value = found.ids.length
+        semanticUnavailable.value = found.semantic_unavailable
+        keywordOnly.value = found.keyword_only
+        return
+      }
     }
-    const result = await api.searchNotes({ ...search, page: page.value, per_page: perPage.value })
+    const pages = keep ? Math.max(1, loadedPages.value) : 1
+    const results = await Promise.all(Array.from({ length: pages }, (_, i) =>
+      api.searchNotes({ ...search, page: i + 1, per_page: PAGE_SIZE })))
     if (requestId !== reloadRequestId) return
-    items.value = result.items
+    const result = results[results.length - 1]!
+    items.value = merged(results.map((r) => r.items))
+    // A note the change took out of the list leaves the selection with it:
+    // what is selected is what is shown.
+    if (keep) selected.value = new Set([...selected.value].filter((id) => items.value.some((n) => n.id === id)))
+    loadedPages.value = pages
     total.value = result.total
     semanticUnavailable.value = result.semantic_unavailable
     keywordOnly.value = result.keyword_only
@@ -349,18 +396,45 @@ async function reload() {
   }
 }
 
-watch(page, reload)
-watch(perPage, () => {
-  page.value = 1
-  reload()
-})
-
-function goToPage(n: number) {
-  const p = Math.min(Math.max(1, Math.floor(n)), totalPages.value || 1)
-  if (!isNaN(p) && p !== page.value) {
-    page.value = p
+async function loadMore() {
+  if (loading.value || loadingMore.value || moreFailed.value || listEnded.value || items.value.length >= total.value) return
+  const requestId = reloadRequestId
+  loadingMore.value = true
+  try {
+    const result = await api.searchNotes({ ...searchParams(), page: loadedPages.value + 1, per_page: PAGE_SIZE })
+    if (requestId !== reloadRequestId) return
+    const before = items.value.length
+    items.value = merged([items.value, result.items])
+    loadedPages.value += 1
+    total.value = result.total
+    if (items.value.length === before) listEnded.value = true
+  } catch (e) {
+    if (requestId === reloadRequestId) {
+      moreFailed.value = true
+      toastError(t('search.load_failed'), e instanceof Error ? e.message : t('common.unknown_error'))
+    }
+  } finally {
+    loadingMore.value = false
+    // Watched afresh, so a sentinel still in view after a short page asks
+    // for the next one at once.
+    if (sentinel.value !== null && !moreFailed.value && !listEnded.value) {
+      moreObserver?.unobserve(sentinel.value)
+      moreObserver?.observe(sentinel.value)
+    }
   }
 }
+
+let moreObserver: IntersectionObserver | null = null
+onMounted(() => {
+  moreObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) void loadMore()
+  })
+})
+onBeforeUnmount(() => moreObserver?.disconnect())
+watch(sentinel, (el, old) => {
+  if (old) moreObserver?.unobserve(old)
+  if (el) moreObserver?.observe(el)
+})
 
 function toggleSelected(id: number) {
   const next = new Set(selected.value)
@@ -370,6 +444,11 @@ function toggleSelected(id: number) {
     next.add(id)
   }
   selected.value = next
+}
+
+function retryMore() {
+  moreFailed.value = false
+  void loadMore()
 }
 
 function selectAll() {
@@ -458,13 +537,107 @@ watch(
     addedByName.value = ''
     query.value = ''
     appliedQuery.value = ''
-    page.value = 1
     await readUrl(requestId)
     if (requestId !== readRequestId) return
     syncUrl()
     await reload()
   },
 )
+
+/**
+ * The reading pane: with Preferences › Appearance's switch on and a stage wide
+ * enough for both, the list and the note open in it are two frames side by
+ * side, each scrolling on its own. Narrower, or with the switch off, this is
+ * the page it always was and a row opens the note page.
+ *
+ * `?open=` names the note being read and `?edit=` the one being written (`new`
+ * for a new one), so a reload or a copied address reopens either. Moving
+ * between them replaces the address rather than pushing it, for the reason
+ * `syncUrl()` gives: Back leaves the list, it does not walk through every note
+ * read in it.
+ */
+const framed = computed(() => layout.framed)
+
+type FrameContent = { kind: 'read'; id: number } | { kind: 'edit'; id: number | null }
+
+function noteIdFrom(raw: string | undefined): number | null {
+  const id = raw === undefined ? Number.NaN : Number.parseInt(raw, 10)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+const frame = computed<FrameContent | null>(() => {
+  const [edit] = queryValues('edit')
+  if (edit === 'new') return { kind: 'edit', id: null }
+  const editing = noteIdFrom(edit)
+  if (editing !== null) return { kind: 'edit', id: editing }
+  const reading = noteIdFrom(queryValues('open')[0])
+  return reading === null ? null : { kind: 'read', id: reading }
+})
+const openId = computed(() => frame.value?.id ?? null)
+
+function showInFrame(wanted: Record<string, string>) {
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['open', 'edit', 'skill'].includes(key)))
+  router.replace({ query: { ...rest, ...wanted } })
+}
+
+function openInPane(id: number) {
+  showInFrame({ open: String(id) })
+}
+
+function editInPane(id: number | null) {
+  showInFrame({ edit: id === null ? 'new' : String(id) })
+}
+
+function closePane() {
+  showInFrame({})
+}
+
+function onSaved(id: number) {
+  void reload(true)
+  openInPane(id)
+}
+
+function onEditCancelled() {
+  const current = frame.value
+  if (current?.kind === 'edit' && current.id !== null) openInPane(current.id)
+  else closePane()
+}
+
+function onDeleted() {
+  void reload(true)
+  closePane()
+}
+
+/** A note opened from the map dialog: the dialog closes and the note is in the reading frame. */
+async function openFromMap(id: number) {
+  view.value = 'list'
+  router.replace({ query: { ...Object.fromEntries(Object.entries(route.query).filter(([key]) => key !== 'view' && key !== 'note' && key !== 'edit')), open: String(id) } })
+}
+
+/** New note, in the reading frame when there is one. */
+function newNote(event: MouseEvent, navigate: (e?: MouseEvent) => unknown) {
+  if (framed.value && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault()
+    editInPane(null)
+    return
+  }
+  void navigate(event)
+}
+
+/** A plain click opens the reading frame; a click meant for a new tab or window is the browser's. */
+function openRow(event: MouseEvent, navigate: (e?: MouseEvent) => unknown, id: number) {
+  if (framed.value && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault()
+    openInPane(id)
+    return
+  }
+  void navigate(event)
+}
+
+useFrameNavigation(() => frame.value ? `${frame.value.kind}:${frame.value.id}` : null, () => {
+  if (frame.value?.kind === 'edit') onEditCancelled()
+  else closePane()
+})
 
 async function readUrl(requestId: number) {
   // `?tag=name` preselects the filter, so anywhere in the app can link to
@@ -538,21 +711,27 @@ async function readUrl(requestId: number) {
 </script>
 
 <template>
-  <div class="container" :class="{ 'mm-has-report-bar': selected.size > 0 && view === 'list' }">
+  <div v-show="framed || !frame" class="container app-notes" :class="{ 'mm-has-report-bar': selected.size > 0 && view === 'list' }">
     <header class="app-page-head d-flex align-items-center justify-content-between flex-wrap gap-3">
       <div>
         <div class="app-title-line">
           <h1>{{ $t('search.title') }}</h1>
-          <nav class="app-segmented mm-notes-views" :aria-label="$t('search.view.label')">
+          <nav v-if="!framed" class="app-segmented mm-notes-views" :aria-label="$t('search.view.label')">
             <button v-for="v in VIEWS" :key="v.key" type="button" class="app-segment"
                     :class="{ 'is-active': view === v.key }" :aria-pressed="view === v.key"
                     :title="$t(v.labelKey)" :aria-label="$t(v.labelKey)" @click="showView(v.key)">
               <i :class="v.icon" aria-hidden="true"></i>
             </button>
           </nav>
-          <router-link class="btn btn-primary" :to="{ name: 'note-new' }">
-            <i class="fa-solid fa-plus me-1"></i> {{ $t('search.new_note') }}
+          <router-link v-slot="{ href, navigate }" custom :to="{ name: 'note-new' }">
+            <a class="btn btn-primary" :href="href" @click="newNote($event, navigate)">
+              <i class="fa-solid fa-plus me-1"></i> {{ $t('search.new_note') }}
+            </a>
           </router-link>
+          <button v-if="framed" type="button" class="btn btn-outline-secondary mm-map-open" :title="$t('search.view.map')"
+                  :aria-label="$t('search.view.map')" @click="showView('map')">
+            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
+          </button>
         </div>
         <p class="app-page-lede" v-if="total">{{ $t('search.notes_in_memex', total) }}</p>
       </div>
@@ -605,7 +784,7 @@ async function readUrl(requestId: number) {
     </div>
 
     <!-- Active filter chips -->
-    <div class="d-flex align-items-center flex-wrap mb-2" style="gap: .4rem;" v-if="activeChips.length">
+    <div class="app-notes-chips d-flex align-items-center flex-wrap mb-2" style="gap: .4rem;" v-if="activeChips.length">
       <span class="small text-muted">{{ $t('search.active') }}</span>
       <span v-for="chip in activeChips" :key="chip.key" class="badge mm-chip">
         {{ chip.label }}
@@ -617,7 +796,7 @@ async function readUrl(requestId: number) {
       <a href="javascript:void(0)" class="small ms-1" @click="clearAllCriteria">{{ $t('search.clear_all') }}</a>
     </div>
 
-    <NotesMap v-if="view === 'map'" :filter-ids="mapFilter" :notice="mapNotice" :searching="loading"
+    <NotesMap v-if="view === 'map' && !framed" :filter-ids="mapFilter" :notice="mapNotice" :searching="loading"
               @clear-filters="clearAllCriteria" @tag="filterByTag" />
 
     <template v-else-if="loading">
@@ -633,9 +812,9 @@ async function readUrl(requestId: number) {
     </template>
 
     <template v-else>
-      <div class="row mt-2 mb-4" v-if="items.length">
+      <div class="row app-note-scroll" :class="{ 'mt-2 mb-4': !framed }" v-if="items.length">
         <div class="col">
-          <div class="app-tray">
+          <div :class="{ 'app-tray': !framed }">
           <div class="app-note-list">
             <div class="app-note-list-head">
               <div class="dropdown">
@@ -648,7 +827,7 @@ async function readUrl(requestId: number) {
                 <ul class="dropdown-menu app-menu" aria-labelledby="dropdownSelect">
                   <li>
                     <a class="dropdown-item" href="javascript:void(0)" @click="selectAll">
-                      <i class="fa-regular fa-square-check fa-fw"></i>{{ $t('search.select_all_on_page') }}
+                      <i class="fa-regular fa-square-check fa-fw"></i>{{ $t('search.select_all_shown') }}
                     </a>
                   </li>
                   <li>
@@ -678,18 +857,21 @@ async function readUrl(requestId: number) {
             </div>
 
             <article v-for="note in items" :key="note.id" class="app-note-row"
-                     :class="{ 'is-selected': selected.has(note.id) }">
+                     :class="{ 'is-selected': selected.has(note.id), 'is-open': openId === note.id }">
               <label class="app-note-check">
-                <input type="checkbox" class="form-check-input" :checked="selected.has(note.id)" @change="toggleSelected(note.id)">
+                <input type="checkbox" class="form-check-input" :checked="selected.has(note.id)" :aria-label="$t('frames.select_note', { title: note.title })" @change="toggleSelected(note.id)">
               </label>
-              <router-link class="app-note-main" :to="{ name: 'note', params: { id: note.id } }">
-                <span class="app-note-title">
-                  <i v-if="statusMark(note)" class="app-note-mark"
-                     :class="[statusMark(note)!.icon, statusMark(note)!.cls]"
-                     :title="$t(statusMark(note)!.labelKey)"></i>{{ note.title }}
-                </span>
-                <span class="app-note-summary" v-if="note.summary">{{ note.summary }}</span>
-                <span class="app-note-summary app-note-summary-none" v-else>{{ $t('search.status.undescribed') }}</span>
+              <router-link v-slot="{ href, navigate }" custom :to="{ name: 'note', params: { id: note.id } }">
+                <a class="app-note-main" :title="framed ? note.title : undefined" :href="href" :aria-current="openId === note.id ? 'true' : undefined"
+                   @click="openRow($event, navigate, note.id)">
+                  <span class="app-note-title">
+                    <i v-if="statusMark(note)" class="app-note-mark"
+                       :class="[statusMark(note)!.icon, statusMark(note)!.cls]"
+                       :title="$t(statusMark(note)!.labelKey)"></i>{{ note.title }}
+                  </span>
+                  <span class="app-note-summary" v-if="note.summary">{{ note.summary }}</span>
+                  <span class="app-note-summary app-note-summary-none" v-else>{{ $t('search.status.undescribed') }}</span>
+                </a>
               </router-link>
               <div class="app-note-meta">
                 <span class="app-note-date">{{ formatDate(note.updated_at) }}</span>
@@ -699,40 +881,18 @@ async function readUrl(requestId: number) {
             </article>
           </div>
 
-          <footer class="app-tray-footer">
-            <span class="app-tray-range">{{ $t('search.showing', { from: pageRangeStart, to: pageRangeEnd, total }) }}</span>
-
-            <nav class="app-pagination" :aria-label="$t('search.pagination')" v-if="totalPages > 1">
-              <button class="btn btn-sm btn-outline-secondary" :disabled="page <= 1" @click="goToPage(page - 1)">
-                <i class="fa-solid fa-chevron-left"></i> {{ $t('search.prev') }}
-              </button>
-              <i18n-t keypath="search.page_of" tag="span" scope="global">
-                <template #page><strong>{{ page }}</strong></template>
-                <template #total>{{ totalPages }}</template>
-              </i18n-t>
-              <button class="btn btn-sm btn-outline-secondary" :disabled="onLastPage" @click="goToPage(page + 1)">
-                {{ $t('search.next') }} <i class="fa-solid fa-chevron-right"></i>
-              </button>
-              <label class="app-rows-control">
-                <span>{{ $t('search.go_to') }}</span>
-                <input type="number" min="1" :max="totalPages" class="form-control form-control-sm"
-                       :value="page" @change="goToPage(parseInt(($event.target as HTMLInputElement).value))">
-              </label>
-            </nav>
-
-            <label class="app-rows-control">
-              <span>{{ $t('search.rows') }}</span>
-              <select class="form-select form-select-sm" v-model.number="perPage" :aria-label="$t('search.rows_per_page')">
-                <option v-for="n in [25, 50, 100]" :key="n" :value="n">{{ n }}</option>
-              </select>
-              <span>{{ $t('search.per_page') }}</span>
-            </label>
-          </footer>
+          <div v-if="moreFailed" class="app-note-more">
+            <button type="button" class="btn btn-sm btn-secondary" @click="retryMore">{{ $t('common.retry') }}</button>
+          </div>
+          <div v-else-if="items.length < total && !listEnded" ref="sentinel" class="app-note-more" role="status">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            <span class="visually-hidden">{{ $t('search.loading') }}</span>
+          </div>
           </div>
         </div>
       </div>
 
-      <div class="row mt-2 mb-4" v-if="!items.length">
+      <div class="row app-note-scroll" :class="{ 'mt-2 mb-4': !framed }" v-if="!items.length">
         <div class="col">
           <!--
             There is deliberately no "degraded, and here are some results anyway"
@@ -766,6 +926,23 @@ async function readUrl(requestId: number) {
       </div>
     </template>
   </div>
+
+  <!-- Move the same reader/editor when Dynamic changes width; unmounting it
+       here would silently discard a draft. Closing reveals the retained list. -->
+  <Teleport v-if="framed || frame" defer to="#app-frame-detail" :disabled="!framed">
+    <div :class="framed ? 'app-frame-content' : 'container app-frame-single'">
+      <NoteEditView v-if="frame?.kind === 'edit'" :key="`edit-${frame.id ?? 'new'}`" :note-id="frame.id" in-pane
+                    @saved="onSaved" @cancel="onEditCancelled" @deleted="onDeleted" />
+      <NoteView v-else-if="frame?.kind === 'read'" :key="frame.id" :note-id="frame.id" in-pane
+                @close="closePane" @open="openInPane" @edit="editInPane" @changed="reload(true)" />
+      <div v-else class="app-frame-empty">
+        <i class="fa-solid fa-file-lines app-frame-empty-icon" aria-hidden="true"></i>
+        <p class="app-frame-empty-title">{{ $t('search.pane.empty') }}</p>
+      </div>
+    </div>
+  </Teleport>
+  <NotesMapDialog v-if="framed && view === 'map'" :filter-ids="mapFilter" :notice="mapNotice" :searching="loading"
+                  @clear-filters="clearAllCriteria" @tag="filterByTag" @open="openFromMap" @close="showView('list')" />
 
   <PresetDialog v-if="savingPreset" :preset="null" :initial="presetDraft" @close="savingPreset = false" />
   <SearchHelpDialog v-if="searchHelp" @close="searchHelp = false" />
