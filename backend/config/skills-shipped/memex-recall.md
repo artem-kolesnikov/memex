@@ -9,7 +9,8 @@ This knowledge base is its owner's memory, and it outranks yours. Ground yoursel
 # Read before you answer
 
 1. **`search`** — meaning and keywords together, across languages. With no `query` it lists notes by recency, which is how you browse a tag or enumerate everything; never pair a filler query with a tag filter, because the two are ANDed and the query will hide the tagged notes you asked for.
-2. **`get`** — the full note, plus its wiki-links and its backlinks. **Follow them.** A note is a position in a graph, and the neighbours are usually where the answer's context lives. A summary is a hint for deciding whether to open a note, never a substitute for reading it.
+2. **`get`** — the full note, plus its wiki-links and its backlinks. **Follow them.** A note is a position in a graph, and the neighbours are usually where the answer's context lives. A summary is a hint for deciding whether to open a note, never a substitute for reading it. A long note can be read in slices with `max_chars` and `body_next_offset`; never judge or summarise one from a partial read without saying which part you read.
+   - A **`curation_flag`** on a note is the owner saying what is wrong with it. Weigh it above your own reading of the text, and do not cite that note as settled.
 3. **`list_tags`** — the vocabulary, with counts. Read it before you invent a word.
 4. **About memex itself** — `get_skill("memex-guide")` is the current user guide. Answer questions about memex from it, not from memory.
 5. **About the owner** — their profile is the note tagged `user-profile`, named to you at connect time and found again with `search(tags: ["user-profile"])`. Read it before answering anything that depends on who they are or how they want to be answered, and before you write any note here: the boundaries it states apply to every note you write. A profile still pending is an assistant's proposal, not the owner's word, and is not in force. `get_skill("memex-profile")` says how to start one when asked, and when to propose a change to it.
@@ -22,10 +23,11 @@ If two notes contradict each other, say so in your answer rather than picking a 
 
 Everything you write is held for the owner unless your connection carries the curator role. That is the design, not an obstacle: it is what lets somebody hand an assistant their memory without handing over their judgment.
 
-- **`propose(title:, body_md:, summary:, tags:)`** — a new note. Search first, so you edit an existing note instead of creating its second copy.
+- **`propose(title:, body_md:, summary:, tags:)`** — a new note. Search first, so you edit an existing note instead of creating its second copy. Write the `summary` and the `tags` yourself, reusing the vocabulary: memex never describes what an assistant writes, so a note saved without them stays undescribed and untagged.
 - If `memex-writing` is in your skill list, load it before you write or edit a note.
 - **`propose(note_id:, patch: [...])`** — an edit. **Prefer `patch` to `body_md`.** Ordered `{find, replace}` operations, matched literally, each occurring exactly once: a three-sentence correction should not resend forty thousand characters, and a patch will not overwrite an edit somebody else filed while you were reading. `body_md` is for a genuine rewrite.
 - Always give a **`comment`** — why — and a short **`change_title`**, six or seven words. Those two are the whole of what the owner sees before deciding, so *"update note"* wastes the only glance you get.
+- **Read what comes back.** A saved note can carry `hints`: `duplicates` close to it (open both with `get`, and `propose_merge` a genuine twin), notes it names without linking, each with a ready `find`/`replace` for a patch, and vocabulary tags it is not filed under. Act on what is right and leave the rest; none of it is required. A write can also carry `cited_by`: notes that link to the one you changed. Read them and correct any your change made untrue.
 - **Record what you consulted.** Every assistant researches while it writes; the pages it used belong in the note it wrote. End the body with `## Sources`: one entry per link, what it is for, when to reread it. A heading and a list, not a field — `source_url` is where a note came from, *Sources* is what to consult next.
 
 **Do not file your working output here by reflex.** A draft, a research result, a document you produced for the conversation belongs in the conversation. It enters memex when the owner asks, or when it is knowledge somebody will need months from now. An inbox full of drafts costs more to filter than a save costs to request.
@@ -35,11 +37,17 @@ Everything you write is held for the owner unless your connection carries the cu
 If your work **changed a system this knowledge base describes** — you moved a host, rewrote a config, renamed a service, changed an endpoint, altered a deploy — then the notes describing it are now wrong, and you are the only one who knows it.
 
 - You know what replaces it: `propose(note_id:, patch: [{find: <the sentence that is now wrong>, replace: <what it should say>}], comment: <what changed>)`.
-- You know it is stale but not what replaces it: say exactly that in a `comment` alongside the smallest true correction you can make.
+- You know it is stale but not what replaces it: `propose(note_id:, comment: <what changed and what is now wrong>)` with no body files a report the owner reads in the inbox.
+
+Do it before you finish the task. Saying it in the conversation instead leaves the note wrong.
 
 This is not the previous rule reversed. Filing your output adds noise somebody has to sort; this removes an error **you personally introduced** into their memory. The trigger is changing the system, never merely reading about it — if you changed nothing, file nothing.
 
 Notes about things that change carry the `live-state` tag, and `get` serves this instruction with them automatically. The rule applies whether or not the note you falsified happens to carry it.
+
+# Describing the backlog
+
+When the owner asks you to describe their notes, `needs_enrichment` lists what is waiting: read each note with `get` and send the description with `propose(note_id:, summary:)`, one call per note. Where a note already has a summary or tags, treat what its author wrote as true and add what is missing; a correction is a proposal of its own, never written over their words.
 
 # Talking about memex
 

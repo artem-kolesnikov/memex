@@ -29,8 +29,8 @@ final class ApproveWithEditsTest extends ApiTestCase
         $this->in($this->kb->a);
         $key = $settings->saveKey(\App\Service\AiProviders::OPENAI, 'OpenAI', 'sk-valid-key')['credential'];
         $settings->save(enabled: true, credential: $key);
+        self::assertTrue($settings->forVault()->textEnabled, 'text must be on, or the assertions below are vacuous');
         $id = $this->pendingNote();
-        self::assertNotEmpty(array_filter($this->ml->calls, static fn (array $call) => str_contains($call['url'], 'suggest-tags')));
         $this->ml->calls = [];
         $this->loginAs($this->kb->a);
         $this->reviewedRequest('POST', '/api/notes/'.$id.'/approve', [

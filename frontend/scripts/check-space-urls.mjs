@@ -426,7 +426,7 @@ checked++
   // The landing site's own pages, which the vhost serves from the static root
   // and which belong to nobody's knowledge base — the app's footer links to
   // them like any visitor would.
-  const LANDING = ['/', '/about', '/privacy', '/terms']
+  const LANDING = ['/', '/about', '/privacy', '/terms', '/support']
   const strays = hrefs.filter(
     (h) => !h.startsWith(`/${MINE}/`) && !PUBLIC_LOCATION.test(h) && !LANDING.includes(h)
   )

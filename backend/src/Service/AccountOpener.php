@@ -29,6 +29,7 @@ final class AccountOpener
         private readonly LoggerInterface $logger,
         private readonly AccountDoor $door,
         private readonly Journal $journal,
+        private readonly EmbeddingSpace $space,
     ) {
     }
 
@@ -59,6 +60,7 @@ final class AccountOpener
         // failed sign-up.
         try {
             $this->scope->run($account->vault(), function () use ($account): void {
+                $this->space->followLimits();
                 $this->journal->batch(
                     function () use ($account): void {
                         $this->starters->seed();

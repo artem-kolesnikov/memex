@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Database;
 
 use App\Entity\EditProposal;
-use App\Entity\Note;
 use App\Service\AiProviders;
 use App\Service\EnrichmentSettings;
 use App\Service\NoteWriter;
@@ -128,9 +127,8 @@ final class ApplyEnrichmentTest extends DatabaseTestCase
      * on: without it they would all pass on a system that enriches nothing,
      * which is the shape a careless "fix" would have.
      *
-     * Asserted on BOTH halves of enrichment: the embedding, which runs on the
-     * operator's key for every team, and the summary, which runs only because
-     * setUp() switched this team's own provider on.
+     * The embedding is what an approval buys. The description stays the
+     * assistant's to write, even with setUp()'s provider switched on.
      */
     public function testADeferredNoteIsStillEnrichedWithItsNewText(): void
     {
@@ -162,12 +160,8 @@ final class ApplyEnrichmentTest extends DatabaseTestCase
         self::assertNotSame([], $embedded, 'The approved text was never embedded — the deferral dropped the work');
 
         $this->em->refresh($note);
-        self::assertSame(
-            'A summary written by the ml-processor stub.',
-            $note->getSummary(),
-            'The note went into the approval undescribed and came out undescribed'
-        );
-        self::assertSame(Note::SUMMARY_BY_MEMEX, $note->getSummaryBy());
+        self::assertNull($note->getSummary(), 'memex described an assistant\'s approved edit');
+        self::assertSame([], $this->callsTo('summarize'));
     }
 
     /**

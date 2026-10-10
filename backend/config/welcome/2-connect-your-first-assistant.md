@@ -31,15 +31,20 @@ The steps below are also in [Settings › Assistants]({{base}}/settings/connecti
    review what your assistant writes before it becomes a note.
 
 **Optional.** To stop ChatGPT asking each time, open **Settings → Plugins → Memex** and
-choose **Allow all actions**. Memex still holds edits, deletions and merges in your review
-inbox for approval. New notes arrive there for review too.
+choose **Allow all actions**. Always allow is safe, as memex will never allow any
+destructive actions without your review and approval.
 
 ## Claude
 
-1. **Add your memex.** In Claude, open **Settings → Connectors** and click **Add**. Name it
-   **Memex**, paste this address and click **Continue**. Keep the detected settings, then
-   click **Add**. Free accounts can have one custom connector.
-   [Open Claude connectors](https://claude.ai/new#customize/connectors)
+1. **Add memex to Claude.** [Add to Claude](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Memex&connectorUrl={{origin}}/mcp).
+   Claude opens with Memex and its address filled in. Click **Add**. Free accounts can have
+   one custom connector.
+
+   If the link doesn’t work, [open Claude connectors](https://claude.ai/customize/connectors):
+
+   1. In Claude, open **Settings → Connectors** and click **Add**.
+   2. Name it **Memex**, paste this address and click **Continue**.
+   3. Keep the detected settings, then click **Add**.
 
    ```
    {{origin}}/mcp
@@ -49,10 +54,11 @@ inbox for approval. New notes arrive there for review too.
    click **Connect it**. You’ll still review what your assistant writes before it becomes
    a note.
 
-**Optional.** To stop Claude asking each time, open **Memex** in **Connectors** and choose
-**Always allow** for both **Read-only tools** and **Write/delete tools**. Memex still holds
-edits, deletions and merges in your review inbox for approval. New notes arrive there for
-review too.
+3. **Allow all tools.** To stop Claude asking before every memex action, open **Memex** in
+   **Connectors** and choose **Always allow** for both **Read-only tools** and
+   **Write/delete tools**. Always allow is safe, as memex will never allow any destructive
+   actions without your review and approval.
+   [Open Claude connectors](https://claude.ai/customize/connectors)
 
 ## Gemini Spark
 
@@ -132,8 +138,8 @@ Start a new chat and paste this:
 
   > Save this to your saved info so it holds in future chats.
 
-- **Claude:** For future chats, also paste this into
-  [Claude’s profile preferences](https://claude.ai/new#settings/profile) or your Project’s
+- **Claude:** Note: you can also add this prompt into
+  [Claude’s profile preferences](https://claude.ai/new#settings/profile) and any Project’s
   instructions.
 {{/web}}
 

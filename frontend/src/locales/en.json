@@ -62,7 +62,8 @@
       "copyright": "© {year} memex.tools",
       "about": "About",
       "privacy": "Privacy",
-      "terms": "Terms"
+      "terms": "Terms",
+      "support": "Support"
     },
     "breadcrumbs": {
       "aria": "breadcrumb",
@@ -1290,8 +1291,7 @@
   "connections": {
     "guides": {
       "optional": "Optional.",
-      "permissions_tip": "Memex still holds edits, deletions and merges in your review inbox for approval. New notes arrive there for review too.",
-      "permissions_tip_curator": "Memex still holds deletions and merges in your review inbox for approval. A curator connection’s notes and edits apply at once.",
+      "permissions_tip": "Always allow is safe, as memex will never allow any destructive actions without your review and approval.",
       "review_tip": "You’ll still review what your assistant writes before it becomes a note.",
       "review_tip_curator": "This knowledge base has a curator connection: its notes and edits apply at once, and its deletions and merges still wait for you.",
       "chatgpt": {
@@ -1312,20 +1312,29 @@
       },
       "claude": {
         "add": {
-          "title": "Add your memex",
-          "body": "In Claude, open **Settings → Connectors** and click **Add**. Name it **Memex**, paste this address and click **Continue**. Keep the detected settings, then click **Add**.",
-          "link": "Open Claude connectors",
-          "tip": "Free accounts can have one custom connector."
+          "title": "Add memex to Claude",
+          "button": "Add to Claude",
+          "body": "Claude opens with Memex and its address filled in. Click **Add**.",
+          "tip": "Free accounts can have one custom connector.",
+          "manual": "If the button doesn’t work",
+          "manual_open": "In Claude, open **Settings → Connectors** and click **Add**.",
+          "manual_paste": "Name it **Memex**, paste this address and click **Continue**.",
+          "manual_add": "Keep the detected settings, then click **Add**.",
+          "link": "Open Claude connectors"
         },
         "approve": {
           "title": "Connect and approve",
           "body": "Click **Connect** next to Memex in Claude. When Memex opens, click **Connect it**."
         },
-        "permissions": "To stop Claude asking each time, open **Memex** in **Connectors** and choose **Always allow** for both **Read-only tools** and **Write/delete tools**.",
+        "allow": {
+          "title": "Allow all tools",
+          "body": "To stop Claude asking before every memex action, open **Memex** in **Connectors** and choose **Always allow** for both **Read-only tools** and **Write/delete tools**.",
+          "link": "Open Claude connectors"
+        },
         "persist_note": {
-          "before": "For future chats, also paste this into",
+          "before": "Note: you can also add this prompt into",
           "link": "Claude’s profile preferences",
-          "after": "or your Project’s instructions."
+          "after": "and any Project’s instructions."
         }
       },
       "gemini": {
@@ -1462,7 +1471,7 @@
       "key_deleted": "Key deleted",
       "delete_key_failed": "Could not delete that key",
       "curation_title": "Note maintenance",
-      "curation_intro": "A curator is a connected assistant you trust to tidy your notes. Memex does not run it for you.",
+      "curation_intro": "A curator is a connected assistant you trust to tidy your notes. Curator has additional instructions to maintain your notes healthy and properly linked.",
       "enrichment_title": "Descriptions and tags",
       "enrichment_intro": "Your connected assistants add descriptions, tags and cross-links as they work.",
       "load_failed": "These settings could not be loaded. Reload to try again.",
@@ -1573,7 +1582,7 @@
       "add_profile_intro": "A named set of curation settings that several assistants can share.",
       "profile_name_placeholder": "Thorough, Weekly, Cautious…",
       "assign_trust": "Curators can create and edit notes without review. Deletes and merges still need your approval.",
-      "assign_schedule": "To repeat this automatically, set up a task in {chatgpt} or {claude}.",
+      "assign_schedule": "The best practice is to schedule curation automatically, nightly. You can set it up as a scheduled task in {chatgpt} or {claude}. Use the same prompt as a scheduled task.",
       "assign_schedule_chatgpt": "ChatGPT",
       "assign_schedule_claude": "Claude"
     },
@@ -1836,12 +1845,6 @@
       "later": "Prefer to do this later?",
       "where": "Settings → Personalization → About you"
     }
-  },
-  "docs": {
-    "title": "Documentation",
-    "lede": "Everything you need to know about your memex. You can also ask your connected assistant about using memex.",
-    "contents": "Contents",
-    "failed": "The docs could not be loaded."
   },
   "not_found": {
     "code": "404",

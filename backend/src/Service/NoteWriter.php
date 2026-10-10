@@ -54,12 +54,7 @@ class NoteWriter
      * Enriching inside and then rolling back would discard work already paid
      * for.
      *
-     * Each entry carries whether that note's BODY changed, because that is
-     * what decides whether tags are worth re-reading, and only the caller
-     * queuing the work still knows. Losing it here is how an approval of a
-     * one-word retitle buys a fresh set of tags for text nobody touched.
-     *
-     * @var array<int, array{0: Note, 1: bool}>
+     * @var list<Note>
      */
     private array $deferredEnrichment = [];
 
@@ -84,6 +79,17 @@ class NoteWriter
     private static function describedBy(?ApiToken $token): string
     {
         return $token?->getName() ?? Note::SUMMARY_BY_OPERATOR;
+    }
+
+    /**
+     * Whether memex may write a description and tags for this write. Never for
+     * an assistant's: it holds the text and describes it itself, and an
+     * undescribed note waits in `needs_enrichment` for one. Only embeddings run
+     * for every write (operator, 2026-10-08).
+     */
+    private static function describes(?ApiToken $author): bool
+    {
+        return $author === null;
     }
 
     /**
@@ -276,7 +282,12 @@ class NoteWriter
         // is skipped for bulk import: the embed sweep is the backfill.
         $this->enricher->syncLinks($note);
         $suggestions = $enrich !== null
-            ? $this->enricher->enrich($note, $enrich, generateSummary: $note->getSummary() === null, applyTags: $applyTags)
+            ? $this->enricher->enrich(
+                $note,
+                $enrich,
+                generateSummary: self::describes($token) && $note->getSummary() === null,
+                applyTags: self::describes($token) && $applyTags,
+            )
             : ['tag_ids' => [], 'new_tags' => []];
         $this->em->flush();
 
@@ -388,7 +399,7 @@ class NoteWriter
         });
 
         $suggestions = $enrich === null ? ['tag_ids' => [], 'new_tags' => []]
-            : $this->finishUpdateEnrichment($note, $bodyMd !== null, $applyTags, $enrich);
+            : $this->finishUpdateEnrichment($note, $bodyMd !== null, $applyTags, $enrich, $actorToken);
 
         return ['note' => $note, 'suggestions' => $suggestions];
     }
@@ -455,19 +466,19 @@ class NoteWriter
                 operation: NoteRevision::OP_RESTORE,
             );
         });
-        $result['suggestions'] = $this->finishUpdateEnrichment($result['note'], true, true, EmbeddingSpend::Metered);
+        $result['suggestions'] = $this->finishUpdateEnrichment($result['note'], true, true, EmbeddingSpend::Metered, null);
 
         return $result;
     }
 
     /** @return array{tag_ids: int[], new_tags: string[]} */
-    public function finishUpdateEnrichment(Note $note, bool $bodyChanged, bool $applyTags, EmbeddingSpend $enrich): array
+    public function finishUpdateEnrichment(Note $note, bool $bodyChanged, bool $applyTags, EmbeddingSpend $enrich, ?ApiToken $author): array
     {
         $suggestions = $this->enricher->enrich(
             $note,
             $enrich,
-            generateSummary: $note->getSummary() === null,
-            applyTags: $applyTags && $bodyChanged,
+            generateSummary: self::describes($author) && $note->getSummary() === null,
+            applyTags: self::describes($author) && $applyTags && $bodyChanged,
         );
         $this->em->flush();
 
@@ -893,8 +904,8 @@ class NoteWriter
             $this->enricher->enrich(
                 $note,
                 EmbeddingSpend::Metered,
-                generateSummary: $note->getSummary() === null,
-                applyTags: $applyTags && ($bodyMd !== null || $patch !== null),
+                generateSummary: self::describes($token) && $note->getSummary() === null,
+                applyTags: self::describes($token) && $applyTags && ($bodyMd !== null || $patch !== null),
             );
             $this->em->flush();
         }
@@ -1142,7 +1153,7 @@ class NoteWriter
             // that the text applied was not the text they filed.
             amendedByOperator: $proposal->isAmended(),
         );
-        $this->deferredEnrichment[] = [$proposal->getNote(), $body !== null];
+        $this->deferredEnrichment[] = $proposal->getNote();
         $this->em->remove($proposal);
         $this->em->flush();
 
@@ -1297,7 +1308,7 @@ class NoteWriter
         // arrive only from an operator's amendment, which is why a merge that
         // proposes nothing still reaches update() when they are present.
         if ($mergedBody !== null || $mergedTags !== null || $mergedSummary !== null) {
-            $this->deferredEnrichment[] = [$keeper, $mergedBody !== null];
+            $this->deferredEnrichment[] = $keeper;
             return $this->update(
                 $keeper,
                 null,
@@ -1347,7 +1358,7 @@ class NoteWriter
             return;
         }
 
-        foreach ($notes as [$note, $bodyChanged]) {
+        foreach ($notes as $note) {
             $this->enricher->enrich(
                 $note,
                 // Decided by the CALLER rather than hard-coded here, which
@@ -1355,14 +1366,11 @@ class NoteWriter
                 // token instead of a verdict (found by review, 2026-08-25).
                 // {@see EmbeddingSpend}
                 $spend,
-                generateSummary: $note->getSummary() === null,
-                // Tags are APPLIED now rather than handed back, so an apply
-                // path files them like any other save. M-9's rule — "nobody is
-                // looking at suggestions on an apply path" — was true of a
-                // return value and is not true of a write; what survives of it
-                // is the half that was really about spend, which is that an
-                // edit leaving the text alone has nothing new to tag.
-                applyTags: $bodyChanged,
+                // Every queued apply is an assistant's proposal, whose
+                // connection may since have been deleted: no text, as
+                // {@see self::describes()} says.
+                generateSummary: false,
+                applyTags: false,
             );
         }
         $this->em->flush();

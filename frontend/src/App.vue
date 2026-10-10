@@ -24,6 +24,7 @@ import { presetQuery, routeCriteria, sameCriteria, usePresetStore } from '@/stor
 import type { SearchPreset } from '@/api/client'
 import { useI18n } from 'vue-i18n'
 import { editions } from '@/editions'
+import { docsPage } from '@/lib/docs'
 
 declare global {
   interface Window {
@@ -234,7 +235,6 @@ async function removePreset() {
 const CONNECT_LINK = { name: 'settings', params: { pane: 'connections' }, hash: '#connect' } as const
 
 const ACCOUNT_LINKS = [
-  { key: 'docs', to: { name: 'docs' }, labelKey: 'app.nav.docs', icon: 'fa-solid fa-book-open' },
   { key: 'personalization', to: { name: 'settings', params: { pane: 'personalization' } }, labelKey: 'app.nav.personalization', icon: 'fa-solid fa-user-pen' },
   { key: 'connect', to: CONNECT_LINK, labelKey: 'app.nav.connect', icon: 'fa-solid fa-plug' },
   { key: 'settings', to: { name: 'settings' }, labelKey: 'app.nav.settings', icon: 'fa-solid fa-gear' },
@@ -444,6 +444,9 @@ async function logout() {
                   <small>{{ auth.user?.email }}</small>
                 </span>
               </div>
+              <a role="menuitem" :href="docsPage()" target="_blank" rel="noopener" @click="accountOpen = false">
+                <i class="fa-solid fa-book-open fa-fw"></i>{{ $t('app.nav.docs') }}
+              </a>
               <router-link v-for="link in ACCOUNT_LINKS" :key="link.key" role="menuitem"
                            :class="{ 'is-active': route.name === link.key }"
                            :to="link.to">

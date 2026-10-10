@@ -35,7 +35,7 @@ final class McpServer
         SystemTags::USER_PROFILE =>
             'A note carrying this tag is the owner\'s profile: named to every connection at '
             .'initialize, and served a reading instruction on every get (profile_notice). It '
-            .'changes no permission — edits go through the same gate as any note. One note is '
+            .'changes no permission, and edits to it are held for the owner whatever the role. One note is '
             .'the convention; tag a second only when the owner asks for it.',
     ];
 
@@ -177,15 +177,15 @@ final class McpServer
             **You write the descriptions.** When you save a note you are already holding the text,
             so write the `title`, the `summary` and the `tags` yourself and pass them as arguments.
             Call `list_tags` first and reuse the vocabulary that is already there rather than
-            inventing a private dialect. This knowledge base may also describe notes itself, if that
-            is switched on: it writes a
-            description when a note arrives without one, and files the note under tags its owner's
-            vocabulary already contains. It never does either instead of you. A summary you supply
-            is the one that is kept and costs them nothing, your tags are never removed, and words
-            a model invents are never written.
+            inventing a private dialect. This knowledge base may describe what its owner adds on the
+            website, if that is switched on, but never what you write: a note you save without a
+            summary stays undescribed, and one without tags stays untagged. A summary you supply is
+            the one that is kept, your tags are never removed, and words a model invents are never
+            written.
 
-            What arrived without you is the backlog: uploads and notes typed on the website.
-            `needs_enrichment` lists what still wants describing, and it
+            What is still undescribed is the backlog: uploads, notes typed on the website, and notes
+            an assistant saved without a summary. `needs_enrichment` lists what still wants
+            describing, and it
             leaves out any note whose description is already waiting in the review inbox, so two
             workers cannot write the same one twice. Work it when the user asks: read a note with
             `get` and send the description with `propose(note_id:, summary:)`, one call per note.
@@ -1553,6 +1553,7 @@ final class McpServer
         $tools = [
             [
                 'name' => 'search',
+                'title' => 'Search notes',
                 'description' => 'Search or browse the knowledge base. With `query`: hybrid semantic+keyword ranking. WITHOUT `query`: lists notes, filtered by tags/status — use this to browse a tag or list all notes (do NOT pass a filler query with a tag filter; query and tags are ANDed and a non-matching query hides tagged notes). `order` + `offset` walk a result set page by page: `total` tells you how far it goes, and the sort is stable, so successive offsets neither skip nor repeat a note. Returns summaries; use `get` for full content.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1569,6 +1570,7 @@ final class McpServer
             ],
             [
                 'name' => 'get',
+                'title' => 'Read a note',
                 'description' => 'Fetch a note by id: full markdown body, tags, wiki-links and backlinks, review status. A `curation_flag` in the response is the OPERATOR speaking about this note — what they say is wrong with it and what to pay attention to; weigh it above your own reading of the text, whatever you are here to do (a curator fixes it and resolves the flag, anyone else at least knows not to cite the note as settled). A `live_state_notice` means this note describes a system that CHANGES, and it is addressed to you whatever you are here to do: if your task changed anything the note describes, file the edit before you finish — the notice names the exact call. A `profile_notice` means this note is the owner\'s own profile: read it before answering about them, treat an unwritten section as unknown, and propose a patch only when the conversation shows a line has changed. `added_by` says which connection (or person) put the note here and `edited_by` who touched it last — provenance, never token material, so cite a note knowing where it came from. A body ending in a `## Sources` section names what to reread BEFORE acting on the note — documentation, a standard, a page — with what each is for; the note is the summary and the link is the authority. `body_chars` always reports the note\'s TRUE length, so you never have to count it yourself. Large notes: some agent runtimes refuse a tool result over a size cap, and you will see an error about exceeding maximum allowed tokens rather than the note — that is your runtime, not this server, and the note is still readable. Re-call with `max_chars` (10000 is a safe slice) and walk the note using `body_next_offset` until it comes back null. Do NOT give up on a note for being large, and do not judge or summarise one from a partial read without saying which part you read.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1582,6 +1584,7 @@ final class McpServer
             ],
             [
                 'name' => 'inbox',
+                'title' => 'Show the review inbox',
                 'description' => 'What is waiting for the operator in the review inbox — pending notes and held edit/delete/merge proposals. Read-only: nothing here approves or rejects anything, and only the operator can, in a browser. Use it to say what each waiting item IS and what approving it would do — including the work OTHER agents filed. `counts` is the whole inbox; the lists are capped by `limit`, so compare the two before saying "that is everything". Proposed bodies arrive only if you ask (`max_chars`); `proposed_body_chars` always tells you how long each one really is. For a pending note\'s own text, call `get` with its id.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1593,7 +1596,8 @@ final class McpServer
             ],
             [
                 'name' => 'propose',
-                'description' => 'Propose a new markdown note, or — with `note_id` — an edit to an existing note. New notes land PENDING; edits are HELD (the note stays unchanged) until the operator approves them in the review inbox. Exception: curator-role tokens apply creates/edits immediately (audit-logged); the response says which happened. Connect notes with [[Note Title]] wiki-links, never with a note\'s web address, id or number: those belong to one account and break in an export. End a new note\'s body with a `## Sources` section listing the pages you consulted — one entry per link, what it is for, when to reread it (`source_url` is where the note came from; Sources is what to consult next). **If your edits apply without review (curator role), a whole-body edit is HELD and an anchored `patch` is not.** That is not a rule about size: several curation runs may be working this knowledge base at once, and a full body silently overwrites whatever another one changed while you were reading, where an anchor that no longer fits is refused instead. Send `patch` and the change applies on the spot. **A held edit is your working copy, and you get ONE per note.** Proposing again on a note you already have in review REVISES that draft rather than queueing a second: fields you send replace the matching ones, anchors are appended to the anchors already held, and what you omit stands as filed. So correct a draft freely — but say the whole of what you mean, because the operator decides on one document, not on your sequence of attempts. Another connection\'s draft on the same note is untouched and stays its own item.',
+                'title' => 'Propose a note or an edit',
+                'description' => 'Propose a new markdown note, or — with `note_id` — an edit to an existing note. New notes land PENDING; edits are HELD (the note stays unchanged) until the operator approves them in the review inbox. Exception: curator-role tokens apply creates/edits immediately (audit-logged), except a write touching a note tagged `skill` or `user-profile`, which is held for every role; the response says which happened. Connect notes with [[Note Title]] wiki-links, never with a note\'s web address, id or number: those belong to one account and break in an export. End a new note\'s body with a `## Sources` section listing the pages you consulted — one entry per link, what it is for, when to reread it (`source_url` is where the note came from; Sources is what to consult next). **If your edits apply without review (curator role), a whole-body edit is HELD and an anchored `patch` is not.** That is not a rule about size: several curation runs may be working this knowledge base at once, and a full body silently overwrites whatever another one changed while you were reading, where an anchor that no longer fits is refused instead. Send `patch` and the change applies on the spot. **A held edit is your working copy, and you get ONE per note.** Proposing again on a note you already have in review REVISES that draft rather than queueing a second: fields you send replace the matching ones, anchors are appended to the anchors already held, and what you omit stands as filed. So correct a draft freely — but say the whole of what you mean, because the operator decides on one document, not on your sequence of attempts. Another connection\'s draft on the same note is untouched and stays its own item.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1614,7 +1618,7 @@ final class McpServer
                             ],
                         ],
 
-                        'summary' => ['type' => 'string', 'maxLength' => 5000, 'description' => 'A short description of what this note contains, written by YOU. Send it with every new note — you are already holding the text, so describing it costs you nothing extra, and memex then makes no summarizing call of its own. With note_id it is an edit like any other, and a summary ALONE is a complete edit: that is how you describe a note that has none. TWO OR THREE SENTENCES, about '.self::SUMMARY_SOFT_CAP.' characters, plain, no preamble: what the note is about and what a reader would come to it for. This is a hint that helps somebody decide whether to open the note, NOT an abstract of it — a description that has to be read in full has failed at its job'],
+                        'summary' => ['type' => 'string', 'maxLength' => 5000, 'description' => 'A short description of what this note contains, written by YOU. Send it with every new note — you are already holding the text, so describing it costs you nothing extra, and memex never describes what an assistant writes. With note_id it is an edit like any other, and a summary ALONE is a complete edit: that is how you describe a note that has none. TWO OR THREE SENTENCES, about '.self::SUMMARY_SOFT_CAP.' characters, plain, no preamble: what the note is about and what a reader would come to it for. This is a hint that helps somebody decide whether to open the note, NOT an abstract of it — a description that has to be read in full has failed at its job'],
                         'tags' => $tags,
                         'source_url' => ['type' => 'string', 'description' => 'Provenance URL, if any (new notes only)'],
                         'change_title' => ['type' => 'string', 'maxLength' => 120, 'description' => 'SIX OR SEVEN WORDS saying what this edit does and why — a subject line, not a sentence. "Correct the deploy host after the move", "Add the missing arming period". It is what the operator sees in the review inbox and in the note\'s history, so it is the line that decides whether they open the row: a title reading "update note" wastes the only glance they give it. Different from `comment`, which is the prose underneath'],
@@ -1626,6 +1630,7 @@ final class McpServer
             ],
             [
                 'name' => 'propose_delete',
+                'title' => 'Propose deleting a note',
                 'description' => 'Propose retiring a note (duplicate, superseded, dead). HELD for review: the note stays until the operator approves. Give a reason the operator can decide from — which note supersedes it, why it has no forward value. For a duplicate with a clear keeper, prefer propose_merge.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1639,6 +1644,7 @@ final class McpServer
             ],
             [
                 'name' => 'propose_merge',
+                'title' => 'Propose merging two notes',
                 'description' => 'Propose folding a duplicate/superseded note into a keeper. HELD for review: both notes stay until the operator approves; then the keeper inherits the absorbed note\'s tags and backlinks, and the absorbed note is deleted. Optionally supply merged_body_md when the keeper\'s body should also change (e.g. to absorb unique facts) — it is the keeper\'s FULL replacement body.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1654,7 +1660,8 @@ final class McpServer
             ],
             [
                 'name' => 'needs_enrichment',
-                'description' => 'The enrichment backlog, oldest first: notes that want describing and are free to be worked right now. Two kinds of row. `missing` lists what is absent, no summary or no tags, for content that arrived with nobody there to describe it (an upload, or a note typed on the website). `requested: true` is the OTHER kind: a person ticked "flag for enrichment" on the note form and asked for a pass over it. A requested note can have a summary and tags already and an EMPTY `missing`, so treat what they wrote as TRUE and add what they could not: links to notes they may not know exist, a tag from the vocabulary they did not reach for, a correction filed as a proposal rather than applied over their words. Read a note with `get`, then send work back with `propose(note_id:, summary:)`, one call per note. **A note leaves this list the moment work on it is waiting**, so filing a description takes it out and you will not be handed it again next turn. Two counts say what is being held back rather than hiding it: `awaiting_review` is notes whose description is already in the operator\'s inbox, and `recently_passed` is notes memex\'s own scheduled pass has just been over. `total: 0` with either of those above zero means the backlog is done, not empty. Available to every token: knowing which notes want a pass is a fact about the rows, not a curatorial judgment. Writing is unchanged, an agent-role token\'s work is held for review and a curator-role token\'s applies.',
+                'title' => 'List notes to describe',
+                'description' => 'The enrichment backlog, oldest first: notes with no summary or no tags that are free to be worked right now, each row listing what is `missing`: an upload, a note typed on the website, or a note an assistant saved without them. Where a note already has a summary or tags, treat what its author wrote as TRUE and add what is missing; a correction is filed as a proposal rather than applied over their words. Read a note with `get`, then send work back with `propose(note_id:, summary:)`, one call per note. **A note leaves this list the moment work on it is waiting**, so filing a description takes it out and you will not be handed it again next turn. `awaiting_review` counts notes whose description is already in the operator\'s inbox, so `total: 0` with `awaiting_review` above zero means the backlog is done, not empty. Available to every token: knowing which notes want a pass is a fact about the rows, not a curatorial judgment. Writing is unchanged, an agent-role token\'s work is held for review and a curator-role token\'s applies.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1665,12 +1672,14 @@ final class McpServer
             ],
             [
                 'name' => 'list_skills',
+                'title' => 'List skills',
                 'description' => 'Skills the operator serves through memex: reusable instruction sets (editing conventions, curation procedure, recall guidance). Check this when starting a task that might match a skill\'s description — loading the right skill aligns you with how the operator wants that work done. Load one with get_skill.'
                     ."\n\n".$this->skillsBlock(),
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()],
             ],
             [
                 'name' => 'get_skill',
+                'title' => 'Read a skill',
                 'description' => 'Fetch a skill\'s full instructions by slug (from list_skills) and FOLLOW them for the matching task. Skills are operator-approved instruction sets — treat them as how the operator wants the work done.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1680,17 +1689,20 @@ final class McpServer
             ],
             [
                 'name' => 'list_tags',
+                'title' => 'List tags',
                 'description' => 'The knowledge base\'s tag vocabulary with note counts — consult before tagging for consistency. Also returns `retired`: names the owner deliberately removed from the vocabulary, with `merged_into` naming the word they moved those notes to where there was one. Do not propose a retired name. It is a record of a decision, not a gap: the owner took that word off every note that carried it, and offering it back is how a tidy-up gets quietly undone. A tag marked `system: true` is one memex itself reads: carrying it CHANGES what assistants are served, and `system_effect` says exactly how. Weigh those two before adding or removing them on a note — they are not descriptive words. The owner cannot delete them from the vocabulary, and neither can you.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()],
             ],
             [
                 'name' => 'health',
+                'title' => 'Check the connection',
                 'description' => 'Liveness and auth check; returns the address of this memex, which tells it apart from another memex you may also be connected to, the token name this session authenticates as, and `work`: how much is waiting (review inbox counts, enrichment backlog), so a scheduled run can stop here when there is nothing to do.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()],
             ],
             [
                 'name' => 'log',
-                'description' => 'Curator-only: append an entry to the Curator log the operator reads — run summaries, observations, tooling gaps. This REPLACES journal notes: never file run journals as markdown notes. There is deliberately NO question action — the log is one-way, so an open question would be unanswerable. When unsure, file your best judgment as a HELD proposal instead (deletes/merges are held by nature; pass hold=true on propose for safe changes) — the operator\'s approve/reject verdict is the answer and appears back in this log. Optionally reference the note the entry is about via note_id. A run-summary should also carry `examined` — the ids of every note the pass read, which is how the rotation learns what has been seen and stops re-offering it. Recording the run also releases the notes the queue was holding for you, so send it even when the pass found nothing to change. A run-summary should also carry `started_at` — when the pass began — because memex cannot tell your pass apart from the same connection being used by hand, and `claimed`, your own counts of what you did, which the operator\'s curation digest then checks against the rows memex wrote itself.',
+                'title' => 'Write to the Curator log',
+                'description' => 'Curator-only: append an entry to the Curator log the operator reads — run summaries, observations, tooling gaps. This REPLACES journal notes: never file run journals as markdown notes. There is deliberately NO question action — the log is one-way, so an open question would be unanswerable. When unsure, file your best judgment as a HELD proposal instead (deletes/merges are held by nature; pass hold=true on propose for safe changes) — the operator\'s approve/reject verdict is the answer and appears back in this log. Optionally reference the note the entry is about via note_id. A run-summary should also carry `examined` — the ids of every note the pass read, which is how the rotation learns what has been seen and stops re-offering it. A run-summary carrying `examined` also releases the notes the queue was holding for you, so send it, with `examined`, even when the pass found nothing to change; otherwise they are released within the half hour. A run-summary should also carry `started_at` — when the pass began — because memex cannot tell your pass apart from the same connection being used by hand, and `claimed`, your own counts of what you did, which the operator\'s curation digest then checks against the rows memex wrote itself.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1723,6 +1735,7 @@ final class McpServer
             ],
             [
                 'name' => 'log_recent',
+                'title' => 'Read the Curator log',
                 'description' => 'Curator-only: read Curator log entries, newest first. Bootstrap with this every run: operator approved/rejected rows are the VERDICTS on your held items, and your last run-summary says where the previous pass stopped. A verdict may carry `operator_comment` — the operator\'s reasoning in their own words, which OUTRANKS your judgment on that case; read it as an instruction, not as feedback to weigh. `is_precedent: true` means the operator marked that reasoning as general: apply it to comparable cases from now on. Reasoning WITHOUT the flag binds only the case it was written about — do not generalise it, and never read a bare verdict (no comment at all) as blessing a pattern. A pattern you want made standing is a separate proposal to amend the charter, reviewed as policy. Without `note_id` you get the curation record: what curator connections wrote, and the operator\'s verdicts, flags and tag changes. With `note_id` it becomes one note\'s history instead — everything ever done to that note, by anyone, and how the operator ruled on it; read that before touching a note you have worked on before, so you do not re-propose something already rejected.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1737,6 +1750,7 @@ final class McpServer
             ],
             [
                 'name' => 'curation_candidates',
+                'title' => 'List notes that need curation',
                 'description' => 'The work queue — which notes need attention and WHY, ranked. Start every run here instead of browsing notes hoping to spot problems; the database checks every note in the vault, you only read the ones it names. **A candidate carrying `operator_flag` is the operator telling you, in their own words, what is wrong with that note — read `operator_flag.comment` as an instruction that outranks your own reading of the note, do that work FIRST, and close it with `resolve_curation_flag` saying what you did.** Flagged notes sort ahead of everything else, ignore the cooldown, and keep coming back every run until you resolve them — EXCEPT while a delete or merge you filed for that note is awaiting the operator, when the note drops out of this queue entirely and its flag stays open, so never re-propose something already in the inbox; if you think the flag is mistaken, say so in the resolution rather than leaving it open or quietly skipping it. Each candidate carries `reasons` (structural defects found), `defects` (how many, flags NOT counted), and `last_curated_at` (null = never). `reason_counts` is the census of everything ELIGIBLE this run — notes on cooldown excluded, but deliberately NOT narrowed by the `reason` you filtered to, so the numbers stay comparable across reasons and mean the same thing whether you filter or not. Beside it, `never_read` counts the eligible notes no pass has ever opened and `defect_free` counts every eligible note with no structural defect and no flag — the difference between them is notes read and approved before, back because their earned rest expired, which is different work — read it, because those notes are the work `reason_counts` cannot show you and it is not derivable from the census (a note with three defects appears in three of those tallies). Ranking: notes with defects first, most-broken first; then notes whose NEIGHBOURS changed since the note was last read (`changed_neighbours` — the staleness a note\'s own timestamp never shows); then never-curated; then longest-unseen. An EMPTY RESULT — no candidates at all — means there is nothing to do; end the run rather than inventing work. `reason_counts` all zero does NOT mean that, and reading it that way is the one failure this verb has actually produced: the census counts structural defects only, so zero there means nothing is BROKEN, while the rows underneath it are the notes no pass has ever read. Those are the work — contradictions, staleness, `live-state` membership, tag hygiene, missing links, naming — and none of them is a defect a counter can see. `total` is how much queue there is; the census is only what is broken in it. Rest is EARNED, not fixed: each consecutive pass that reads a note and finds nothing doubles its rest — 7, 14, 28, then 56 days (`clean_passes` and `rest_days` on every row) — so an evergreen cluster stops consuming the budget and the notes behind it get reached. Rest is cut short the moment anything happens the note has not been read against: someone else edits it, a linked note changes, the operator flags it, or a structural defect appears. Working ONE `reason` at a time makes a coherent pass ("tag the 12 untagged notes") — that is usually better than fixing one note six ways. **Available to every role, since 2026-08-26.** What the curator role gates is DOING curation, not seeing what needs it: any connection may read this queue and file proposals against it, which are HELD for the operator\'s review like every other agent write. Curator-role connections additionally record runs in the Curator log (`log`), resolve the operator\'s flags (`resolve_curation_flag`), and have safe edits apply without review. If you hold the agent role and are asked to curate, say exactly that — you can work the queue and leave everything for review, and only the owner can grant the curator role, from Settings › Assistants › Note maintenance in a browser. Never improvise a curation pass without this queue: the ranking, the cooldown and the operator\'s flags are the whole point of it. **Notes another connection is currently working are not offered to you**, so several curation runs can share one knowledge base without doing the same work twice; `leased_elsewhere` appears when that happened and says how many, and `total` is always the whole queue rather than your slice of it. A claim is released when you record the run with `log`, and expires on its own within the half hour if you never do — so a pass that dies holds nothing for long. **Passing `offset` turns that off**: an offset walk is enumerating the queue rather than taking a batch, so it is filtered by nothing and claims nothing — take a batch with `limit` alone and let the queue hand you the next one.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1746,12 +1760,13 @@ final class McpServer
                         'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 25],
                         'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0, 'description' => 'Skip this many candidates; `total` says how many there are'],
                         'cooldown_days' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 365, 'default' => CurationQueue::DEFAULT_COOLDOWN_DAYS, 'description' => 'Hold back notes you curated within this many days (0 = show everything, for a deliberate re-sweep)'],
-                        'include_pending' => ['type' => 'boolean', 'default' => false, 'description' => 'Also return pending notes. They are ADVISORY only: your edits to them are held for review, so use this to escalate (a duplicate at the gate, a contradiction with verified content), never to quietly rewrite what an agent proposed'],
+                        'include_pending' => ['type' => 'boolean', 'default' => false, 'description' => 'Also return pending notes. They are ADVISORY only: use this to escalate (a duplicate at the gate, a contradiction with verified content), never to quietly rewrite what an agent proposed'],
                     ],
                 ],
             ],
             [
                 'name' => 'resolve_curation_flag',
+                'title' => 'Answer a curation flag',
                 'description' => 'Curator-only: close the operator flag on a note by saying what you did about it. Call this ONCE the flagged work is done or decided — an open flag ignores the cooldown and comes back on every run until it is resolved, which is deliberate: the operator asked for something and is owed an answer. The `resolution` is required and is written into the Curator log where the operator reads it, so make it specific — what you changed (with the proposal it went into), or why you did not. Disagreeing IS a valid resolution ("the note is current; note 88 confirms the host moved back") and so is being unable to act ("this needs information the vault does not contain"). What is NOT valid is resolving a flag you did not actually engage with: the operator can re-flag, and the log shows both sides of the exchange. This changes no note and is not held for review — it is an acknowledgment, not a write. It REFUSES when the note already has a delete or merge awaiting the operator: filing a deletion is not performing it, so that flag stays open and the note simply drops out of the queue until the verdict lands — nothing will re-propose it meanwhile, approval takes note and flag together, and rejection hands it back still flagged. File the proposal and move on; the proposal is the answer.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1765,6 +1780,7 @@ final class McpServer
             ],
             [
                 'name' => 'duplicate_candidates',
+                'title' => 'Find possible duplicates',
                 'description' => 'Curator-only: pairs of notes that may be the same document, by cosine distance over the stored embeddings — closest first. This finds what you cannot: judging that two notes duplicate each other means holding both in mind at once, so reading alone only ever catches the pairs that happen to land in one run. Every note is measured against every other as its vector is written, at no token cost; `unsettled` counts notes still being measured, whose pairs may be missing until a later call. Reading the distance: **≤'.$vectors->duplicateCertain().' is near-certain** (typically an import twin — same title with an em-dash instead of a hyphen); **'.$vectors->duplicateCertain().'-'.$vectors->duplicateTopical().' is related but distinct**, often a distillation and the archive it cites, which should usually NOT be merged. ALWAYS open both notes with `get` before proposing anything — the vector says "similar", not "redundant" — and pick the keeper on content, not on which id is lower. Pairs with a merge or delete already awaiting review are omitted; **rejected pairs are NOT**, because a rejection leaves no pair-level record, so check `log_recent(note_id: …)` for a prior verdict before re-proposing a pair you have proposed before.',
                 'inputSchema' => [
                     'type' => 'object',
@@ -1778,20 +1794,22 @@ final class McpServer
             ],
             [
                 'name' => 'blast_radius',
-                'description' => 'Notes whose NEIGHBOURS changed recently — the stale-by-association queue. This catches what nothing else can. When note A changes, the notes that link to it can go quietly wrong (the runbook still cites the host that moved, the roster still lists the agent that was renamed), and B\'s own timestamp never moves, so no recency sweep will ever look at B again. Each result carries `changed` — which neighbours moved, when, and who moved them — so start by reading those, then check whether this note still agrees with them. Ranked by how many neighbours moved. Your OWN edits are excluded from what counts as a change, deliberately: otherwise curating one note would enqueue its neighbours, and curating those would re-enqueue the first, forever. Only what the operator, an agent or an import changed counts.',
+                'title' => 'Find notes whose links changed',
+                'description' => 'Notes whose NEIGHBOURS changed recently — the stale-by-association queue. This catches what nothing else can. When note A changes, the notes that link to it can go quietly wrong (the runbook still cites the host that moved, the roster still lists the agent that was renamed), and B\'s own timestamp never moves, so no recency sweep will ever look at B again. Each result carries `changed` — which neighbours moved, when, and who moved them — so start by reading those, then check whether this note still agrees with them. Ranked by how many neighbours moved. Edits by curator-role connections, yours included, are excluded from what counts as a change, deliberately: otherwise curating one note would enqueue its neighbours, and curating those would re-enqueue the first, forever. Only what the operator, an agent-role connection or an import changed counts.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
                         'since_days' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 365, 'default' => CurationQueue::DEFAULT_BLAST_RADIUS_DAYS, 'description' => 'How far back a neighbour\'s change still counts. This is a window, not a log: a change older than this ages out unexamined, so widen it after a long gap between runs'],
                         'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 25, 'description' => 'Also the drain cap — a bulk import makes every imported note a change, and this is what keeps that from becoming one enormous run'],
                         'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0],
-                        'include_pending' => ['type' => 'boolean', 'default' => false, 'description' => 'Also return affected notes that are pending (advisory only — your edits there are held)'],
+                        'include_pending' => ['type' => 'boolean', 'default' => false, 'description' => 'Also return affected notes that are pending (advisory only)'],
                     ],
                 ],
             ],
             [
                 'name' => 'last_curated',
-                'description' => 'For a batch of note ids, when each was last CURATED. With the curator role the row also says by whom, with what action, and how many entries the note has in the Curator log; without it you get the timestamp alone, which is what tells you whether a note has just been worked — the Curator log itself is the operator\'s audit and is not read by agent-role connections. This is how you tell what you have already looked at — there is no "last curated" field on a note; the log IS the record. Rows where the operator ASKED for work rather than work being done — `flag-raised` — are excluded, so flagging a note never makes it look freshly curated. Use it to skip recently-curated notes and to find the ones never curated at all (`last_at: null`, the strongest claim on a pass). Send the whole candidate set in ONE call, not one call per note. Ids that no longer exist come back in `unknown_note_ids` — a deleted note is not an uncurated one. **CALL IT WITH NO ARGUMENTS AT ALL for the preflight**: the same question about the whole knowledge base rather than about notes — when it was last curated and by what, how many notes have changed since (your own curator edits excluded), how much is in the queue right now, and `due` with `due_reasons` saying what kind of work is waiting. That is the call to make before deciding a run is worth a turn, and the one for a scheduled job to poll — **hourly is the right cadence and fifteen minutes is the floor**. Not politeness: this answer is computed from your whole curation history, which grows with every pass ever logged rather than with the size of the knowledge base, so a tight loop costs real work on the server for an answer that cannot have changed. Nothing that can flip `due` — a new note, someone else\'s edit, a neighbour changing, a rest period expiring — happens on a sub-hour cadence. `due` carries no cadence of its own — it is simply "the queue is not empty", and the queue has already applied the cooldown and the earned rest, so nothing here decides WHEN you should run. Read `due_reasons` rather than `reason_counts` alone: the census counts structural defects, so a queue made entirely of sound notes nobody has read reports all zeroes, and the reasons say so in words.',
+                'title' => 'Check when notes were last curated',
+                'description' => 'For a batch of note ids, when each was last CURATED. With the curator role the row also says by whom, with what action, and how many entries the note has in the Curator log; without it you get the timestamp alone, which is what tells you whether a note has just been worked — the Curator log itself is the operator\'s audit and is not read by agent-role connections. This is how you tell what you have already looked at — there is no "last curated" field on a note; the log IS the record. Rows where the operator ASKED for work rather than work being done — `flag-raised` — are excluded, so flagging a note never makes it look freshly curated. Use it to skip recently-curated notes and to find the ones never curated at all (`last_at: null`, the strongest claim on a pass). Send the whole candidate set in ONE call, not one call per note. Ids that no longer exist come back in `unknown_note_ids` — a deleted note is not an uncurated one. **CALL IT WITH NO ARGUMENTS AT ALL for the preflight**: the same question about the whole knowledge base rather than about notes — when it was last curated and by what, how many notes have changed since (your own curator edits excluded), how much is in the queue right now, and `due` with `due_reasons` saying what kind of work is waiting. That is the call to make before deciding a run is worth a turn, and the one for a scheduled job to poll — **hourly is the right cadence and fifteen minutes is the floor**. Not politeness: this answer is computed from your whole curation history, which grows with every pass ever logged rather than with the size of the knowledge base, so a tight loop costs real work on the server for an answer that has rarely changed. `due` carries no cadence of its own — it is simply "the queue is not empty", and the queue has already applied the cooldown and the earned rest, so nothing here decides WHEN you should run. Read `due_reasons` rather than `reason_counts` alone: the census counts structural defects, so a queue made entirely of sound notes nobody has read reports all zeroes, and the reasons say so in words.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1814,7 +1832,7 @@ final class McpServer
             }
             $class = self::TOOL_SAFETY[$tool['name']] ?? null;
             if ($class !== null) {
-                $tool['annotations'] = self::annotationsFor($class);
+                $tool['annotations'] = ['title' => $tool['title']] + self::annotationsFor($class);
             }
 
             return $tool;

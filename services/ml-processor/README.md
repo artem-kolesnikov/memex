@@ -13,9 +13,9 @@ Babel dropped — runs on plain Node.
     `{ tag_ids: [...], new_tags: [...] }` — existing-vocab matches are name→id mapped
     server-side (models fumble numeric ids); unknown suggestions come back as `new_tags`
   - `POST /api/v1/create-embeddings` `{ content | contents, model, purpose }` → `{ embeddings }`
-    — `model` is the vault's vector space, one of two: `text-embedding-3-large` (OpenAI,
-    1536 dims, the default) or `nomic-embed-text-v1.5` (run here on the CPU, 768 dims,
-    `purpose` `document` or `query`)
+    — `model` is the vault's vector space: `text-embedding-3-large` (OpenAI, 1536 dims, the
+    default), `text-embedding-3-small` (OpenAI, 1536 dims) or `nomic-embed-text-v1.5` (run
+    here on the CPU, 768 dims, `purpose` `document` or `query`)
   - `GET/PUT /api/v1/config` — prompts + per-task models + API key; requires
     `CONFIG_API_TOKEN` (X-Config-Token header); unset, every call answers 503 and the
     config API is disabled

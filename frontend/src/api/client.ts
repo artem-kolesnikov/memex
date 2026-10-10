@@ -942,8 +942,6 @@ export const api = {
   removeSignInMethod: (id: string) =>
     request<{ removed: boolean }>(`/api/me/identities/${id}`, { method: 'DELETE' }),
   welcome: () => request<{ facts: WelcomeFacts }>('/api/me/welcome'),
-  /** The Docs page's markdown, rendered for this server and this reader. */
-  docs: () => request<{ body: string }>('/api/docs'),
   sessions: () => request<{ sessions: BrowserSession[] }>('/api/me/sessions'),
   endSession: (id: string) =>
     request<{ ended: number }>(`/api/me/sessions/${id}`, { method: 'DELETE' }),

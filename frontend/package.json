@@ -19,6 +19,7 @@
     "check-welcome-behaviour": "node scripts/check-welcome-behaviour.mjs",
     "check-skills-behaviour": "node scripts/check-skills-behaviour.mjs",
     "check-helptip-behaviour": "node scripts/check-helptip-behaviour.mjs",
+    "check-public-pages-behaviour": "node scripts/check-public-pages-behaviour.mjs",
     "check-personalization-behaviour": "node scripts/check-personalization-behaviour.mjs",
     "check-review-snapshots": "node --test scripts/check-review-snapshots.mjs",
     "check-space-urls": "node scripts/check-space-urls.mjs",

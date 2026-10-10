@@ -68,6 +68,9 @@ class EmbedCommand extends Command
         $attempted = 0;
 
         $this->vaults->each(function (Account $account) use ($output, &$budget, &$processed, &$errors, &$attempted): void {
+            if ($this->space->followLimits()) {
+                $output->writeln(sprintf('%s: now embeds with %s; every note again', $account->getEmail(), $this->space->model()->value));
+            }
             if ($budget > 0) {
                 $this->embed($account, $output, $budget, $processed, $errors, $attempted);
             }

@@ -16,6 +16,7 @@ const localEmbedding = require('./localEmbedding')
 const operationContext = new AsyncLocalStorage()
 
 const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-large'
+const OPENAI_EMBEDDING_MODELS = [OPENAI_EMBEDDING_MODEL, 'text-embedding-3-small']
 
 // Log only the upstream status and error body for HTTP failures, the stack for
 // everything else.
@@ -117,6 +118,14 @@ const takesTemperature = (provider, model) => {
   if (provider === 'anthropic') return /^claude-(\d|instant)|^claude-(opus|sonnet|haiku)-4(-[0-6])?(-\d{8})?$/.test(model)
   return true
 }
+
+// The models a tier may be given on the box's own key: the ones control offers
+// (App\Service\ProviderPrices::textModels()). The backend sends the tier's
+// choice with no key; any other model named without a key is not the
+// operator's choice, and the per-task file decides.
+const BOX_TEXT_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1-nano']
+
+const boxModel = model => (BOX_TEXT_MODELS.includes(model) ? model : null)
 
 // Older families need temperature 0 for deterministic extraction.
 const chatModelParams = (task, wantZeroTemp, override) => {
@@ -434,12 +443,11 @@ const generateText = async (task, body, system, user, wantZeroTemp) => {
   if (provider === 'openai') {
     // **A MODEL WITHOUT A CALLER KEY IS NOT THE CALLER'S TO CHOOSE.** A model
     // belongs to the account that lists it, and with no key in the request the
-    // account is the operator's — so honouring an override here is his money
-    // buying a model he never picked, at whatever that model costs. The backend
-    // clears it too (App\Service\EnrichmentSettings), and this is the second
-    // half of the same rule: the service must not trust that its one caller
-    // today is its only caller, or the next one inherits the hole.
-    const params = chatModelParams(task, wantZeroTemp, apiKey ? requestModel(body) : null)
+    // account is the operator's — so the only model honoured here is one he can
+    // give a tier in control, which is what the backend sends
+    // (App\Service\EnrichmentSettings). The service must not trust that its one
+    // caller today is its only caller, so anything else falls to the box's own.
+    const params = chatModelParams(task, wantZeroTemp, apiKey ? requestModel(body) : boxModel(requestModel(body)))
     const completion = await openaiChat({
       ...params,
       messages: [
@@ -655,8 +663,8 @@ app.post('/api/v1/create-embeddings', async (req, res) => {
       return
     }
 
-    // Two vector spaces and no third: a vault's vectors are all one model's,
-    // and the backend names which. The OpenAI one is pinned whoever pays.
+    // A vault's vectors are all one model's, and the backend names which; who
+    // pays never changes it.
     const space = req.body.model === undefined ? OPENAI_EMBEDDING_MODEL : req.body.model
     if (space === localEmbedding.MODEL) {
       const texts = batch ? content : [content]
@@ -664,8 +672,8 @@ app.post('/api/v1/create-embeddings', async (req, res) => {
       res.status(201).json({ embeddings: batch ? vectors : vectors[0], usage: null })
       return
     }
-    if (space !== OPENAI_EMBEDDING_MODEL) {
-      res.status(400).json({ error: `model must be ${OPENAI_EMBEDDING_MODEL} or ${localEmbedding.MODEL}`, usage: null })
+    if (!OPENAI_EMBEDDING_MODELS.includes(space)) {
+      res.status(400).json({ error: `model must be one of ${[...OPENAI_EMBEDDING_MODELS, localEmbedding.MODEL].join(', ')}`, usage: null })
       return
     }
 
@@ -673,7 +681,7 @@ app.post('/api/v1/create-embeddings', async (req, res) => {
     // for its own embeddings.
     const embeddingKey = requestApiKey(req.body)
     const embedding = await openaiEmbedding({
-      model: OPENAI_EMBEDDING_MODEL,
+      model: space,
       input: content,
       dimensions: 1536,
     }, embeddingKey)
@@ -682,7 +690,7 @@ app.post('/api/v1/create-embeddings', async (req, res) => {
     // 0 — the same distinction usageFrom() draws everywhere else. Read before
     // the vector is validated, because a response that arrived without one was
     // still bought.
-    const usage = usageFrom('openai', OPENAI_EMBEDDING_MODEL, embeddingKey, embedding)
+    const usage = usageFrom('openai', space, embeddingKey, embedding)
 
     // `embedding.data[0]`, not `embedding.data.data[0]`: the outer `data` was
     // axios's envelope, the inner one is OpenAI's array. Only one is left.
@@ -753,3 +761,4 @@ if (require.main === module) {
 }
 
 module.exports = app
+module.exports.BOX_TEXT_MODELS = BOX_TEXT_MODELS

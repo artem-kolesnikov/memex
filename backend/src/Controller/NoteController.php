@@ -524,7 +524,7 @@ class NoteController extends ApiController
         if ($result instanceof JsonResponse) {
             return $result;
         }
-        $result['suggestions'] = $this->noteWriter->finishUpdateEnrichment($note, $bodyMd !== null, true, EmbeddingSpend::Metered);
+        $result['suggestions'] = $this->noteWriter->finishUpdateEnrichment($note, $bodyMd !== null, true, EmbeddingSpend::Metered, $this->requestToken($request));
 
         return $this->json([
             'note' => $this->noteToArray($result['note'], true),
@@ -676,7 +676,7 @@ class NoteController extends ApiController
             return $amended;
         });
         if ($amended) {
-            $this->noteWriter->finishUpdateEnrichment($note, $bodyChanged, true, EmbeddingSpend::Metered);
+            $this->noteWriter->finishUpdateEnrichment($note, $bodyChanged, true, EmbeddingSpend::Metered, null);
         }
 
         return $this->json(['note' => $this->noteToArray($note)]);

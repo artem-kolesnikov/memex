@@ -80,7 +80,7 @@ Some things memex deliberately is not:
 - **There is no AI inside memex.** memex has no chat box and generates no text of its own.
   The thinking is done by you and by the assistants you already use. The one exception is
   optional: if you add a provider key of your own, memex can write a short description and
-  file tags when a note arrives without them. That is described in section 18.
+  file tags for a note you add on the website without them. That is described in section 18.
 - **Nothing works on your notes by itself.** memex never tidies, curates or summarises
   anything unasked. The one thing it does on a clock is housekeeping: a deleted note's
   text is purged after its thirty restorable days (section 21). What memex does keep is
@@ -109,7 +109,7 @@ A note has:
 - **A description** (the field is called *summary* in the assistant tools): two or three
   sentences saying what the note holds, so that a person or an assistant can decide
   whether to open it. Your assistant writes it when it saves a note; you can edit it; memex
-  can write one on your own key if you switch that on.
+  can write one on your own key for what you add on the website, if you switch that on.
 - **Wiki-links**: `[[Title of another note]]` anywhere in the body, or `[[Title|shown
   text]]` to change the visible words. A link resolves to the note with that title
   (case-insensitive; a filename or folder path from an imported vault also works). A link
@@ -212,7 +212,8 @@ workspaces (section 6). Until an assistant has reached your memex, *Connect an a
 sits above your name and opens Settings › Assistants (section 14).
 
 **The header** at the top right of every page holds *Activity log* (section 10), *Docs*,
-the *Sunrise* and *Midnight* switch, and the gear that opens Settings.
+which opens the documentation at https://docs.memex.tools in a new tab, the *Sunrise* and
+*Midnight* switch, and the gear that opens Settings.
 
 **The account menu** opens from your name at the foot of the sidebar: *Docs*,
 *Personalization* (Settings › Personalization), *Connect an assistant*, *Settings*, and
@@ -635,7 +636,10 @@ Every connection speaks MCP, the standard assistants use to reach tools, at one 
 name in the sidebar until an assistant has connected) opens the connection guides: four tabs,
 ChatGPT, Claude, Gemini Spark and *Other*, and for the first three every step as one
 numbered list: where to go in the assistant, the address to paste, *approve sign-in with
-Memex*, and the prompt to paste last. Each guide is a few minutes. ChatGPT's Developer
+Memex*, and the prompt to paste last. Claude's guide starts with an *Add to Claude* button
+that opens Claude's Add custom connector form with Memex and its address filled in, keeps
+the steps by hand folded under it in case the button does not work, and has a step that
+allows all of Memex's tools. Each guide is a few minutes. ChatGPT's Developer
 mode and custom plugins and Claude's custom connectors are available on free accounts,
 though a free Claude account holds one custom connector; Gemini Spark's custom apps need a
 paid Google AI Pro or Ultra plan.
@@ -681,7 +685,8 @@ Then say plainly which of the five worked.
 **Per-call permissions.** Out of the box, ChatGPT and Claude ask you before each call
 until you tell them not to: in ChatGPT, Settings › Plugins › Memex, then *Allow all
 actions*; in Claude, Settings › Connectors › Memex, then *Always allow* for both *Read-only
-tools* and *Write/delete tools*. Gemini asks before write actions and has no switch. That
+tools* and *Write/delete tools*, which Claude's guide includes as a step with a link to its
+connector settings. Gemini asks before write actions and has no switch. That
 is the assistant's behaviour, not memex's, and it is safe to switch off: with the agent
 role, new notes arrive in your review inbox and edits, deletions and merges wait for your
 approval; a curator connection's creates and edits apply at once, and its deletes and
@@ -921,7 +926,8 @@ An invalid or revoked token gets "Invalid or revoked token". Every note id on th
 the note's number in your knowledge base, the same one in its address. Proposal and journal
 ids are numbered within your knowledge base the same way.
 
-Each call answers with structured JSON. A refused call (a missing argument, an anchor that
+Every tool has a title, which clients show in their list of memex's tools. Each call
+answers with structured JSON. A refused call (a missing argument, an anchor that
 no longer matches, an allowance reached, a role the token does not hold) comes back as a
 tool error with a sentence saying why. Lists page with `offset` and `limit` and report a
 `total`. Long note bodies page with `max_chars` and `body_next_offset`.
@@ -958,7 +964,8 @@ what a peer already filed, but nothing here approves anything.
 `title` and `body_md` required, plus `summary`, `tags` and optionally a `source_url`.
 Assistants are told to write the description themselves, about two or three sentences, to
 call `list_tags` first and reuse your vocabulary, and to list what they consulted under a
-*Sources* heading at the end of the body. The note lands pending (agent) or verified
+*Sources* heading at the end of the body. memex never describes or tags what an assistant
+writes: a note it saves without them waits in `needs_enrichment`. The note lands pending (agent) or verified
 (curator).
 
 With `note_id` it files an **edit**, sending only what should change: a new `title`, a full
@@ -1017,7 +1024,8 @@ connection is currently working are withheld for up to half an hour. Open to eve
 An empty result means there is nothing to do.
 
 **blast_radius** — Notes whose linked neighbours changed recently, with what changed, so a
-pass can find notes left stale by someone else's edit. Open to every role.
+pass can find notes left stale by an edit you, an agent or an import made; curators' own
+edits do not count. Open to every role.
 
 **last_curated** — With no arguments, a preflight: when the last pass ran, what changed
 since, the size of the queue, and whether a pass is due. With `note_ids`, the last time
@@ -1025,8 +1033,9 @@ each was curated. Open to every role; curators also see who and what.
 
 **log** — Curator only. Append to the journal: a run summary (with the start time, the ids
 examined, and the counts the assistant claims, which memex checks against what it logged),
-an observation, or a tooling gap. Recording the run also releases the notes the queue was
-holding for that connection.
+an observation, or a tooling gap. A run summary that lists the notes it examined also
+releases the notes the queue was holding for that connection; otherwise they are released
+within half an hour.
 
 **log_recent** — Curator only. Read the journal newest first: by default the curation
 record (what curators did, and your verdicts, flags and tag changes); for one note, everything
@@ -1125,6 +1134,8 @@ in chat leaves the note wrong.
 assistant reaches memex over MCP like any other.
 
 {{edition:faq-who-sees}}
+
+{{edition:help}}
 
 **How do I leave?** Settings › Notes › *Export* gives you everything as Markdown files
 that open anywhere. Then, if you want, *Delete my account*.

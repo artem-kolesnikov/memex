@@ -21,6 +21,11 @@ final class NoLimits implements AccountLimits
         return ['on' => false, 'model' => null];
     }
 
+    public function embeddingModel(): ?EmbeddingModel
+    {
+        return null;
+    }
+
     public function spendLimitReached(string $surface, string $window, int $limit): void
     {
     }

@@ -184,7 +184,7 @@ final class MockMlResponder
                     // reads only that. A local vector is bought from nobody.
                     'usage' => ($body['model'] ?? null) === EmbeddingModel::Local->value ? null : [
                         'provider' => 'openai',
-                        'model' => 'text-embedding-3-large',
+                        'model' => $body['model'] ?? EmbeddingModel::OpenAi->value,
                         'input_tokens' => 7,
                         'output_tokens' => null,
                         'key' => isset($body['api_key']) ? 'caller' : 'box',

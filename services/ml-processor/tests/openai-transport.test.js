@@ -123,10 +123,10 @@ describe('whose key pays', () => {
     assert.ok(!JSON.stringify(call.headers).includes(helper.BOX_KEY))
   })
 
-  // The embedding MODEL is one of two vector spaces, never the caller's pick:
-  // a vault's vectors are all one model's.
-  test('the embedding model cannot be overridden by the caller', async () => {
-    const refused = await app.post('/api/v1/create-embeddings', { content: 'A note.', model: 'text-embedding-3-small' })
+  // The embedding MODEL is one of the vector spaces a vault can hold: a model
+  // outside them is refused rather than bought.
+  test('the embedding model is one a vault can hold', async () => {
+    const refused = await app.post('/api/v1/create-embeddings', { content: 'A note.', model: 'text-embedding-ada-002' })
     assert.equal(refused.status, 400)
     assert.equal(helper.lastCall('/v1/embeddings'), null)
 
@@ -134,6 +134,12 @@ describe('whose key pays', () => {
     const call = helper.lastCall('/v1/embeddings')
     assert.equal(call.body.model, 'text-embedding-3-large')
     assert.equal(call.body.dimensions, 1536)
+
+    const small = await app.post('/api/v1/create-embeddings', { content: 'A note.', model: 'text-embedding-3-small' })
+    assert.equal(small.status, 201)
+    assert.equal(helper.lastCall('/v1/embeddings').body.model, 'text-embedding-3-small')
+    assert.equal(helper.lastCall('/v1/embeddings').body.dimensions, 1536)
+    assert.equal(small.json.usage.model, 'text-embedding-3-small')
   })
 })
 

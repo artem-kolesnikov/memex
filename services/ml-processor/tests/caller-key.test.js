@@ -37,6 +37,20 @@ test('a model sent without a key does not reach the operator\'s account', async 
   assert.strictEqual(call.body.model, 'gpt-4o-mini', 'a caller with no key chose the model the operator paid for')
 })
 
+// The backend sends the model the operator gave the account's tier in control,
+// with no key. Dropping it ran the box's file for every tier whatever control
+// said.
+test('a tier\'s model sent without a key is the one the box buys', async () => {
+  for (const model of ['gpt-4.1-nano', 'gpt-4.1-mini']) {
+    const answer = await app.post('/api/v1/summarize', { content: 'Something to summarise.', model: model })
+
+    assert.strictEqual(answer.status, 201)
+    const call = lastCall('/chat/completions')
+    assert.strictEqual(bearer(call), BOX_KEY)
+    assert.strictEqual(call.body.model, model)
+  }
+})
+
 test('a model sent WITH a key is the caller\'s to choose', async () => {
   const answer = await app.post('/api/v1/summarize', {
     content: 'Something to summarise.',

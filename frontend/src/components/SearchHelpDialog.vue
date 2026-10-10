@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // What the search box understands beyond plain words, opened from its (?).
-// The Docs section on finding notes says the same; this links there.
+// The docs page on finding notes says the same; this links there.
 import { ref } from 'vue'
 import { useBootstrapModal } from '@/lib/bootstrapModal'
+import { docsPage } from '@/lib/docs'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -17,8 +18,6 @@ const OPERATORS = [
   { example: '(memex OR memory) NOT ai', key: 'search.help.group' },
   { example: '"review gate"', key: 'search.help.phrase' },
 ] as const
-
-const DOCS_SECTION = { name: 'docs', hash: '#find-notes' } as const
 </script>
 
 <template>
@@ -45,9 +44,9 @@ const DOCS_SECTION = { name: 'docs', hash: '#find-notes' } as const
             </ul>
           </div>
           <div class="modal-footer">
-            <router-link class="btn btn-link btn-sm me-auto px-0" :to="DOCS_SECTION" @click="hide">
+            <a class="btn btn-link btn-sm me-auto px-0" :href="docsPage('find-notes')" target="_blank" rel="noopener">
               <i class="fa-solid fa-book-open me-1"></i>{{ $t('search.help.more') }}
-            </router-link>
+            </a>
             <button type="button" class="btn btn-outline-secondary btn-sm" @click="hide">{{ $t('common.close') }}</button>
           </div>
         </div>

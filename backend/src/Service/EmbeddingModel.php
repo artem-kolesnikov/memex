@@ -17,16 +17,21 @@ namespace App\Service;
  * 0.4 of OpenAI's range and tells a copy from a neighbour less sharply, so its
  * duplicate cut-offs admit more distinct pairs. Its pieces are shorter because
  * it reads 2,048 tokens and agreed better with OpenAI's note pairs at that size.
+ * text-embedding-3-small's were mapped the same way on the same vault
+ * (2026-10-08: 8,001 note pairs, 35 queries, 506 copies). It sits close to
+ * large on the wider ones and, like nomic, tells a copy from a neighbour less
+ * sharply.
  */
 enum EmbeddingModel: string
 {
     case OpenAi = 'text-embedding-3-large';
+    case OpenAiSmall = 'text-embedding-3-small';
     case Local = 'nomic-embed-text-v1.5';
 
     public function dimensions(): int
     {
         return match ($this) {
-            self::OpenAi => 1536,
+            self::OpenAi, self::OpenAiSmall => 1536,
             self::Local => 768,
         };
     }
@@ -41,7 +46,7 @@ enum EmbeddingModel: string
     public function chunkChars(): int
     {
         return match ($this) {
-            self::OpenAi => 6000,
+            self::OpenAi, self::OpenAiSmall => 6000,
             self::Local => 2400,
         };
     }
@@ -51,6 +56,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.68,
+            self::OpenAiSmall => 0.69,
             self::Local => 0.39,
         };
     }
@@ -60,6 +66,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.5,
+            self::OpenAiSmall => 0.48,
             self::Local => 0.21,
         };
     }
@@ -72,6 +79,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.42,
+            self::OpenAiSmall => 0.39,
             self::Local => 0.17,
         };
     }
@@ -85,6 +93,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.20,
+            self::OpenAiSmall => 0.17,
             self::Local => 0.10,
         };
     }
@@ -94,6 +103,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.12,
+            self::OpenAiSmall => 0.155,
             self::Local => 0.06,
         };
     }
@@ -103,6 +113,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.10,
+            self::OpenAiSmall => 0.14,
             self::Local => 0.045,
         };
     }
@@ -112,6 +123,7 @@ enum EmbeddingModel: string
     {
         return match ($this) {
             self::OpenAi => 0.15,
+            self::OpenAiSmall => 0.19,
             self::Local => 0.08,
         };
     }

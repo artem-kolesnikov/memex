@@ -11,8 +11,9 @@ note again, and until that finishes, search by topic covers only the notes alrea
 prepared; the section counts them. Without its key, an OpenAI search model matches exact
 words only, and the section says so. Exact-word search always works.
 
-**Descriptions and tags.** When enabled, Memex writes a description for a saved note that
-needs one and adds relevant tags from the existing vocabulary. Supplied descriptions and
+**Descriptions and tags.** When enabled, Memex writes a description for a note saved on the
+website that needs one and adds relevant tags from the existing vocabulary. It never
+describes or tags what an assistant writes; the assistant does that itself. Supplied descriptions and
 chosen tags are kept. New tag names are suggestions only; system tags are excluded. It
 needs a personal key from OpenAI, Anthropic or Google: adding one enables it, and the
 provider bills you for usage. You can choose a model and turn *Add descriptions and tags

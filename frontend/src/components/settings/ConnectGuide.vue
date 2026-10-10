@@ -38,7 +38,6 @@ async function copyAddress() {
 // curator connection gets the sentence that is true of it instead.
 const CURATOR_TIPS: Record<string, string> = {
   'connections.guides.review_tip': 'connections.guides.review_tip_curator',
-  'connections.guides.permissions_tip': 'connections.guides.permissions_tip_curator',
 }
 const tip = (key: string) => (props.curator ? (CURATOR_TIPS[key] ?? key) : key)
 </script>
@@ -59,8 +58,34 @@ const tip = (key: string) => (props.curator ? (CURATOR_TIPS[key] ?? key) : key)
               <span class="visually-hidden"> {{ $t('common.opens_new_tab') }}</span>
             </a>
           </div>
+          <a v-if="step.action" class="mm-wiz-button mm-connect-action" :href="step.action.href(address)" target="_blank" rel="noopener noreferrer">
+            {{ $t(step.action.labelKey) }}<WizardIcon name="external" />
+            <span class="visually-hidden"> {{ $t('common.opens_new_tab') }}</span>
+          </a>
           <p><GuideRich :text="$t(step.bodyKey)" /></p>
           <p class="mm-connect-tip" v-if="step.tipKey">{{ $t(tip(step.tipKey)) }}</p>
+          <p class="mm-connect-warn" v-if="step.warnKey"><WizardIcon name="alert" />{{ $t(step.warnKey) }}</p>
+          <details class="mm-connect-manual" v-if="step.manual">
+            <summary>{{ $t(step.manual.summaryKey) }}</summary>
+            <div class="mm-connect-manual-body">
+              <a v-if="step.manual.link" class="mm-wiz-text-button" :href="step.manual.link.url" target="_blank" rel="noopener noreferrer">
+                {{ $t(step.manual.link.labelKey) }}<WizardIcon name="external" />
+                <span class="visually-hidden"> {{ $t('common.opens_new_tab') }}</span>
+              </a>
+              <ol>
+                <li v-for="key in step.manual.lineKeys" :key="key"><GuideRich :text="$t(key)" /></li>
+              </ol>
+              <div class="mm-wiz-address" v-if="step.manual.address">
+              <code>{{ address }}</code>
+              <button type="button" class="mm-wiz-copy-button"
+                      :aria-label="copied ? $t('common.copied') : $t('connections.manual.copy_address')"
+                      :title="copied ? $t('common.copied') : $t('connections.manual.copy_address')"
+                      @click="copyAddress">
+                <WizardIcon :name="copied ? 'check' : 'copy'" />
+              </button>
+              </div>
+            </div>
+          </details>
           <div class="mm-wiz-address mm-connect-copy" v-if="step.address">
             <code>{{ address }}</code>
             <button type="button" class="mm-wiz-copy-button"
@@ -74,7 +99,7 @@ const tip = (key: string) => (props.curator ? (CURATOR_TIPS[key] ?? key) : key)
         <li>
           <div class="mm-connect-step-head"><h4>{{ $t('connections.guides.paste_prompt') }}</h4></div>
           <PromptBox class="mm-connect-copy" :client="client" />
-          <p class="mm-connect-tip" v-if="client.persist.note">
+          <p class="mm-connect-tip mm-connect-copy" v-if="client.persist.note">
             {{ $t(client.persist.note.beforeKey) }}
             <a class="mm-wiz-inline-link" :href="client.persist.note.link.url" target="_blank" rel="noopener noreferrer">{{ $t(client.persist.note.link.labelKey) }}<WizardIcon name="external" /></a>
             {{ $t(client.persist.note.afterKey) }}

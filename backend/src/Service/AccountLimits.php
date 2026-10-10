@@ -27,6 +27,9 @@ interface AccountLimits
      */
     public function includedText(): array;
 
+    /** The embedding model the account's vault must use, or null when its owner chooses. */
+    public function embeddingModel(): ?EmbeddingModel;
+
     /** A spend ceiling turned a request away. */
     public function spendLimitReached(string $surface, string $window, int $limit): void;
 

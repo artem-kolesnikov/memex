@@ -22,6 +22,7 @@ final class EmbeddingSpace
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly EnrichmentSettings $settings,
+        private readonly AccountLimits $limits,
         #[Autowire('%memex.embedding_models%')]
         array $offered,
         #[Autowire('%memex.embedding_server_key%')]
@@ -35,10 +36,24 @@ final class EmbeddingSpace
         return $this->settings->load()->getEmbeddingModel();
     }
 
-    /** @return list<EmbeddingModel> */
+    /** @return list<EmbeddingModel> the account's own when its limits fix one */
     public function offered(): array
     {
-        return $this->offered;
+        $fixed = $this->limits->embeddingModel();
+
+        return $fixed === null ? $this->offered : [$fixed];
+    }
+
+    /** Switches to the model the account's limits fix, if they fix one other than this. True when it switched. */
+    public function followLimits(): bool
+    {
+        $fixed = $this->limits->embeddingModel();
+        if ($fixed === null || $fixed === $this->model()) {
+            return false;
+        }
+        $this->switchTo($fixed);
+
+        return true;
     }
 
     /** False when the model, the vault's unless named, is OpenAI's and there is no key to buy with. */

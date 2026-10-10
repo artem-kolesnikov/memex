@@ -12,7 +12,13 @@ export interface GuideStep {
   address?: boolean
   /** A short aside under the body. */
   tipKey?: string
+  /** An aside the person must not miss, marked as a warning. */
+  warnKey?: string
   link?: { url: string; labelKey: string }
+  /** The step done for the person: a primary button, given this server's MCP address. */
+  action?: { href: (address: string) => string; labelKey: string }
+  /** The same step by hand, folded under the action for when it fails. */
+  manual?: { summaryKey: string; lineKeys: string[]; address?: boolean; link?: { url: string; labelKey: string } }
 }
 
 export interface ConnectGuide {
@@ -105,6 +111,14 @@ export const CHATGPT: ConnectGuide = {
   persist: { closing: 'Remember this for all our future chats.' },
 }
 
+/** Claude's connector settings, where a connector is added and its tools are allowed. */
+export const CLAUDE_CONNECTORS = 'https://claude.ai/customize/connectors'
+
+/** Claude's documented install link: the Add custom connector dialog, prefilled. */
+export function claudeInstallLink(address: string): string {
+  return `${CLAUDE_CONNECTORS}?modal=add-custom-connector&connectorName=Memex&connectorUrl=${encodeURIComponent(address)}`
+}
+
 export const CLAUDE: ConnectGuide = {
   id: 'claude',
   label: 'Claude',
@@ -113,17 +127,31 @@ export const CLAUDE: ConnectGuide = {
     {
       titleKey: 'connections.guides.claude.add.title',
       bodyKey: 'connections.guides.claude.add.body',
-      address: true,
-      tipKey: 'connections.guides.claude.add.tip',
-      link: { url: 'https://claude.ai/new#customize/connectors', labelKey: 'connections.guides.claude.add.link' },
+      warnKey: 'connections.guides.claude.add.tip',
+      action: { href: claudeInstallLink, labelKey: 'connections.guides.claude.add.button' },
+      manual: {
+        summaryKey: 'connections.guides.claude.add.manual',
+        lineKeys: [
+          'connections.guides.claude.add.manual_open',
+          'connections.guides.claude.add.manual_paste',
+          'connections.guides.claude.add.manual_add',
+        ],
+        address: true,
+        link: { url: CLAUDE_CONNECTORS, labelKey: 'connections.guides.claude.add.link' },
+      },
     },
     {
       titleKey: 'connections.guides.claude.approve.title',
       bodyKey: 'connections.guides.claude.approve.body',
       tipKey: 'connections.guides.review_tip',
     },
+    {
+      titleKey: 'connections.guides.claude.allow.title',
+      bodyKey: 'connections.guides.claude.allow.body',
+      tipKey: 'connections.guides.permissions_tip',
+      link: { url: CLAUDE_CONNECTORS, labelKey: 'connections.guides.claude.allow.link' },
+    },
   ],
-  permissionsKey: 'connections.guides.claude.permissions',
   persist: {
     closing: '',
     note: {

@@ -5,6 +5,17 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.6
+
+- *Docs*, in the header, the account menu and the search operators' help, opens the
+  documentation at docs.memex.tools in a new tab. It covers self-hosted memex as well as
+  memex.tools. The in-app Docs page is gone.
+- memex no longer writes a description or tags for what a connected assistant saves; the
+  assistant writes its own. Notes you save on the website are described as before, when
+  descriptions are on.
+- Every memex tool has a title, which assistants show in their list of memex's tools, and
+  tool descriptions that said something untrue are corrected.
+
 ## 1.9.5
 
 - A header on every page holds the Activity log, Docs, the light and dark switch and the

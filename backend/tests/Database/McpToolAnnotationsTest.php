@@ -93,6 +93,20 @@ final class McpToolAnnotationsTest extends ApiTestCase
         }
     }
 
+    public function testEveryToolHasATitle(): void
+    {
+        // A client shows the title where it lists the tools. Both places are
+        // filled, because 2025-06-18 clients read the tool's own `title` and
+        // older ones read `annotations.title`.
+        foreach ([$this->kb->a->curatorBearer, $this->kb->a->agentBearer] as $bearer) {
+            foreach ($this->tools($bearer) as $tool) {
+                self::assertIsString($tool['title'] ?? null, $tool['name'].' has no title');
+                self::assertNotSame('', trim($tool['title']), $tool['name'].' has an empty title');
+                self::assertSame($tool['title'], $tool['annotations']['title'] ?? null, $tool['name'].' carries two different titles');
+            }
+        }
+    }
+
     public function testNoToolReachesTheOpenWeb(): void
     {
         // openWorldHint is what tells a client this call can read a page nobody

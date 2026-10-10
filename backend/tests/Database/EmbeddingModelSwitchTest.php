@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Database;
 
+use App\Service\AccountLimits;
 use App\Service\EmbeddingModel;
 use App\Service\EmbeddingSpace;
 use App\Service\EnrichmentSettings;
@@ -33,6 +34,9 @@ final class EmbeddingModelSwitchTest extends ApiTestCase
     public function testSwitchingEmptiesEveryVectorAndTheSweepEmbedsEachNoteAgainAtTheNewSize(): void
     {
         $this->onOpenAiWithAKey();
+        if (self::getContainer()->get(AccountLimits::class)->embeddingModel() !== null) {
+            self::markTestSkipped('This edition names each vault\'s model; the sweep keeps it there.');
+        }
         $this->kb->a->note('Harbour charts', 'Tide tables for the north quay.');
         $this->kb->a->note('Quay lights', 'Who lights the lamps, and when.');
         $this->kb->a->enter();

@@ -47,7 +47,9 @@ final class EnrichmentSystemTagsTest extends ApiTestCase
         $ordinary = $this->tagId('invoices');
         $this->ml->suggestedTagIds = [$skill, $ordinary];
 
-        $this->request('POST', '/api/notes', $this->kb->a->curatorBearer, [
+        // The owner's own save: what an assistant writes buys no tag suggestions.
+        $this->loginAs($this->kb->a);
+        $this->sessionRequest('POST', '/api/notes', [
             'title' => 'Invoice', 'body_md' => 'The invoice was paid.', 'summary' => 'Paid.', 'tags' => [],
         ]);
         self::assertSame(201, $this->httpStatus(), $this->body());

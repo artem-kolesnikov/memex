@@ -10,6 +10,8 @@ Memex is a simple notebook for you and your AI assistants. Ask your AI to save d
 
 Use our free cloud version at **[memex.tools](https://memex.tools)**, or install memex on your own computer and keep everything local.
 
+The documentation for both is at [docs.memex.tools](https://docs.memex.tools).
+
 -----
 ### Cloud vs self-hosted
 

@@ -4059,6 +4059,84 @@ button.mm-census-row:hover {
     margin: 10px 0 0;
 }
 
+.mm-connect-steps > li > .mm-connect-action {
+    justify-self: start;
+    margin: 8px 0 6px;
+}
+
+.mm-connect-steps p.mm-connect-warn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: .8rem;
+    color: var(--bs-warning-text-emphasis);
+}
+
+.mm-connect-warn .mm-wiz-icon {
+    width: 14px;
+    height: 14px;
+    flex: none;
+}
+
+.mm-connect-manual {
+    margin-top: 10px;
+    border: 1px solid var(--wiz-line);
+    border-radius: 7px;
+}
+
+.mm-connect-manual summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    font-size: .8rem;
+    color: var(--mm-ink-soft);
+    cursor: pointer;
+}
+
+.mm-connect-manual summary::-webkit-details-marker {
+    display: none;
+}
+
+.mm-connect-manual summary::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform .15s;
+}
+
+.mm-connect-manual[open] summary::after {
+    transform: rotate(-135deg);
+}
+
+.mm-connect-manual summary:hover {
+    color: var(--mm-ink);
+}
+
+.mm-connect-manual-body {
+    padding: 0 12px 12px;
+    border-top: 1px solid var(--wiz-line-soft);
+}
+
+.mm-connect-manual-body .mm-wiz-text-button {
+    min-height: 32px;
+    font-size: .8rem;
+}
+
+.mm-connect-manual-body ol {
+    margin: 0;
+    padding-left: 18px;
+    font-size: .85rem;
+    line-height: 1.6;
+    color: var(--mm-ink-soft);
+}
+
 .mm-connect-steps .mm-wiz-address code {
     font-size: .85rem;
 }

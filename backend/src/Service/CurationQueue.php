@@ -531,7 +531,7 @@ class CurationQueue
         }
         $flagged = (int) ($counts['operator_flag'] ?? 0);
         if ($flagged > 0) {
-            $reasons[] = $flagged.' '.$plural($flagged).' you flagged — these come first';
+            $reasons[] = $flagged.' '.$plural($flagged).' the operator flagged — these come first';
         }
         foreach ($counts as $name => $n) {
             if ('operator_flag' === $name) {
