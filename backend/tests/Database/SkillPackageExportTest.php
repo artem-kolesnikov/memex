@@ -29,7 +29,7 @@ final class SkillPackageExportTest extends ApiTestCase
 
     public function testAPendingNoteTitledLikeTheShippedGuideDownloadsUnderItsOwnSlugAsItself(): void
     {
-        $draft = $this->pendingSkillNote('memex guide');
+        $draft = $this->pendingSkillNote('memex docs');
         $expectedSlug = ShippedSkills::GUIDE.'-'.$draft->getId();
         $this->loginAs($this->kb->a);
         $this->client->request('GET', '/api/skills/served/'.$expectedSlug.'/export');

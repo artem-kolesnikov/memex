@@ -1,5 +1,5 @@
 ---
-title: "Handoff"
+title: "skill — handoff"
 description: "Save where a piece of work stands so that any assistant can pick it up later, and pick it up again. Use when the owner says hand off, save where we are, wrap up for today or let's stop here, or says pick up, resume, continue or where did we leave something."
 short: "Saves where a piece of work stands, and picks it up again in any assistant."
 ---

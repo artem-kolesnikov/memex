@@ -38,7 +38,7 @@ it, as these notes do; each note lists the notes that link to it.
 
 ## Questions about memex
 
-Ask any connected assistant. memex's guide is built in as the `memex-guide` skill, and an
-assistant answers questions about memex from it.
+Ask any connected assistant. memex's documentation is built in as the `memex-docs` skill, and
+an assistant answers questions about memex from it.
 
 These three notes are yours: edit them, or delete them once you no longer need them.

@@ -173,12 +173,12 @@ final class SkillServingTest extends ApiTestCase
         self::assertContains($suffixed[0], ['draft-skill-'.$numbers[0], 'draft-skill-'.$numbers[1]]);
     }
 
-    public function testAPendingNoteTitledMemexGuideDoesNotTakeTheShippedGuidesSlug(): void
+    public function testAPendingNoteTitledMemexDocsDoesNotTakeTheShippedDocsSlug(): void
     {
-        $draft = $this->pendingSkillNote('memex guide');
+        $draft = $this->pendingSkillNote('memex docs');
 
         $rows = array_values(array_filter($this->library()->page(), static fn ($r) => $r['kind'] === 'note'));
-        self::assertSame('memex-guide-'.$draft->getId(), $rows[0]['slug']);
+        self::assertSame('memex-docs-'.$draft->getId(), $rows[0]['slug']);
     }
 
     public function testEnsureRecordsToleratesARowAlreadyInsertedByARace(): void

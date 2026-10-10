@@ -126,7 +126,7 @@ Start a new chat and paste this:
 > answering about those things. When we decide something worth keeping, offer to save it
 > there.
 >
-> First, read the memex guide: it is the memex-guide skill in my memex. Briefly explain how
+> First, read the memex docs: they are the memex-docs skill in my memex. Briefly explain how
 > you’ll use memex with me, without technical details.
 
 {{web}}

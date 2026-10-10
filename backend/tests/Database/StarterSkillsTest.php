@@ -18,7 +18,7 @@ use App\Tests\Support\Vaults;
 /**
  * A new account opens on its notes list with three welcome notes on top and
  * two starter skills below them, switched on. The guide is not among them: it
- * is served as the `memex-guide` skill and never copied into a knowledge base.
+ * is served as the `memex-docs` skill and never copied into a knowledge base.
  * Nor is a profile: the welcome notes say how to start one.
  */
 final class StarterSkillsTest extends ApiTestCase
@@ -56,7 +56,7 @@ final class StarterSkillsTest extends ApiTestCase
             'SELECT n.title, n.source, n.status, n.last_actor FROM notes n ORDER BY n.updated_at DESC, n.id DESC'
         );
         self::assertSame(
-            ['Welcome to memex', 'Connect your first assistant', 'Make memex yours', 'Plain writing', 'Handoff'],
+            ['Welcome to memex', 'Connect your first assistant', 'Make memex yours', 'skill — plain writing', 'skill — handoff'],
             array_column($rows, 'title'),
             'the list, newest change first, opens on the first welcome note, and holds no guide and no profile'
         );
@@ -103,7 +103,7 @@ final class StarterSkillsTest extends ApiTestCase
         }
         self::assertArrayNotHasKey('what-my-assistants-should-know-about-me', $byslug, 'memex ships no profile skill');
 
-        $this->sessionRequest('POST', '/api/skills/handoff/add');
+        $this->sessionRequest('POST', '/api/skills/skill-handoff/add');
         self::assertSame(409, $this->httpStatus(), 'a taken entry is already here');
     }
 
@@ -129,7 +129,7 @@ final class StarterSkillsTest extends ApiTestCase
 
         $this->request('POST', '/mcp', $bearer, [
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
-            'params' => ['name' => 'get_skill', 'arguments' => ['slug' => 'handoff']],
+            'params' => ['name' => 'get_skill', 'arguments' => ['slug' => 'skill-handoff']],
         ]);
         self::assertSame(200, $this->httpStatus());
         self::assertStringContainsString('Pick up', (string) json_encode($this->jsonResponse()));

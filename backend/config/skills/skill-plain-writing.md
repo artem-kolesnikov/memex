@@ -1,5 +1,5 @@
 ---
-title: "Plain writing"
+title: "skill — plain writing"
 description: "Write and rewrite text another person will read, such as an email, a message, a post, a letter or a document, without the habits that make text read as machine-written. Use when the owner asks you to draft, write, reply to, rewrite, polish, shorten or tidy up text for someone else."
 short: "Drafts and rewrites without the habits that make text read as machine-written."
 ---

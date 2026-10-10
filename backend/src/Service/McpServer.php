@@ -208,9 +208,9 @@ final class McpServer
 
             {WRITING}{CURATION}
 
-            **Questions about memex itself.** `get_skill("memex-guide")` is the current user
-            guide: what every screen, setting and tool does. Answer questions about memex from
-            it, not from memory.
+            **Questions about memex itself.** `get_skill("memex-docs")` is memex's current
+            documentation: what every screen, setting and tool does. Answer questions about memex
+            from it, not from memory.
 
             **Your writes are reviewed.** New notes land `pending` and edits are held until the
             operator approves them in the review inbox. That is normal, not a failure. Tokens the
@@ -392,6 +392,7 @@ final class McpServer
 
     private function findSkill(string $slug, string $surface): ?array
     {
+        $slug = ShippedSkills::canonical($slug);
         foreach ($this->skills($surface) as $skill) {
             if ($skill['slug'] === $slug) {
                 return $skill;
@@ -1339,7 +1340,7 @@ final class McpServer
 
     /**
      * The first-run wizard's last step asks the person to have their
-     * assistant open the memex guide, and this is how memex finds out it did.
+     * assistant open the memex docs, and this is how memex finds out it did.
      * Nothing else records what a connection READ.
      */
     private function recordGuideRead(): void

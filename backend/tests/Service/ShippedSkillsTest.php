@@ -20,6 +20,8 @@ use PHPUnit\Framework\TestCase;
 final class ShippedSkillsTest extends TestCase
 {
     private const DIR = __DIR__.'/../../config/skills-shipped';
+    /** Where each edition supplies the docs skill of its own. */
+    private const EDITION_DIR = __DIR__.'/../../config/edition/skills';
 
     public function testEveryShippedSlugHasAFileThatParses(): void
     {
@@ -29,8 +31,13 @@ final class ShippedSkillsTest extends TestCase
                 // guarded in SkillLibraryTest.
                 continue;
             }
+            if (ShippedSkills::canonical($slug) !== $slug) {
+                // An earlier name, reserved so no note takes it, and served
+                // as the skill it now names.
+                continue;
+            }
 
-            $path = self::DIR.'/'.$slug.'.md';
+            $path = ($slug === ShippedSkills::GUIDE ? self::EDITION_DIR : self::DIR).'/'.$slug.'.md';
             self::assertFileExists($path, "$slug is reserved, so no note may claim it — if nothing "
                 .'ships under that name, the slug is simply unusable by anybody');
 
@@ -65,8 +72,7 @@ final class ShippedSkillsTest extends TestCase
      */
     public function testEveryShippedFileIsReserved(): void
     {
-        $files = glob(self::DIR.'/*.md');
-        self::assertNotFalse($files);
+        $files = [...glob(self::DIR.'/*.md'), ...glob(self::EDITION_DIR.'/*.md')];
         self::assertNotSame([], $files, 'this directory is what memex serves of its own; empty '
             .'means the recall instructions reach nobody');
 

@@ -284,7 +284,7 @@ abstract class DesignSweepTestCase extends ApiTestCase
 
         return (string) match (true) {
             $name === 'revisionId' => $f['revision'],
-            $name === 'slug' => 'handoff',
+            $name === 'slug' => 'skill-handoff',
             $name === 'name' => 'design',
             $name === 'provider' => 'google',
             $name === 'endpoint' => 'token',
@@ -446,7 +446,7 @@ abstract class DesignSweepTestCase extends ApiTestCase
         $this->sessionRequest('POST', '/api/presets', ['name' => 'Designs', 'q' => 'Alpha']);
         $this->sessionRequest('POST', '/api/curation/presets', ['name' => 'Profile']);
         $this->sessionRequest('POST', '/api/settings/ai/keys', ['provider' => 'openai', 'name' => 'Key', 'api_key' => 'sk-a-valid-key']);
-        $this->sessionRequest('POST', '/api/skills/handoff/add');
+        $this->sessionRequest('POST', '/api/skills/skill-handoff/add');
         self::assertSame(201, $this->httpStatus(), 'fixture skill: '.$this->body());
 
         $client = $this->registerClient();
@@ -477,7 +477,7 @@ abstract class DesignSweepTestCase extends ApiTestCase
             'edited_version' => (int) $vault->fetchOne('SELECT version FROM notes WHERE id = ?', [$edit['note_id']]),
             'delete_proposal' => (int) $proposal('delete')['id'],
             'merge_proposal' => (int) $proposal('merge')['id'],
-            'skill' => $this->noteId($tenant, 'Handoff'),
+            'skill' => $this->noteId($tenant, 'skill — handoff'),
             'curation_profile' => (int) $vault->fetchOne("SELECT id FROM curation_presets WHERE name = 'Profile'"),
             'spare_connection' => (int) $vault->fetchOne("SELECT id FROM api_tokens WHERE name LIKE 'spare-%'"),
             'identity' => (string) $directory->fetchOne('SELECT ref FROM identities WHERE account_id = ?', [$tenant->accountId]),

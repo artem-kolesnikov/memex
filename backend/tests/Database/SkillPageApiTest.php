@@ -19,10 +19,11 @@ final class SkillPageApiTest extends ApiTestCase
         self::assertSame($note->getId(), $bySlug['house-style']['note_id']);
         self::assertSame([], $bySlug['house-style']['grants']);
         self::assertSame(0, $bySlug['house-style']['usage']['total_30d']);
-        self::assertSame('built_in', $bySlug['memex-guide']['status']);
-        self::assertSame('offered', $bySlug['handoff']['status']);
+        self::assertSame('built_in', $bySlug['memex-docs']['status']);
+        self::assertSame('offered', $bySlug['skill-handoff']['status']);
+        self::assertSame('offered', $bySlug['skill-ingest']['status']);
         self::assertSame('built_in', $bySlug['memex-writing']['status']);
-        self::assertGreaterThan(0, $bySlug['memex-guide']['size_tokens']);
+        self::assertGreaterThan(0, $bySlug['memex-docs']['size_tokens']);
         self::assertCount(2, $body['connections']);
     }
 
@@ -50,8 +51,10 @@ final class SkillPageApiTest extends ApiTestCase
         self::assertSame(400, $this->httpStatus());
         $this->sessionRequest('PATCH', '/api/skills/'.$note->getId(), ['slug' => 'other']);
         self::assertSame(409, $this->httpStatus());
-        $this->sessionRequest('PATCH', '/api/skills/'.$note->getId(), ['slug' => 'memex-guide']);
+        $this->sessionRequest('PATCH', '/api/skills/'.$note->getId(), ['slug' => 'memex-docs']);
         self::assertSame(409, $this->httpStatus());
+        $this->sessionRequest('PATCH', '/api/skills/'.$note->getId(), ['slug' => 'memex-guide']);
+        self::assertSame(409, $this->httpStatus(), 'the docs\' earlier name is reserved too');
         $this->sessionRequest('PATCH', '/api/skills/'.$note->getId(), ['grants' => [$foreign]]);
         self::assertSame(404, $this->httpStatus());
         $this->sessionRequest('PATCH', '/api/skills/999999', ['enabled' => false]);

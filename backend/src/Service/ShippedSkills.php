@@ -33,6 +33,8 @@ class ShippedSkills
 {
     public const RECALL = 'memex-recall';
     public const GUIDE = UserGuide::SLUG;
+    /** Earlier names still answered to: name => the slug it now resolves to. Reserved, never listed. */
+    private const ALIASES = [UserGuide::ALIAS => self::GUIDE];
     /** How to find, read and maintain the owner's profile note (tagged `user-profile`). */
     public const PROFILE = 'memex-profile';
     public const SKILLS = 'memex-skills';
@@ -47,13 +49,14 @@ class ShippedSkills
      *
      * @var list<string>
      */
-    private const RESERVED = [SkillLibrary::CURATION_CHARTER, self::RECALL, self::GUIDE, self::PROFILE, self::SKILLS, self::WRITING];
+    private const RESERVED = [SkillLibrary::CURATION_CHARTER, self::RECALL, self::GUIDE, self::PROFILE, self::SKILLS, self::WRITING, UserGuide::ALIAS];
 
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly CurationCharter $charter,
         private readonly LoggerInterface $logger,
         private readonly ShippedText $text,
+        private readonly UserGuide $guide,
         private readonly string $shippedSkillsDir,
     ) {
     }
@@ -62,6 +65,12 @@ class ShippedSkills
     public static function reservedSlugs(): array
     {
         return self::RESERVED;
+    }
+
+    /** The slug a request for `$slug` is served under: itself, or what an alias now names. */
+    public static function canonical(string $slug): string
+    {
+        return self::ALIASES[$slug] ?? $slug;
     }
 
     /**
@@ -149,7 +158,7 @@ class ShippedSkills
      */
     private function fileFor(string $slug): ?array
     {
-        $path = rtrim($this->shippedSkillsDir, '/').'/'.$slug.'.md';
+        $path = $slug === self::GUIDE ? $this->guide->path() : rtrim($this->shippedSkillsDir, '/').'/'.$slug.'.md';
         $raw = is_readable($path) ? file_get_contents($path) : false;
         $parsed = $raw === false ? null : SkillLibrary::parseSkillFile($raw);
 

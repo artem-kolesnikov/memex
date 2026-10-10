@@ -9,9 +9,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * Text memex ships for every edition (the guide, the welcome notes), made to
- * read true on the server serving it. A line `{{edition:<name>}}` is replaced
- * by `config/edition/text/<name>.md`, which each edition supplies, so what is
+ * Text memex ships for every edition (the shipped skills, the welcome notes),
+ * made to read true on the server serving it. A line `{{edition:<name>}}` is
+ * replaced by `config/edition/text/<name>.md`, which each edition supplies, so what is
  * true of one edition only stays in that edition's files; an empty passage
  * removes the line and the blank line above it. `{{origin}}` becomes this
  * server's own address. Lines between `{{web}}` and `{{/web}}` are kept only

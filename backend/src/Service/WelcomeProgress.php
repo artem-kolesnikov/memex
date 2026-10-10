@@ -99,8 +99,8 @@ class WelcomeProgress
     }
 
     /**
-     * Whether any live connection has opened the memex guide, the
-     * `memex-guide` skill, by `get_skill`. Stamped in
+     * Whether any live connection has opened the memex docs, the
+     * `memex-docs` skill, by `get_skill`. Stamped in
      * McpServer, because nothing else records what a connection READ,
      * and it is the one read the wizard's last step asks a person to cause.
      */

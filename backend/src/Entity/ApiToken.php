@@ -60,8 +60,8 @@ class ApiToken
     private ?\DateTimeImmutable $revokedAt = null;
 
     /**
-     * When this connection last opened the memex guide, by fetching the seeded
-     * note or loading the `memex-guide` skill. The first-run wizard's last
+     * When this connection last opened the memex docs, by fetching the seeded
+     * note or loading the `memex-docs` skill. The first-run wizard's last
      * step asks the person to make that happen and checks for it here.
      */
     #[ORM\Column(nullable: true)]

@@ -19,7 +19,7 @@ use App\Entity\Note;
 class StarterSkills
 {
     /** The catalogue slugs every new knowledge base opens with, written in this order, so the list shows the last first. */
-    public const SEEDED = ['handoff', 'plain-writing'];
+    public const SEEDED = ['skill-handoff', 'skill-plain-writing'];
 
     public function __construct(
         private readonly SkillLibrary $skills,

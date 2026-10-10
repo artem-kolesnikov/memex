@@ -80,7 +80,7 @@ class WelcomeWizardTest extends ApiTestCase
     }
 
     /**
-     * The guide is the `memex-guide` skill and nothing else: no note is a copy
+     * The guide is the `memex-docs` skill and nothing else: no note is a copy
      * of it, so fetching one, even a welcome note memex wrote, records nothing.
      */
     public function testFetchingANoteMemexWroteIsNotReadingTheGuide(): void
@@ -117,6 +117,15 @@ class WelcomeWizardTest extends ApiTestCase
         self::assertTrue($facts['guide_read']);
         self::assertTrue($facts['connected'], 'and the call itself is what made it a connection');
         self::assertNotNull($facts['last_seen']);
+    }
+
+    public function testLoadingTheDocsByTheirEarlierNameCountsAsReadingThem(): void
+    {
+        $this->mcp('get_skill', $this->kb->a->agentBearer, ['slug' => UserGuide::ALIAS]);
+
+        $this->loginAs($this->kb->a);
+        $this->sessionRequest('GET', '/api/me/welcome');
+        self::assertTrue($this->jsonResponse()['facts']['guide_read']);
     }
 
     /**

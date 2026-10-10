@@ -303,7 +303,7 @@ await scenario('a card can be paused and resumed without opening its panel', asy
 
 await scenario('memex-writing switched off in Personalization says so and is not counted', async (page, state) => {
   state.extraRows = [
-    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-guide', title: 'Memex guide', size_tokens: 100 },
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 100 },
     { ...ROW, kind: 'shipped', status: 'switched_off', note_id: null, slug: 'memex-writing', title: 'memex — writing', size_tokens: 1200 },
   ]
   await page.goto(SKILLS)
@@ -311,7 +311,7 @@ await scenario('memex-writing switched off in Personalization says so and is not
   await card.waitFor()
   assert((await card.textContent()).includes('Off in Settings › Personalization'), 'the switched-off card does not say so')
   assert((await card.getByRole('link').getAttribute('href')).endsWith('/settings/personalization'), 'the card does not lead to Personalization')
-  assert(!(await page.locator('[data-system-skill="memex-guide"]').textContent()).includes('Off in'), 'an always-on skill claims to be off')
+  assert(!(await page.locator('[data-system-skill="memex-docs"]').textContent()).includes('Off in'), 'an always-on skill claims to be off')
   assert(await page.getByTestId('skills-active-count').innerText() === '2', 'a switched-off skill counted as enabled')
 })
 
@@ -320,7 +320,7 @@ await scenario('the size summary groups built-ins first and measures shares of e
   state.row.grants = [2]
   state.extraRows = [
     { ...ROW, note_id: 9, slug: 'disabled-skill', status: 'paused', enabled: false, size_tokens: 99999 },
-    { ...ROW, kind: 'shipped', note_id: null, slug: 'memex-guide', title: 'Memex guide', size_tokens: 37500 },
+    { ...ROW, kind: 'shipped', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 37500 },
   ]
   await page.goto(SKILLS)
   const dashboard = page.getByRole('region', { name: 'skills enabled', exact: true })
@@ -412,14 +412,14 @@ await scenario('cards show chat examples directly and keep settings in the panel
 })
 
 await scenario('system skills are separated, immutable, and included in the size breakdown', async (page, state) => {
-  state.extraRows = [{ ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-guide', title: 'Memex guide', size_tokens: 100 }]
+  state.extraRows = [{ ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 100 }]
   await page.goto(SKILLS)
   await page.getByTestId('skills-active-count').waitFor()
   assert(await page.getByTestId('skills-active-count').innerText() === '2', 'always-on system skill excluded from active total')
   assert(await page.getByTestId('skills-context-size').innerText() === '~112', 'token breakdown total is incorrect')
-  assert(await page.locator('.size-segment[data-alias="memex-guide"]').count() === 1, 'system skill has no size segment')
+  assert(await page.locator('.size-segment[data-alias="memex-docs"]').count() === 1, 'system skill has no size segment')
   assert(await page.getByRole('heading', { name: 'Built into Memex · 1', exact: true }).isVisible(), 'system skills section is hidden')
-  const system = page.locator('.system-skill-card').filter({ has: page.getByRole('heading', { name: 'Memex guide', exact: true }) })
+  const system = page.locator('.system-skill-card').filter({ has: page.getByRole('heading', { name: 'memex — docs', exact: true }) })
   assert(await system.getByRole('checkbox').count() === 0, 'system skills can be disabled')
   assert((await system.innerText()).includes('~100 tokens'), 'mini-card does not show token size')
   assert(await system.locator('button, a, input').count() === 0, 'system mini-card has interactive controls')

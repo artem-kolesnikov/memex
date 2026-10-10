@@ -12,12 +12,12 @@ assistant you connect.
 
 Two are here already, and switched on:
 
-- [[Plain writing]] strips the habits that make text read as machine-written. Try it in a
+- [[skill — plain writing]] strips the habits that make text read as machine-written. Try it in a
   connected assistant:
 
   > Draft an email asking my landlord to fix the heating.
 
-- [[Handoff]] saves where a piece of work stands and picks it up again, in any assistant.
+- [[skill — handoff]] saves where a piece of work stands and picks it up again, in any assistant.
   At the end of a working chat, say:
 
   > Save where we are.

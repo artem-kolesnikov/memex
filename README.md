@@ -175,9 +175,6 @@ What a connected assistant can do:
 
 `log`, `log_recent`, `resolve_curation_flag` and `duplicate_candidates` appear once you grant the connection the **curator role** in Settings › Assistants.
 
-The guide inside memex covers every screen and tool; ask any connected assistant to load
-the `memex-guide` skill.
-
 ## On your network
 
 `-p 127.0.0.1:8080:8080` lets only this computer reach memex. To reach it from other

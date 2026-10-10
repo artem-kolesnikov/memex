@@ -26,7 +26,7 @@ final class SkillPushTest extends ApiTestCase
         $this->kb->a->note('House style', 'Cite the source.', ['skill'], 'How notes are written here.');
         $init = $this->rpc($this->kb->a->agentBearer, 'initialize', ['protocolVersion' => '2025-06-18', 'capabilities' => [], 'clientInfo' => ['name' => 't', 'version' => '1']]);
         self::assertStringContainsString('`house-style` — How notes are written here. — get_skill("house-style") or prompt "house-style"', $init['result']['instructions']);
-        self::assertStringContainsString('`memex-guide`', $init['result']['instructions']);
+        self::assertStringContainsString('`memex-docs`', $init['result']['instructions']);
 
         $tools = $this->rpc($this->kb->a->agentBearer, 'tools/list');
         $listSkills = array_values(array_filter($tools['result']['tools'], static fn ($t) => $t['name'] === 'list_skills'))[0];
