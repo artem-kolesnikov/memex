@@ -67,7 +67,7 @@
 [data-bs-theme="dark"] {
     --app-edge-light: rgba(255, 255, 255, .055);
     --app-edge-light-soft: rgba(255, 255, 255, .035);
-    /* Ivory reads at 4.73:1 here, and the button still holds 3.17:1 against
+    /* Ivory reads at 4.73:1 here, and the button still holds 3.23:1 against
        the paper it sits on. */
     --mm-primary-fill: #0c79a1;
     --app-canvas-warm: none;
@@ -736,14 +736,15 @@
         var(--mm-bg);
 }
 
-/* Midnight Workshop's canvas: cyan is the dominant light and gold a smaller,
-   warmer, quieter one. Fixed with the shell rather than the content, so a long
-   page never reveals a second gradient start. */
+/* Midnight's canvas: cyan from the top-left corner and a quieter gold from
+   the top-right, wide enough to meet across the top, over neutral charcoal.
+   Fixed with the shell rather than the content, so a long page never reveals
+   a second gradient start. */
 [data-bs-theme="dark"] .app-stage {
     background:
-        radial-gradient(circle at 68% -5%, rgba(0, 189, 242, .13), transparent 30%),
-        radial-gradient(circle at 96% 12%, rgba(230, 200, 100, .075), transparent 22%),
-        linear-gradient(135deg, #101617, #192326);
+        radial-gradient(ellipse 80% 50% at 0% 0%, rgba(0, 189, 242, .085), transparent),
+        radial-gradient(ellipse 80% 50% at 100% 0%, rgba(230, 200, 100, .05), transparent),
+        linear-gradient(135deg, #141414, #1d1d1d);
 }
 
 .app-stage::after {

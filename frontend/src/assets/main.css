@@ -3366,8 +3366,8 @@ button.mm-census-row:hover {
 [data-bs-theme="dark"] {
     --mm-map-defect: #d36d63;
     --mm-map-flag: #ffc107;
-    --mm-map-node: #7d8f93;
-    --mm-map-edge: #46585d;
+    --mm-map-node: #8a8a87;
+    --mm-map-edge: #555555;
 }
 
 .mm-map-canvas {
@@ -3858,16 +3858,16 @@ button.mm-census-row:hover {
 }
 
 .mm-wiz-theme-image.is-night {
-    background: #101617;
-    border-color: #344347;
+    background: #141414;
+    border-color: #3c3c3c;
 }
 
-.is-night .mm-wiz-mini-window { background: #1d2526; border-color: #344347; }
-.is-night .mm-wiz-mini-sidebar { background: #171d1e; border-color: #2d393b; }
-.is-night .mm-wiz-mini-sidebar i { background: #344347; }
+.is-night .mm-wiz-mini-window { background: #222222; border-color: #3c3c3c; }
+.is-night .mm-wiz-mini-sidebar { background: #1b1b1b; border-color: #333333; }
+.is-night .mm-wiz-mini-sidebar i { background: #3c3c3c; }
 .is-night .mm-wiz-mini-sidebar i:nth-of-type(2) { background: #3d6e7c; }
 .is-night .mm-wiz-mini-content b { color: #ebe8df; }
-.is-night .mm-wiz-mini-content i { background: #344347; }
+.is-night .mm-wiz-mini-content i { background: #3c3c3c; }
 .is-night .mm-wiz-mini-content em { background: #305666; }
 
 .mm-wiz-theme-caption {

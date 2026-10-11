@@ -29,8 +29,9 @@ import {
   timeZones,
 } from '@/lib/datetime'
 
-const TEXT_MIN = 10
-const TEXT_MAX = 20
+const TEXT_SIZES = window.appearanceChoices?.('text') ?? []
+const TEXT_MIN = TEXT_SIZES[0]
+const TEXT_MAX = TEXT_SIZES[TEXT_SIZES.length - 1]
 
 // The layouts as pictures of themselves, as the themes are: a page at a time,
 // a list page in two frames, or frames only on a window wide enough.

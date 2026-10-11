@@ -895,6 +895,27 @@ try {
     }
     await context.close()
   }
+
+  // Every size the text slider offers is the size a note is drawn at, after a
+  // reload as well as at once.
+  {
+    const { context, page } = await open({ layout: 'windowed', width: 1440 })
+    await page.goto(`${BASE}/${HANDLE}/settings/memex`)
+    const slider = page.locator('#pref-text')
+    await slider.waitFor()
+    const ends = await slider.evaluate((el) => [el.min, el.max])
+    for (const size of ends) {
+      await page.goto(`${BASE}/${HANDLE}/settings/memex`)
+      await slider.fill(size)
+      const now = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--mm-note-size').trim())
+      expect(now === `${size}px`, `text size: moving the slider to ${size} should apply ${size}px, was ${JSON.stringify(now)}`)
+      await page.goto(`${BASE}/${HANDLE}/notes/5`)
+      await settle(page.locator('.note-body').waitFor({ timeout: 5000 }))
+      const drawn = await page.locator('.note-body').evaluate((el) => getComputedStyle(el).fontSize).catch(() => null)
+      expect(drawn === `${size}px`, `text size: a note should be drawn at ${size}px after choosing it, was ${JSON.stringify(drawn)}`)
+    }
+    await context.close()
+  }
 } finally {
   await browser.close()
   server.close()

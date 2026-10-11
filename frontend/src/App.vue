@@ -32,6 +32,7 @@ declare global {
     // Reading preferences, applied on <html> before the app mounts. See
     // public/theme-boot.js: note text size, and the typeface of rendered markdown.
     getAppearance?: (which: 'text' | 'font') => string
+    appearanceChoices?: (which: 'text' | 'font') => string[]
     setAppearance?: (which: 'text' | 'font', value: string) => void
     // The three colours are stored per theme, so every one of these takes the
     // theme it applies to rather than the one currently showing.

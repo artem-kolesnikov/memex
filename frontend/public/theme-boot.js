@@ -145,12 +145,12 @@
 
   const PALETTES = {
     light: { bg: '#edf4f7', surface: '#fffefb', line: '#ccd9e0', lineStrong: '#b7c7d0', ink: '#20303c', inkSoft: '#607482', muted: '#7e909b', highlight: '#e4eef2', hover: '#eef6f8', tagBg: '#e6edf1', tagInk: '#4b5f6c', tagHover: '#d8e3e9', rowBg: '#fffefb', rowAlt: '#f7f8f6', inputBg: '#f8fbfc', selectBg: '#f8fbfc', placeholder: '#81919b', accent: '#1376a3', link: '#1376a3', note: '#20303c', chrome: '#f8fbfc', footer: '#eef3f5', rule: '#b7c7d0', tableHead: '#f1f0ea' },
-    dark: { bg: '#101617', surface: '#1d2526', line: '#2d393b', lineStrong: '#344347', ink: '#ebe8df', inkSoft: '#b6c1c2', muted: '#849398', highlight: '#242e30', hover: '#213136', tagBg: '#293639', tagInk: '#d2dada', tagHover: '#314246', rowBg: '#1d2526', rowAlt: '#192123', inputBg: '#131a1c', selectBg: '#131a1c', placeholder: '#7a888d', accent: '#31a9d3', link: '#47c5ed', note: '#e3e0d7', chrome: '#171d1e', footer: '#171d1e', rule: '#344347', tableHead: '#242e30' },
+    dark: { bg: '#141414', surface: '#222222', line: '#333333', lineStrong: '#3c3c3c', ink: '#ebe8df', inkSoft: '#bdbdb8', muted: '#8f8f8b', highlight: '#2a2a2a', hover: '#2c2c2c', tagBg: '#313131', tagInk: '#d8d8d4', tagHover: '#3a3a3a', rowBg: '#222222', rowAlt: '#1e1e1e', inputBg: '#181818', selectBg: '#181818', placeholder: '#80807c', accent: '#31a9d3', link: '#47c5ed', note: '#e3e0d7', chrome: '#1b1b1b', footer: '#1b1b1b', rule: '#3c3c3c', tableHead: '#2a2a2a' },
   }
 
   const SKILL_COLORS = {
     light: { builtIn: ['#a9bfca', '#bfd1d8', '#92afbc', '#b1c9d1', '#9fbbc5'], personal: ['#167fa5', '#39988e', '#7b77b6', '#c39a52', '#5893b4', '#ab7c92'] },
-    dark: { builtIn: ['#435e69', '#536c75', '#3b5662', '#49656e', '#405b65'], personal: ['#38a6cb', '#57b6a6', '#9991cd', '#cbaa6b', '#73a8c4', '#bd91a7'] },
+    dark: { builtIn: ['#555555', '#626262', '#4d4d4d', '#5b5b5b', '#525252'], personal: ['#38a6cb', '#57b6a6', '#9991cd', '#cbaa6b', '#73a8c4', '#bd91a7'] },
   }
 
   const FIXED_ACCENT = {
@@ -158,7 +158,7 @@
   }
 
   const APPEARANCE = {
-    text: { key: 'mm-text-size', allowed: ['9', '10', '11', '12', '13', '14', '15'], fallback: '15' },
+    text: { key: 'mm-text-size', allowed: Array.from({ length: 11 }, (_, i) => String(10 + i)), fallback: '15' },
     font: { key: 'mm-md-font', attr: 'data-mm-font', allowed: ['sans', 'serif', 'mono'], fallback: 'sans' },
   }
 
@@ -265,6 +265,8 @@
   }
 
   window.getAppearance = which => readAppearance(which)
+
+  window.appearanceChoices = which => [...(APPEARANCE[which]?.allowed ?? [])]
 
   window.setAppearance = (which, value) => {
     const spec = APPEARANCE[which]
