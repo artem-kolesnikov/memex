@@ -155,6 +155,18 @@ final class SystemTags
         return self::sortBy($names, static fn (string $n): string => $n);
     }
 
+    /**
+     * A WHERE condition true of a note that is not a skill: the notes list, its
+     * search and its map leave skills to the Skills page.
+     *
+     * $note is a SQL alias the CALLER writes, never user input.
+     */
+    public static function notSkillSql(string $note): string
+    {
+        return 'NOT EXISTS (SELECT 1 FROM note_tag skill_nt JOIN tags skill_t ON skill_t.id = skill_nt.tag_id '
+            ."WHERE skill_nt.note_id = {$note}.id AND skill_t.name = '".self::SKILL."')";
+    }
+
     /** Tag names are stored lowercased (NoteWriter::resolveTags); match that. */
     private static function normalize(string $name): string
     {

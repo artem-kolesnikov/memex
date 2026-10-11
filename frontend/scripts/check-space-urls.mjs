@@ -184,7 +184,7 @@ function apiStub(signedIn) {
     if (url.pathname === '/api/notes') return json({ items: LIST, total: LIST.length, semantic_unavailable: false })
     if (url.pathname === '/api/skills') {
       return json({
-        skills: [{ kind: 'note', status: 'served', slug: 'house-style', title: 'House style', description: 'How notes are written.', short: null, body: 'Steps.', updated_at: '2026-09-01 09:00:00', note_id: 5, enabled: true, auto: true, command: true, grants: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 12 }],
+        skills: [{ kind: 'note', status: 'served', slug: 'house-style', title: 'House style', description: 'How notes are written.', short: null, body: 'Steps.', updated_at: '2026-09-01 09:00:00', note_id: 5, enabled: true, auto: true, command: true, blocked: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 12 }],
         connections: [],
       })
     }

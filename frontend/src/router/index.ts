@@ -25,6 +25,11 @@ const spaceRoutes: RouteRecordRaw[] = [
   // its own since 2026-09-10: a skill is writing the owner does, not a setting,
   // and inside Settings › Connections nothing could link to it.
   { path: 'skills', name: 'skills', component: () => import('@/views/SkillsView.vue') },
+  // A skill of the owner's own is a note with more to it, read and edited on
+  // the note's own page and editor, and found under Skills rather than Notes.
+  { path: 'skills/new', name: 'skill-new', component: () => import('@/views/NoteEditView.vue') },
+  { path: 'skills/:id(\\d+)', name: 'skill', component: () => import('@/views/NoteView.vue') },
+  { path: 'skills/:id(\\d+)/edit', name: 'skill-edit', component: () => import('@/views/NoteEditView.vue') },
   // The first-run wizard. Inside the handle like every signed-in page, and
   // outside the app's chrome: it is the screen somebody sees before they have
   // anything the nav points at.
@@ -159,14 +164,16 @@ router.beforeEach(async (to) => {
   if (asked !== '' && asked !== handle) return { name: 'search', params: { handle } }
 
   // In frames (Preferences › Appearance) a note, its editor and a new note all
-  // open in the notes list's reading frame, whichever page linked to them: a
-  // reader who chose frames is not dropped onto a full page by a link.
+  // open in the notes list's reading frame, and a skill's in the skills list's,
+  // whichever page linked to them: a reader who chose frames is not dropped
+  // onto a full page by a link.
   if (useLayoutStore().framesEnabled) {
     if (to.name === 'note') return { name: 'search', params: { handle }, query: { open: String(to.params.id) } }
     if (to.name === 'note-edit') return { name: 'search', params: { handle }, query: { edit: String(to.params.id) } }
-    if (to.name === 'note-new') {
-      return { name: 'search', params: { handle }, query: to.query.skill === '1' ? { edit: 'new', skill: '1' } : { edit: 'new' } }
-    }
+    if (to.name === 'note-new') return { name: 'search', params: { handle }, query: { edit: 'new' } }
+    if (to.name === 'skill') return { name: 'skills', params: { handle }, query: { open: String(to.params.id) } }
+    if (to.name === 'skill-edit') return { name: 'skills', params: { handle }, query: { edit: String(to.params.id) } }
+    if (to.name === 'skill-new') return { name: 'skills', params: { handle }, query: { edit: 'new' } }
   }
 
   // No branch for a MISSING handle: there is nowhere one can arrive from. A

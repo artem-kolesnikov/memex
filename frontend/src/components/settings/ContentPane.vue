@@ -434,7 +434,7 @@ onMounted(loadTags)
       <div class="mb-0" v-else>
         <span v-for="tag in sortedTags" :key="tag.id" class="mm-tag mm-tag-editable me-1 mb-1"
               :class="{ 'mm-tag-system': tag.system }">
-          <router-link :to="{ name: 'search', query: { tag: tag.name } }">
+          <router-link :to="tag.listed_count > 0 ? { name: 'search', query: { tag: tag.name } } : { name: 'skills' }">
             {{ tag.name }} {{ tag.note_count }}
           </router-link>
           <!-- A padlock where the × would be, rather than a disabled × : a ×

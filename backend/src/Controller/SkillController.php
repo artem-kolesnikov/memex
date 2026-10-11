@@ -80,7 +80,7 @@ class SkillController extends ApiController
             return $this->json($this->json400('Body must be a JSON object'), Response::HTTP_BAD_REQUEST);
         }
         try {
-            $this->serving->update($note->getId(), array_intersect_key($patch, array_flip(['enabled', 'auto', 'command', 'slug', 'grants'])));
+            $this->serving->update($note->getId(), array_intersect_key($patch, array_flip(['enabled', 'auto', 'command', 'slug', 'blocked'])));
         } catch (\InvalidArgumentException $e) {
             return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
         } catch (SkillSlugTaken $e) {
@@ -257,7 +257,7 @@ class SkillController extends ApiController
                 'enabled' => $skill['enabled'] ?? true,
                 'auto' => $skill['auto'] ?? true,
                 'command' => $skill['command'] ?? true,
-                'grants' => $skill['grants'] ?? [],
+                'blocked' => $skill['blocked'] ?? [],
                 'usage' => $use,
                 'lint' => $this->lint->findings($skill, $use),
                 'size_tokens' => (int) ceil(strlen($skill['body']) / 4),

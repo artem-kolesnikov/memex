@@ -62,10 +62,10 @@ class SkillLibrary
 
     /**
      * Every skill this knowledge base can load: shipped first, then its own verified
-     * notes tagged `skill` that are enabled, granted to `$token` (or ungated),
+     * notes tagged `skill` that are enabled, not kept from `$token`,
      * and offered on `$surface` when one is given.
      *
-     * @return list<array{id: ?int, slug: string, title: string, description: string, body: string, updated_at: string, status?: string, enabled?: bool, auto?: bool, command?: bool, grants?: list<int>}>
+     * @return list<array{id: ?int, slug: string, title: string, description: string, body: string, updated_at: string, status?: string, enabled?: bool, auto?: bool, command?: bool, blocked?: list<int>}>
      */
     public function all(?ApiToken $token = null, ?string $surface = null): array
     {
@@ -88,7 +88,7 @@ class SkillLibrary
     {
         $this->serving->ensureRecords();
         $settings = $this->serving->settings();
-        $grants = $this->serving->grants();
+        $blocks = $this->serving->blocks();
         $out = [];
         foreach ($this->serving->skillNotes($verifiedOnly) as $row) {
             $record = $settings[(int) $row['id']] ?? null;
@@ -103,7 +103,7 @@ class SkillLibrary
                 'enabled' => $record['enabled'] ?? true,
                 'auto' => $record['auto'] ?? true,
                 'command' => $record['command'] ?? true,
-                'grants' => $grants[(int) $row['id']] ?? [],
+                'blocked' => $blocks[(int) $row['id']] ?? [],
             ];
         }
 
@@ -168,7 +168,7 @@ class SkillLibrary
         return $rows;
     }
 
-    /** @return array{id: ?int, slug: string, title: string, description: string, body: string, updated_at: string, status?: string, enabled?: bool, auto?: bool, command?: bool, grants?: list<int>}|null */
+    /** @return array{id: ?int, slug: string, title: string, description: string, body: string, updated_at: string, status?: string, enabled?: bool, auto?: bool, command?: bool, blocked?: list<int>}|null */
     public function find(string $slug, ?ApiToken $token = null): ?array
     {
         foreach ($this->all($token) as $skill) {

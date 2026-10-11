@@ -187,7 +187,7 @@ class AccountDeletionTest extends ApiTestCase
             ['n' => $note->getId(), 's' => 'house-style'],
         );
         $this->em->getConnection()->executeStatement(
-            'INSERT INTO skill_grants (note_id, token_id) VALUES (:n, :k)',
+            'INSERT INTO skill_blocks (note_id, token_id) VALUES (:n, :k)',
             ['n' => $note->getId(), 'k' => $t->agentTokenId],
         );
         $limbo->retire($t->note('Doomed '.$t->label), Note::ACTOR_HUMAN, 'Gone.');

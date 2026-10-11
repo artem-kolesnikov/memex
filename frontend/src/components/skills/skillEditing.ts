@@ -5,16 +5,14 @@ import { api, type SkillPatch, type SkillRow } from '@/api/client'
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 /** What is typed into an open skill and not yet saved: its alias and the
- *  connections that may use it. The page holds it, so the dialog and the frame,
- *  which Dynamic swaps as the window changes width, edit the same one. */
-export interface SkillDraft { slug: string; all: boolean; grants: number[] }
+ *  connections kept from it. */
+export interface SkillDraft { slug: string; blocked: number[] }
 
 export function skillDraft(skill: SkillRow): SkillDraft {
-  return reactive({ slug: skill.slug, all: skill.grants.length === 0, grants: [...skill.grants] })
+  return reactive({ slug: skill.slug, blocked: [...skill.blocked] })
 }
 
-// Changing one skill: switching it, its connections and its alias. The dialog
-// and the detail frame both edit through here.
+// Changing one skill: switching it, its connections and its alias.
 export function useSkillEditing(skill: () => SkillRow, draft: SkillDraft, updated: (row: SkillRow) => void) {
   const { t } = useI18n()
   const slugDraft = toRef(draft, 'slug')

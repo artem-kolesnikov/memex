@@ -48,10 +48,10 @@ final class SkillMcpSurfacesTest extends ApiTestCase
         self::assertStringContainsString('Steps.', json_encode($got));
     }
 
-    public function testAGrantIsHonouredOnEverySurface(): void
+    public function testABlockIsHonouredOnEverySurface(): void
     {
         $note = $this->kb->a->note('Codex only', 'For Codex.', ['skill']);
-        self::getContainer()->get(SkillServing::class)->update($note->getId(), ['grants' => [$this->kb->a->curatorTokenId]]);
+        self::getContainer()->get(SkillServing::class)->update($note->getId(), ['blocked' => [$this->kb->a->agentTokenId]]);
 
         foreach (['prompts/list' => ['prompts', 'name', 'codex-only'], 'resources/list' => ['resources', 'uri', 'memex://skill/codex-only']] as $method => [$key, $field, $value]) {
             self::assertNotContains($value, $this->names($this->rpc($this->kb->a->agentBearer, $method), $key, $field));

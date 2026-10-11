@@ -61,6 +61,7 @@ class NoteController extends ApiController
             $criteria['flagged'],
             $criteria['undescribed'],
             $criteria['added_by'],
+            withSkills: false,
         ));
     }
 
@@ -85,6 +86,7 @@ class NoteController extends ApiController
             $criteria['flagged'],
             $criteria['undescribed'],
             $criteria['added_by'],
+            withSkills: false,
         ));
     }
 

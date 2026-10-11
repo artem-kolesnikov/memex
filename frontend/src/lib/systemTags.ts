@@ -33,3 +33,10 @@ export function useSystemTags() {
     systemReason: (name: string) => reasons.value.get(name.toLowerCase()) ?? null,
   }
 }
+
+/** The tag that makes a note a skill, listed under Skills rather than Notes. */
+export const SKILL_TAG = 'skill'
+
+export function carriesSkill(tags: string[]): boolean {
+  return tags.some((name) => name.toLowerCase() === SKILL_TAG)
+}

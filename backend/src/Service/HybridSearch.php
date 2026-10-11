@@ -108,12 +108,13 @@ class HybridSearch
         bool $undescribedOnly = false,
         ?int $addedByTokenId = null,
         bool $keywordOnly = false,
+        bool $withSkills = true,
     ): array {
         if ($order !== null && !in_array($order, self::ORDERS, true)) {
             throw new \InvalidArgumentException('order must be one of: '.implode(', ', self::ORDERS));
         }
 
-        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, $keywordOnly);
+        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, $keywordOnly, $withSkills);
         if ($scope['empty']) {
             return ['items' => [], 'total' => 0, 'semantic_unavailable' => false, 'keyword_only' => $scope['exact']];
         }
@@ -216,8 +217,9 @@ class HybridSearch
         bool $flaggedOnly = false,
         bool $undescribedOnly = false,
         ?int $addedByTokenId = null,
+        bool $withSkills = true,
     ): array {
-        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, false);
+        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, false, $withSkills);
         if ($scope['empty']) {
             return ['ids' => [], 'semantic_unavailable' => false, 'keyword_only' => $scope['exact']];
         }
@@ -257,6 +259,7 @@ class HybridSearch
         bool $undescribedOnly,
         ?int $addedByTokenId,
         bool $keywordOnly,
+        bool $withSkills,
     ): array {
         // A query with no letters/digits ("*", "?", punctuation) can't match
         // anything meaningfully — but it WOULD get embedded, and its vector is
@@ -308,6 +311,9 @@ class HybridSearch
             // rather than repeated: the operator and their assistant have to be
             // looking at one backlog.
             $where[] = '('.CurationQueue::NO_SUMMARY_SQL.')';
+        }
+        if (!$withSkills) {
+            $where[] = SystemTags::notSkillSql('n');
         }
         foreach (array_values($tagIds) as $i => $tagId) {
             // One EXISTS per tag: notes must carry ALL requested tags.

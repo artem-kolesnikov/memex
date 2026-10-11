@@ -3,42 +3,35 @@ import { computed, toRef, watch } from 'vue'
 import type { SkillConnection } from '@/api/client'
 import type { SkillDraft } from './skillEditing'
 
-const props = defineProps<{ grants: number[]; connections: SkillConnection[]; disabled: boolean; draft: SkillDraft }>()
-const emit = defineEmits<{ save: [grants: number[]] }>()
-const all = toRef(props.draft, 'all')
-const selected = toRef(props.draft, 'grants')
-// Saved grants replace the draft; the draft itself outlives this component.
-watch(() => props.grants, (grants) => {
-  all.value = grants.length === 0
-  selected.value = [...grants]
+// Every connection may use a skill, one added later included, until it is
+// unticked here.
+const props = defineProps<{ blocked: number[]; connections: SkillConnection[]; disabled: boolean; draft: SkillDraft }>()
+const emit = defineEmits<{ save: [blocked: number[]] }>()
+const unticked = toRef(props.draft, 'blocked')
+// What was saved replaces the draft; the draft itself outlives this component.
+watch(() => props.blocked, (blocked) => {
+  unticked.value = [...blocked]
 })
-const changed = computed(() => all.value !== (props.grants.length === 0) || (!all.value && [...selected.value].sort().join() !== [...props.grants].sort().join()))
+const changed = computed(() => [...unticked.value].sort().join() !== [...props.blocked].sort().join())
 function choose(id: number, checked: boolean) {
-  if (all.value) selected.value = props.connections.map(c => c.id)
-  all.value = false
-  selected.value = checked ? [...new Set([...selected.value, id])] : selected.value.filter(value => value !== id)
+  unticked.value = checked ? unticked.value.filter(value => value !== id) : [...new Set([...unticked.value, id])]
 }
 </script>
 
 <template>
   <fieldset class="skill-connections" :disabled="disabled">
     <legend class="connection-heading">{{ $t('skills.panel.connections') }}</legend>
-    <label class="connection-choice connection-all">
-      <input type="checkbox" class="form-check-input" v-model="all" :aria-label="$t('skills.panel.all_connections')" />
-      <span class="connection-all-text"><span>{{ $t('skills.panel.all_connections') }}</span><span class="text-muted">{{ $t('skills.panel.future_connections') }}</span></span>
-    </label>
     <div class="connection-options">
-    <label v-for="c in connections" :key="c.id" class="connection-choice connection-option" :class="{ 'is-selected': all || selected.includes(c.id) }">
-      <input type="checkbox" class="form-check-input" :checked="all || selected.includes(c.id)"
+    <label v-for="c in connections" :key="c.id" class="connection-choice connection-option" :class="{ 'is-selected': !unticked.includes(c.id) }">
+      <input type="checkbox" class="form-check-input" :checked="!unticked.includes(c.id)"
              @change="choose(c.id, ($event.target as HTMLInputElement).checked)" />
       <span>{{ c.display_name || c.label }}</span>
     </label>
     </div>
-    <p v-if="!all && !selected.length" class="small text-muted my-2">{{ $t('skills.panel.choose_connection') }}</p>
     <div class="connection-save-row">
     <span class="connection-feedback" role="status">{{ changed ? $t('skills.panel.unsaved') : '' }}</span>
-    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="disabled || !changed || (!all && !selected.length)"
-            @click="emit('save', all ? [] : [...selected])">{{ $t('skills.panel.save_connections') }}</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="disabled || !changed"
+            @click="emit('save', [...unticked])">{{ $t('skills.panel.save_connections') }}</button>
     </div>
   </fieldset>
 </template>
@@ -48,9 +41,6 @@ function choose(id: number, checked: boolean) {
 .connection-heading { font-size: .875rem; font-weight: 600; margin-bottom: .65rem; }
 .connection-choice { display: flex; align-items: start; gap: .6rem; font-size: .8rem; overflow-wrap: anywhere; cursor: pointer; }
 .connection-choice .form-check-input { flex-shrink: 0; }
-.connection-all { padding: .1rem 0 .65rem; }
-.connection-all-text { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .5rem; }
-.connection-all-text .text-muted { font-size: .75rem; }
 .connection-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
 .connection-option { border: 1px solid var(--mm-line); border-radius: .5rem; padding: .65rem .75rem; background: var(--mm-surface); }
 .connection-option.is-selected { border-color: color-mix(in srgb, var(--mm-primary) 35%, var(--mm-line)); background: color-mix(in srgb, var(--mm-primary) 4%, var(--mm-surface)); }

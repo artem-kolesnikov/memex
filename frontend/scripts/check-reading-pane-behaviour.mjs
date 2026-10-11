@@ -9,8 +9,9 @@
  * it replaces it, Edit and New note open the editor in it, Escape closes it;
  * Settings and the Activity log are dialogs that leave it as it was, and the
  * other list pages open what they list beside it the same way, their lists drawn as the notes list's rows; a skill
- * opens on its sheet, built-in, template or the owner's own, and the skills
- * list is the owner's or memex's, by last use, each switched at its name. The frame
+ * opens on its sheet, built-in, template or the owner's own (as its note, the
+ * skill's switch at its name), and the skills list is the owner's or memex's,
+ * by last use; a skill reached from the notes list moves to it. The frame
  * keeps its close button on the actions' first line, its Info switch in one
  * place for reading and editing, and its scrollbar on the window's edge. With
  * Windowed, or Dynamic on a window too narrow for both, a row opens the note
@@ -74,6 +75,13 @@ const MANY = Array.from({ length: 120 }, (_, i) => ({ ...LIST[0], id: 1000 + i, 
 // is linked from note 5, so it has a backlink. Note 7 waits for review, so its
 // actions are the most a note has.
 function note(id) {
+  const skill = [SKILL, USED, TAKEN].find((row) => row.note_id === id)
+  if (skill) {
+    return {
+      ...note(1), id, title: skill.title, body_md: skill.body, summary: skill.description,
+      tags: [{ id: 90, name: 'skill' }], links: [], backlinks: [],
+    }
+  }
   return {
     id, version: 1, title: `Note ${id}`,
     body_md: id === 5 ? 'Read [[Note 7]] next.' : id >= 9 ? `${'A long paragraph.\n\n'.repeat(120)}Then [[Note 10]].` : `The body of note ${id}.`,
@@ -91,15 +99,15 @@ function note(id) {
 const SKILL = {
   kind: 'note', status: 'served', slug: 'house-style', title: 'House style',
   description: 'How notes are written.', short: null, body: 'Steps.',
-  updated_at: '2026-09-01 09:00:00', note_id: 5, enabled: true, auto: true, command: true,
-  grants: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 12,
+  updated_at: '2026-09-01 09:00:00', note_id: 50, enabled: true, auto: true, command: true,
+  blocked: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 12,
 }
 
 // A skill built into memex, a template not yet taken, and a second skill of
 // the owner's that was loaded last week, so every kind of row is in the list
-// and the order is by last use; switching the template on turns it into note 6.
+// and the order is by last use; switching the template on turns it into note 52.
 const USED = {
-  ...SKILL, slug: 'brief-style', title: 'Brief style', note_id: 8, body: 'A long step.\n\n'.repeat(120),
+  ...SKILL, slug: 'brief-style', title: 'Brief style', note_id: 51, body: 'A long step.\n\n'.repeat(120),
   usage: { total_30d: 2, last_at: '2026-10-01 10:00:00', last_token_id: null, by_token: [] },
 }
 const SHIPPED = {
@@ -110,8 +118,10 @@ const TEMPLATE = {
   ...SKILL, kind: 'catalogue', status: 'offered', slug: 'skill-handoff', title: 'Handoff',
   description: 'Save where work stands.', body: 'Hand off.\n\n'.repeat(120), note_id: null, updated_at: null, size_tokens: 20,
 }
+const TAKEN = { ...TEMPLATE, kind: 'note', status: 'served', note_id: 52 }
 const skillsTaken = { handoff: false }
 const skillWrites = []
+const skillState = { house: { ...SKILL } }
 const CONNECTION = { id: 3, name: 'claude', label: 'Claude', display_name: null, role: 'agent', icon_key: null, icon: null, icon_url: null, icon_url_dark: null }
 
 // The list's later pages: `broken` fails them while `fail` is set, `drift`
@@ -146,16 +156,18 @@ async function apiStub(route) {
   if (url.pathname === '/api/tags') return json({ tags: [], retired: [] })
   if (url.pathname === '/api/locales') return json({ locales: [] })
   if (url.pathname === '/api/skills') {
-    const template = skillsTaken.handoff ? { ...TEMPLATE, kind: 'note', status: 'served', note_id: 6 } : TEMPLATE
-    return json({ skills: [SKILL, template, USED, SHIPPED], connections: [CONNECTION] })
+    const template = skillsTaken.handoff ? TAKEN : TEMPLATE
+    return json({ skills: [skillState.house, template, USED, SHIPPED], connections: [CONNECTION] })
   }
   if (/^\/api\/skills\/\d+$/.test(url.pathname) && method === 'PATCH') {
-    skillWrites.push(route.request().postDataJSON())
-    return json({ skill: { ...SKILL, enabled: false, status: 'paused' } })
+    const patch = route.request().postDataJSON()
+    skillWrites.push(patch)
+    skillState.house = { ...skillState.house, ...patch, status: patch.enabled === false ? 'paused' : 'served' }
+    return json({ skill: skillState.house })
   }
   if (url.pathname === '/api/skills/skill-handoff/add' && method === 'POST') {
     skillsTaken.handoff = true
-    return json({ note: note(6) })
+    return json({ note: note(52) })
   }
   const q = url.searchParams.get('q'), at = Number(url.searchParams.get('page'))
   if (url.pathname === '/api/notes' && q === 'broken') {
@@ -326,10 +338,12 @@ try {
   // memex's, never both, the last used first, each marked enabled or disabled
   // at its name. A skill opens beside them as a note does: its switch and
   // name, its instructions on a sheet, Edit above. A template is a disabled
-  // skill, and switching it on takes it into the knowledge base.
+  // skill, and switching it on takes it into the knowledge base. The owner's
+  // own skill is its note, and the notes list sends one here.
   {
     skillsTaken.handoff = false
     skillWrites.length = 0
+    skillState.house = { ...SKILL }
     const { context, page } = await open({ layout: 'dynamic', width: 1920 })
     await page.goto(`${BASE}/${HANDLE}/skills`)
     const rows = page.locator('.app-frame-list .mm-skill-row')
@@ -348,8 +362,8 @@ try {
     const counted = await page.locator('[data-testid="skills-active-count"]').textContent().catch(() => '')
     expect(counted === '1', `skills: the count should follow the selector, was ${JSON.stringify(counted)}`)
     await page.locator('.mm-skill-row[data-skill="skill-curation"] .app-note-main').click({ timeout: 5000 }).catch(() => {})
-    const frame = page.locator('.app-frame-reading .mm-skill-frame')
-    expect(await settle(frame.locator('.mm-note-title', { hasText: 'Curation' }).waitFor({ timeout: 5000 })), 'skills: a built-in skill should open beside the list')
+    const frame = page.locator('.app-frame-reading')
+    expect(await settle(frame.locator('.mm-skill-frame .mm-note-title', { hasText: 'Curation' }).waitFor({ timeout: 5000 })), 'skills: a built-in skill should open beside the list')
     await page.locator('.mm-skills-summary select').selectOption('user').catch(() => {})
 
     const switchOf = frame.locator('.mm-skill-title-line .mm-skill-switch input')
@@ -370,20 +384,28 @@ try {
       'skills: the row should read Disabled once the skill is off')
     expect((await frame.locator('.mm-note-paper .note-body').textContent().catch(() => ''))?.includes('Steps.'),
       'skills: the skill\'s instructions should be on the sheet')
+    expect(await frame.locator('.mm-history-ledger').count() === 1, 'skills: the owner\'s skill should carry its note\'s history')
     await frame.locator('a', { hasText: 'Edit' }).first().click({ timeout: 5000 }).catch(() => {})
-    await settle(page.waitForURL(/edit=5/, { timeout: 5000 }))
-    expect(path(page) === `/${HANDLE}/notes?edit=5`, `skills: Edit should open the editor in the notes frames, landed on ${path(page)}`)
+    await settle(page.waitForURL(/edit=50/, { timeout: 5000 }))
+    expect(path(page) === `/${HANDLE}/skills?edit=50`, `skills: Edit should open the editor in the skills frames, landed on ${path(page)}`)
+
+    await page.goto(`${NOTES}?open=50`)
+    await settle(page.waitForURL(/skills\?open=50/, { timeout: 5000 }))
+    expect(path(page) === `/${HANDLE}/skills?open=50`, `skills: a skill opened from the notes list should move to Skills, landed on ${path(page)}`)
     await context.close()
   }
 
-  // Windowed, the skills are the cards and a skill is the dialog, as before.
+  // Windowed, the skills are the cards and a skill of the owner's is its note's
+  // page, under Skills.
   {
     const { context, page } = await open({ layout: 'windowed', width: 1920 })
     await page.goto(`${BASE}/${HANDLE}/skills`)
     await settle(page.locator('.skill-card').first().waitFor({ timeout: 5000 }))
     expect(await page.locator('.mm-skill-row').count() === 0, 'windowed: the skills should stay cards')
-    await page.locator('.skill-card .skill-title').first().click({ timeout: 5000 }).catch(() => {})
-    expect(await settle(page.locator('.modal.mm-skill-panel.show').waitFor({ timeout: 5000 })), 'windowed: a skill should open as the dialog')
+    await page.locator('.skill-card[data-note-id="50"] .skill-title').click({ timeout: 5000 }).catch(() => {})
+    await settle(page.waitForURL(/skills\/50$/, { timeout: 5000 }))
+    expect(path(page) === `/${HANDLE}/skills/50`, `windowed: a skill should open as its page, landed on ${path(page)}`)
+    expect(await settle(page.locator('.mm-skill-title-line .mm-skill-switch input').waitFor({ timeout: 5000 })), 'windowed: the skill page should carry its switch at its name')
     await context.close()
   }
 
@@ -855,25 +877,26 @@ try {
     await context.close()
   }
 
-  // Dynamic swaps the skill's frame for its dialog as the window narrows, and
+  // Dynamic swaps the skill's frame for its page as the window narrows, and
   // an unsaved alias or choice of connections goes along.
   {
     skillsTaken.handoff = false
+    skillState.house = { ...SKILL }
     const { context, page } = await open({ layout: 'dynamic', width: 1920 })
     await page.goto(`${BASE}/${HANDLE}/skills`)
     await page.locator('.mm-skill-row[data-skill="house-style"] .app-note-main').click({ timeout: 5000 }).catch(() => {})
-    await page.locator('#skill-frame-slug').fill('house-draft', { timeout: 5000 }).catch(() => {})
-    await page.locator('.app-frame-reading .skill-connections .connection-all input').uncheck({ timeout: 5000 }).catch(() => {})
+    await page.locator('#skill-rail-slug').fill('house-draft', { timeout: 5000 }).catch(() => {})
+    await page.locator('.app-frame-reading .skill-connections .connection-option input').first().uncheck({ timeout: 5000 }).catch(() => {})
     const draft = (scope) => page.evaluate((s) => {
       const root = document.querySelector(s)
-      return [root?.querySelector('input.font-monospace')?.value ?? null, root?.querySelector('.connection-all input')?.checked ?? null]
+      return [root?.querySelector('input.font-monospace')?.value ?? null, root?.querySelector('.connection-option input')?.checked ?? null]
     }, scope)
     await page.setViewportSize({ width: 1280, height: 1000 })
-    await settle(page.locator('.modal.mm-skill-panel.show #skill-slug').waitFor({ timeout: 5000 }))
-    const narrow = await draft('.modal.mm-skill-panel')
+    await settle(page.locator('.app-frame-single #skill-rail-slug').waitFor({ timeout: 5000 }))
+    const narrow = await draft('.app-frame-single')
     expect(JSON.stringify(narrow) === JSON.stringify(['house-draft', false]), `skills: narrowing should keep the unsaved alias and connections, was ${JSON.stringify(narrow)}`)
     await page.setViewportSize({ width: 1920, height: 1000 })
-    await settle(page.locator('#skill-frame-slug').waitFor({ timeout: 5000 }))
+    await settle(page.locator('.app-frame-reading #skill-rail-slug').waitFor({ timeout: 5000 }))
     const wide = await draft('.app-frame-reading')
     expect(JSON.stringify(wide) === JSON.stringify(['house-draft', false]), `skills: widening should keep the unsaved alias and connections, was ${JSON.stringify(wide)}`)
     await context.close()

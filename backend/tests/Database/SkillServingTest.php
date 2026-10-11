@@ -72,24 +72,23 @@ final class SkillServingTest extends ApiTestCase
         self::assertSame(['house-style'], $this->ownSlugs(null, 'command'));
     }
 
-    public function testAGrantNarrowsTheListToNamedConnections(): void
+    public function testABlockKeepsTheSkillFromThatConnectionOnly(): void
     {
         $note = $this->kb->a->note('Codex only', 'For Codex.', ['skill']);
-        $this->serving()->update($note->getId(), ['grants' => [$this->kb->a->curatorTokenId]]);
+        $this->serving()->update($note->getId(), ['blocked' => [$this->kb->a->agentTokenId]]);
 
         self::assertSame(['codex-only'], $this->ownSlugs($this->kb->a->curatorToken()));
         self::assertSame([], $this->ownSlugs($this->kb->a->agentToken()));
         self::assertSame(['codex-only'], $this->ownSlugs(null), 'the owner\'s own view is ungated');
     }
 
-    public function testARevokedConnectionsGrantIsIgnoredAndEmptyGrantsMeanEveryone(): void
+    public function testAConnectionAddedLaterGetsEverySkill(): void
     {
         $note = $this->kb->a->note('Codex only', 'For Codex.', ['skill']);
-        $this->serving()->update($note->getId(), ['grants' => [$this->kb->a->curatorTokenId]]);
-        $this->em->getConnection()->executeStatement('UPDATE api_tokens SET revoked_at = :now WHERE id = :id', ['now' => gmdate('Y-m-d H:i:s'), 'id' => $this->kb->a->curatorTokenId]);
-        $this->em->clear();
+        $this->serving()->update($note->getId(), ['blocked' => [$this->kb->a->agentTokenId]]);
+        $added = $this->em->find(\App\Entity\ApiToken::class, $this->kb->a->connection('agent-a-new', 'mxt_agent_a_new'));
 
-        self::assertSame(['codex-only'], $this->ownSlugs($this->kb->a->agentToken()), 'with no live grant left, the skill is everyone\'s again');
+        self::assertSame(['codex-only'], $this->ownSlugs($added), 'a new connection was left out of a skill nobody kept from it');
     }
 
     public function testASlugCannotTakeAShippedOrSiblingName(): void
@@ -199,7 +198,7 @@ final class SkillServingTest extends ApiTestCase
         $note = $this->kb->a->note('House style', 'Cite.', ['skill']);
         $this->ownSlugs();
         try {
-            $this->serving()->update($note->getId(), ['enabled' => false, 'grants' => [$foreign]]);
+            $this->serving()->update($note->getId(), ['enabled' => false, 'blocked' => [$foreign]]);
             self::fail('a foreign token id was accepted');
         } catch (\OutOfBoundsException) {
         }

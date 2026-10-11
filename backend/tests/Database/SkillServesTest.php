@@ -29,7 +29,7 @@ final class SkillServesTest extends ApiTestCase
             ['n' => $note->getId(), 's' => 'house-style'],
         );
         $conn->executeStatement(
-            'INSERT INTO skill_grants (note_id, token_id) VALUES (:n, :k)',
+            'INSERT INTO skill_blocks (note_id, token_id) VALUES (:n, :k)',
             ['n' => $note->getId(), 'k' => $this->kb->a->agentTokenId],
         );
         self::assertSame(1, (int) $conn->fetchOne('SELECT enabled + auto + command - 2 FROM skill_settings WHERE note_id = :n', ['n' => $note->getId()]));

@@ -95,14 +95,19 @@ class SkillServing
         return $out;
     }
 
-    /** @return array<int, list<int>> */
-    public function grants(): array
+    /**
+     * The connections each skill is kept from. Every other connection, one
+     * added later included, may use it.
+     *
+     * @return array<int, list<int>>
+     */
+    public function blocks(): array
     {
         $out = [];
         $rows = $this->db()->fetchAllAssociative(
-            'SELECT g.note_id, g.token_id FROM skill_grants g
-             JOIN api_tokens k ON k.id = g.token_id AND k.revoked_at IS NULL
-             ORDER BY g.token_id',
+            'SELECT b.note_id, b.token_id FROM skill_blocks b
+             JOIN api_tokens k ON k.id = b.token_id AND k.revoked_at IS NULL
+             ORDER BY b.token_id',
         );
         foreach ($rows as $row) {
             $out[(int) $row['note_id']][] = (int) $row['token_id'];
@@ -122,19 +127,19 @@ class SkillServing
         if ($surface !== null && !$skill[$surface]) {
             return false;
         }
-        if ($token === null || $skill['grants'] === []) {
+        if ($token === null) {
             return true;
         }
 
-        return in_array($token->getId(), $skill['grants'], true);
+        return !in_array($token->getId(), $skill['blocked'], true);
     }
 
-    /** @param array{enabled?:bool, auto?:bool, command?:bool, slug?:string, grants?:list<int>} $patch */
+    /** @param array{enabled?:bool, auto?:bool, command?:bool, slug?:string, blocked?:list<int>} $patch */
     public function update(int $noteId, array $patch): array
     {
         $this->ensureRecords();
         $current = $this->settings()[$noteId] ?? throw new \OutOfBoundsException('No skill with that id');
-        $before = $current + ['grants' => $this->grants()[$noteId] ?? []];
+        $before = $current + ['blocked' => $this->blocks()[$noteId] ?? []];
 
         if (array_key_exists('slug', $patch)) {
             $slug = (string) $patch['slug'];
@@ -155,8 +160,8 @@ class SkillServing
         }
 
         $wanted = null;
-        if (array_key_exists('grants', $patch)) {
-            $wanted = array_values(array_unique(array_map('intval', (array) $patch['grants'])));
+        if (array_key_exists('blocked', $patch)) {
+            $wanted = array_values(array_unique(array_map('intval', (array) $patch['blocked'])));
             $live = array_map('intval', $this->db()->fetchFirstColumn(
                 'SELECT id FROM api_tokens WHERE revoked_at IS NULL',
             ));
@@ -184,15 +189,15 @@ class SkillServing
             );
 
             if ($wanted !== null) {
-                $conn->executeStatement('DELETE FROM skill_grants WHERE note_id = :n', ['n' => $noteId]);
+                $conn->executeStatement('DELETE FROM skill_blocks WHERE note_id = :n', ['n' => $noteId]);
                 foreach ($wanted as $tokenId) {
                     $conn->executeStatement(
-                        'INSERT INTO skill_grants (note_id, token_id) VALUES (:n, :k)',
+                        'INSERT INTO skill_blocks (note_id, token_id) VALUES (:n, :k)',
                         ['n' => $noteId, 'k' => $tokenId],
                     );
                 }
             }
-            $after = $this->settings()[$noteId] + ['grants' => $this->grants()[$noteId] ?? []];
+            $after = $this->settings()[$noteId] + ['blocked' => $this->blocks()[$noteId] ?? []];
             $this->recordChange($noteId, $before, $after);
             $conn->commit();
         } catch (\Throwable $e) {
@@ -205,8 +210,8 @@ class SkillServing
     }
 
     /**
-     * @param array{slug: string, enabled: bool, auto: bool, command: bool, grants: list<int>} $before
-     * @param array{slug: string, enabled: bool, auto: bool, command: bool, grants: list<int>} $after
+     * @param array{slug: string, enabled: bool, auto: bool, command: bool, blocked: list<int>} $before
+     * @param array{slug: string, enabled: bool, auto: bool, command: bool, blocked: list<int>} $after
      */
     private function recordChange(int $noteId, array $before, array $after): void
     {
@@ -223,17 +228,17 @@ class SkillServing
         if ($before['slug'] !== $after['slug']) {
             $changes[] = 'served as '.$after['slug'];
         }
-        $granted = $after['grants'];
-        sort($granted);
-        $had = $before['grants'];
+        $blocked = $after['blocked'];
+        sort($blocked);
+        $had = $before['blocked'];
         sort($had);
-        if ($granted !== $had) {
-            $names = $granted === [] ? [] : $this->db()->fetchFirstColumn(
+        if ($blocked !== $had) {
+            $names = $blocked === [] ? [] : $this->db()->fetchFirstColumn(
                 'SELECT COALESCE(display_name, name) FROM api_tokens WHERE id IN (:ids) ORDER BY id',
-                ['ids' => $granted],
+                ['ids' => $blocked],
                 ['ids' => ArrayParameterType::INTEGER],
             );
-            $changes[] = $names === [] ? 'given to every connection' : 'given only to '.implode(', ', $names);
+            $changes[] = $names === [] ? 'given to every connection' : 'kept from '.implode(', ', $names);
         }
         if ($changes === []) {
             return;

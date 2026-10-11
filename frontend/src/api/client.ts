@@ -264,6 +264,7 @@ export interface RetiredTag {
 
 export interface TagVocabularyEntry extends TagRef {
   note_count: number
+  listed_count: number
   system: boolean
   system_reason: string | null
 }
@@ -881,14 +882,14 @@ export interface SkillRow {
   kind: 'note' | 'shipped' | 'catalogue'; status: SkillStatus
   slug: string; title: string; description: string; short: string | null; body: string
   updated_at: string | null; note_id: number | null
-  enabled: boolean; auto: boolean; command: boolean; grants: number[]
+  enabled: boolean; auto: boolean; command: boolean; blocked: number[]
   usage: SkillUsage; lint: SkillLintFinding[]; size_tokens: number
 }
 export interface SkillConnection {
   id: number; name: string; label: string; display_name: string | null; role: 'agent' | 'curator'
   icon_key: string | null; icon: string | null; icon_url: string | null; icon_url_dark: string | null
 }
-export interface SkillPatch { enabled?: boolean; auto?: boolean; command?: boolean; slug?: string; grants?: number[] }
+export interface SkillPatch { enabled?: boolean; auto?: boolean; command?: boolean; slug?: string; blocked?: number[] }
 
 export const api = {
   logout: () => request<unknown>('/api/logout', { method: 'POST' }),

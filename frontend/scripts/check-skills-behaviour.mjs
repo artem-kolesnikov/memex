@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * A skill's panel, asserted against the built SPA in a browser with the API
- * stubbed.
+ * The skills page and a skill's own page, asserted against the built SPA in a
+ * browser with the API stubbed.
  *
- * Opening a card shows its usage example; pausing, narrowing to a
- * connection and renaming all go through `PATCH /api/skills/<id>`, and a bad
- * slug is refused inline before it is ever sent. None of that is visible to
+ * Opening a card opens the skill as its note, with the skill's switch at its
+ * name and its usage example in the rail; pausing, narrowing to a connection
+ * and renaming all go through `PATCH /api/skills/<id>`, and a bad slug is
+ * refused inline before it is ever sent. None of that is visible to
  * `npm run build` or to a regex over the source, so this drives the panel the
  * way a person would and reads what is on screen. Needs `dist/`, no backend
  * and no database.
@@ -20,7 +21,7 @@ const frontend = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(frontend, 'dist')
 
 if (!existsSync(join(dist, 'index.html'))) {
-  console.error('Skills panel behaviour check failed:\n')
+  console.error('Skills behaviour check failed:\n')
   console.error('  dist/index.html is missing — run `npm run build-only` first.')
   process.exit(1)
 }
@@ -59,7 +60,7 @@ const ROW = {
   kind: 'note', status: 'served', slug: 'house-style', title: 'House style',
   description: 'How notes are written.', short: null, body: 'Steps.',
   updated_at: '2026-09-01 09:00:00', note_id: 5, enabled: true, auto: true, command: true,
-  grants: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 12,
+  blocked: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 12,
 }
 
 const CONNECTIONS = [
@@ -71,7 +72,18 @@ const PENDING_ROW = {
   kind: 'note', status: 'pending', slug: 'draft-skill', title: 'Draft skill',
   description: 'Still waiting for review.', short: null, body: 'Steps.',
   updated_at: '2026-09-01 09:00:00', note_id: 6, enabled: true, auto: true, command: true,
-  grants: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 8,
+  blocked: [], usage: { total_30d: 0, last_at: null, last_token_id: null, by_token: [] }, lint: [], size_tokens: 8,
+}
+
+/** A skill of the owner's as its note: the same text, tagged `skill`. */
+function skillNote(row) {
+  return {
+    id: row.note_id, version: 1, title: row.title, body_md: row.body, summary: row.description, summary_by: null,
+    status: row.status === 'pending' ? 'pending' : 'verified', source: 'manual', source_url: null,
+    last_actor: 'owner', edited_by: null, added_by: null, added_by_token_id: null, described_at: null, embedded: true,
+    pending_proposals: 0, flagged: false, curation_flag: null, tags: [{ id: 9, name: 'skill' }], links: [], backlinks: [],
+    created_at: '2026-09-01T09:00:00+00:00', updated_at: '2026-09-01T09:00:00+00:00',
+  }
 }
 
 /**
@@ -103,6 +115,13 @@ function apiStub(state) {
       state.row = { ...state.row, ...patch }
       if ('enabled' in patch) state.row.status = patch.enabled ? 'served' : 'paused'
       return json({ skill: state.row })
+    }
+    const one = /^GET \/api\/notes\/(\d+)(\/revisions|\/graph)?$/.exec(key)
+    if (one && one[2] === '/revisions') return json({ note_id: Number(one[1]), keep_per_note: 10, revisions: [] })
+    if (one && one[2] === '/graph') return json({ center: Number(one[1]), depth: 1, nodes: [], edges: [], truncated: false, total_notes: 1 })
+    if (one) {
+      const row = [state.row, PENDING_ROW, ...(state.extraRows ?? [])].find((r) => r.note_id === Number(one[1]))
+      if (row) return json(skillNote(row))
     }
     if (key.startsWith('GET /api/notes')) return json({ items: [], notes: [], total: 0, tags: [], tag_counts: [], presets: [] })
     if (key.startsWith('GET /api/stats')) return json({ total: 0 })
@@ -144,73 +163,71 @@ async function scenario(name, body) {
   }
 }
 
-const openPanel = async (page) => {
+const SWITCH = '.mm-skill-title-line .mm-skill-switch input'
+const RAIL = '.mm-note-context'
+
+const openSkill = async (page, title = 'House style', id = 5) => {
   await page.goto(SKILLS)
-  await Promise.all([
-    page.evaluate(() => new Promise((resolve) => document.addEventListener('shown.bs.modal', resolve, { once: true }))),
-    page.getByRole('button', { name: 'House style', exact: true }).click(),
-  ])
-  await page.waitForSelector('.modal.show #skill-panel-title')
+  await page.getByRole('button', { name: title, exact: true }).click()
+  await page.waitForURL(new RegExp(`/skills/${id}$`))
+  await page.waitForSelector(`${RAIL} .mm-skill-alias, ${RAIL} .mm-context-skill`)
 }
 
 // ── scenarios ────────────────────────────────────────────────────────────
 
 await scenario('opening a skill explains chat usage without internal load forms', async (page, state, { expectText }) => {
-  await openPanel(page)
+  await openSkill(page)
   await expectText('Use my Memex skill house-style')
-  assert(await page.getByRole('checkbox', { name: 'Enable this skill', exact: true }).isVisible(), 'enable control is missing')
-  const body = await page.locator('.modal-body').innerText()
-  assert(!body.includes('get_skill(') && !body.includes('memex://') && !body.includes('/mcp__'), 'internal load forms crowd the instructions')
+  assert(await page.locator(SWITCH).isVisible(), 'enable control is missing')
+  const rail = await page.locator(RAIL).innerText()
+  assert(!rail.includes('get_skill(') && !rail.includes('memex://') && !rail.includes('/mcp__'), 'internal load forms crowd the instructions')
 })
 
-await scenario('pausing sends {enabled:false} and the row shows "paused"', async (page, state, { expectText }) => {
-  await openPanel(page)
-  await page.locator('#skill-enabled').click()
+await scenario('pausing sends {enabled:false} and the switch turns off', async (page, state) => {
+  await openSkill(page)
+  await page.locator(SWITCH).click()
   await page.waitForTimeout(200)
   assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ enabled: false }), `patch: ${JSON.stringify(state.patches.at(-1))}`)
-  await expectText('Off')
+  assert(!(await page.locator(SWITCH).isChecked()), 'the switch stayed on after pausing')
 })
 
-await scenario("narrowing to Codex sends {grants:[2]} and the row's Connections cell reads \"Codex\"", async (page, state, { expectText }) => {
-  await openPanel(page)
-  await page.locator('.modal-body').getByRole('checkbox', { name: 'Claude Code', exact: true }).uncheck()
-  await page.locator('.modal-body').getByRole('button', { name: 'Save connections', exact: true }).click()
+await scenario('unticking Claude Code sends {blocked:[1]}', async (page, state) => {
+  await openSkill(page)
+  await page.locator(RAIL).getByRole('checkbox', { name: 'Claude Code', exact: true }).uncheck()
+  await page.locator(RAIL).getByRole('button', { name: 'Save connections', exact: true }).click()
   await page.waitForTimeout(200)
-  assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ grants: [2] }), `patch: ${JSON.stringify(state.patches.at(-1))}`)
-  await expectText('Codex')
+  assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ blocked: [1] }), `patch: ${JSON.stringify(state.patches.at(-1))}`)
+  assert(!(await page.locator(RAIL).getByRole('checkbox', { name: 'Claude Code', exact: true }).isChecked()), 'the saved choice did not stay')
 })
 
 await scenario('a bad slug is refused inline, a good one is sent', async (page, state, { expectText }) => {
-  await openPanel(page)
-  await page.fill('#skill-slug', 'Bad Slug')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await openSkill(page)
+  const save = page.locator(`${RAIL} .mm-skill-alias`).getByRole('button', { name: 'Save', exact: true })
+  await page.fill('#skill-rail-slug', 'Bad Slug')
+  await save.click()
   await expectText('lowercase letters, digits and single hyphens')
   assert(state.patches.length === 0, `a bad slug reached the server: ${JSON.stringify(state.patches)}`)
-  await page.fill('#skill-slug', 'a'.repeat(65))
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.fill('#skill-rail-slug', 'a'.repeat(65))
+  await save.click()
   assert(state.patches.length === 0, 'an overlong slug reached the server')
-  await page.fill('#skill-slug', 'style')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.fill('#skill-rail-slug', 'style')
+  await save.click()
   await page.waitForTimeout(200)
   assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ slug: 'style' }), `patch: ${JSON.stringify(state.patches.at(-1))}`)
 })
 
-await scenario('a pending row disables every switch, Rename and Save connections', async (page, state, { expectText }) => {
-  await page.goto(SKILLS)
-  await page.click('text=Draft skill')
-  await page.waitForSelector('.modal.show #skill-panel-title')
-  await expectText('Needs review')
-  for (const id of ['#skill-enabled']) {
-    assert(await page.isDisabled(id), `${id} was not disabled on a pending row`)
-  }
-  assert(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), 'Rename was not disabled on a pending row')
-  assert(await page.locator('.modal-body').getByRole('button', { name: 'Save connections', exact: true }).isDisabled(), 'Save connections was not disabled on a pending row')
+await scenario('a pending skill disables its switch, Rename and Save connections', async (page) => {
+  await openSkill(page, 'Draft skill', 6)
+  assert(await page.locator(SWITCH).isDisabled(), 'the switch was not disabled on a pending skill')
+  assert(await page.locator(`${RAIL} .mm-skill-alias`).getByRole('button', { name: 'Save', exact: true }).isDisabled(), 'Rename was not disabled on a pending skill')
+  assert(await page.locator(RAIL).getByRole('button', { name: 'Save connections', exact: true }).isDisabled(), 'Save connections was not disabled on a pending skill')
+  assert(await page.getByRole('button', { name: 'Approve', exact: true }).count() === 1, 'a pending skill lost its note\'s Approve')
 })
 
 await scenario('New skill opens the editor with the tag set and the scaffold in the body', async (page, state, { expectText }) => {
   await page.goto(SKILLS)
   await page.click('text=New skill')
-  await page.waitForURL(/\/notes\/new\?skill=1$/)
+  await page.waitForURL(/\/skills\/new$/)
   await page.waitForSelector('.cm-content')
   await expectText('skill')
   const body = await page.evaluate(() => document.querySelector('.cm-content')?.innerText ?? '')
@@ -222,8 +239,8 @@ await scenario('one enable switch opens all supported skill access paths', async
   state.row.status = 'paused'
   state.row.auto = false
   state.row.command = false
-  await openPanel(page)
-  await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), page.locator('#skill-enabled').check()])
+  await openSkill(page)
+  await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), page.locator(SWITCH).click()])
   assert(state.row.enabled && state.row.auto && state.row.command, 'enabling left a skill access path disabled')
   assert(await page.locator('#skill-auto, #skill-command').count() === 0, 'technical access switches remain in the UI')
 })
@@ -231,23 +248,21 @@ await scenario('one enable switch opens all supported skill access paths', async
 await scenario('paused and pending skills offer no working load forms', async (page, state) => {
   state.row.enabled = false
   state.row.status = 'paused'
-  await openPanel(page)
-  let panel = await page.locator('.modal-body').innerText()
-  assert(!panel.includes('get_skill(') && !panel.includes('/mcp__'), 'paused skill advertised a load form')
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await page.waitForSelector('.modal.show', { state: 'hidden' })
-  await page.click('text=Draft skill')
-  await page.waitForSelector('.modal.show')
-  panel = await page.locator('.modal-body').innerText()
-  assert(!panel.includes('get_skill(') && !panel.includes('/mcp__'), 'pending skill advertised a load form')
+  await openSkill(page)
+  let rail = await page.locator(RAIL).innerText()
+  assert(!rail.includes('get_skill(') && !rail.includes('/mcp__'), 'paused skill advertised a load form')
+  await openSkill(page, 'Draft skill', 6)
+  rail = await page.locator(RAIL).innerText()
+  assert(!rail.includes('get_skill(') && !rail.includes('/mcp__'), 'pending skill advertised a load form')
 })
 
-await scenario('all connections can be restored without keyboard modifiers', async (page, state) => {
-  state.row.grants = [2]
-  await openPanel(page)
-  await page.locator('.modal-body').getByRole('checkbox', { name: 'All connected assistants', exact: true }).check()
-  await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), page.locator('.modal-body').getByRole('button', { name: 'Save connections', exact: true }).click()])
-  assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ grants: [] }), 'restoring all connections did not clear grants')
+await scenario('ticking a connection back gives it the skill again', async (page, state) => {
+  state.row.blocked = [1]
+  await openSkill(page)
+  assert(!(await page.locator(RAIL).getByRole('checkbox', { name: 'Claude Code', exact: true }).isChecked()), 'a kept-out connection shows ticked')
+  await page.locator(RAIL).getByRole('checkbox', { name: 'Claude Code', exact: true }).check()
+  await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), page.locator(RAIL).getByRole('button', { name: 'Save connections', exact: true }).click()])
+  assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ blocked: [] }), 'ticking a connection back did not clear its block')
 })
 
 await scenario('skill descriptions are readable before opening a panel', async (page) => {
@@ -258,7 +273,7 @@ await scenario('skill descriptions are readable before opening a panel', async (
 })
 
 
-await scenario('long skill content and panel controls fit a phone', async (page, state) => {
+await scenario('long skill content and its page fit a phone', async (page, state) => {
   await page.setViewportSize({ width: 390, height: 844 })
   state.row.title = 'A'.repeat(500)
   state.row.description = 'B'.repeat(1024)
@@ -273,15 +288,11 @@ await scenario('long skill content and panel controls fit a phone', async (page,
   assert(await page.locator('.skills-dashboard').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'the inspected skill title overflows the summary')
   assert(await page.evaluate(fits), 'the inspected skill title overflows a phone')
   await segment.press('Escape')
-  await Promise.all([
-    page.evaluate(() => new Promise((resolve) => document.addEventListener('shown.bs.modal', resolve, { once: true }))),
-    page.getByRole('button', { name: state.row.title, exact: true }).click(),
-  ])
-  assert(await page.evaluate(fits), 'the skill panel overflows a phone')
-  const dialogFits = await page.locator('.modal-content').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
-  assert(dialogFits, 'panel controls exceed the dialog width')
-  assert(await page.locator('.modal-body').evaluate(el => el.clientHeight) > 100, 'long content leaves no room for panel controls')
-  await page.locator('#skill-slug').fill('fits-on-phone')
+  await page.getByRole('button', { name: state.row.title, exact: true }).click()
+  await page.waitForURL(/\/skills\/5$/)
+  await page.locator('#skill-rail-slug').waitFor()
+  assert(await page.evaluate(fits), 'the skill page overflows a phone')
+  await page.locator('#skill-rail-slug').fill('fits-on-phone')
 })
 
 
@@ -317,7 +328,7 @@ await scenario('memex-writing switched off in Personalization says so and is not
 
 await scenario('the size summary groups built-ins first and measures shares of enabled instructions', async (page, state) => {
   state.row.size_tokens = 12500
-  state.row.grants = [2]
+  state.row.blocked = [1]
   state.extraRows = [
     { ...ROW, note_id: 9, slug: 'disabled-skill', status: 'paused', enabled: false, size_tokens: 99999 },
     { ...ROW, kind: 'shipped', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 37500 },
@@ -375,26 +386,28 @@ await scenario('a rejected card switch stays enabled and shows the error', async
 })
 
 
-await scenario('a rejected panel switch returns to the saved state', async (page, state) => {
+await scenario('a rejected switch on the skill page returns to the saved state', async (page, state) => {
   state.failPatch = true
-  await openPanel(page)
-  await page.locator('#skill-enabled').click()
-  await page.locator('.modal-body .alert').waitFor()
-  assert(await page.locator('#skill-enabled').isChecked(), 'failed panel pause left the switch unchecked')
+  await openSkill(page)
+  await page.locator(SWITCH).click()
+  await page.getByRole('alert').first().waitFor()
+  assert(await page.locator(SWITCH).isChecked(), 'failed pause left the switch unchecked')
 })
 
-await scenario('panel connection checkboxes cannot accidentally grant access to everyone', async (page, state) => {
-  await openPanel(page)
-  const card = page.locator('.modal-body')
+await scenario('every connection is ticked until unticked, and there is no All option', async (page, state) => {
+  await openSkill(page)
+  const card = page.locator(RAIL)
+  assert(await card.getByText('All connected assistants').count() === 0, 'the All option is still there')
+  for (const name of ['Claude Code', 'Codex']) {
+    assert(await card.getByRole('checkbox', { name, exact: true }).isChecked(), `${name} is not ticked by default`)
+  }
   await card.getByRole('checkbox', { name: 'Claude Code', exact: true }).uncheck()
-  await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), card.getByRole('button', { name: 'Save connections', exact: true }).click()])
-  assert(JSON.stringify(state.row.grants) === '[2]', 'connection restriction was not saved')
   await card.getByRole('checkbox', { name: 'Codex', exact: true }).uncheck()
-  assert(await card.getByRole('button', { name: 'Save connections', exact: true }).isDisabled(), 'empty selection would grant every connection')
-  assert(state.patches.length === 1, 'empty connection selection was sent')
+  await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), card.getByRole('button', { name: 'Save connections', exact: true }).click()])
+  assert(JSON.stringify(state.row.blocked) === '[1,2]', `unticking both did not keep the skill from both: ${JSON.stringify(state.row.blocked)}`)
 })
 
-await scenario('cards show chat examples directly and keep settings in the panel', async (page) => {
+await scenario('cards show chat examples directly and keep settings on the skill', async (page) => {
   await page.goto(SKILLS)
   const card = page.locator('article[data-note-id="5"]')
   await card.getByRole('button', { name: 'Copy prompt', exact: true }).waitFor()
@@ -403,12 +416,13 @@ await scenario('cards show chat examples directly and keep settings in the panel
   assert(await card.getByRole('group', { name: 'Who can use this skill' }).count() === 0, 'connection settings remain on the card')
   assert(await card.getByText('About this card', { exact: true }).count() === 0, 'metadata explanation remains on the card')
   await card.getByRole('button', { name: 'Open skill', exact: true }).click()
-  const panel = page.locator('.modal-body')
-  await panel.getByLabel('Skill alias', { exact: true }).waitFor()
-  assert(await panel.locator('details').count() === 0, 'panel sections are hidden behind disclosures')
-  assert((await panel.innerText()).includes(ROW.description), 'note summary is missing')
-  assert(!(await panel.innerText()).includes(ROW.body), 'full instructions are duplicated in the panel')
-  assert(await panel.getByText('About this card', { exact: true }).count() === 0, 'metadata explanation remains in the panel')
+  await page.waitForURL(/\/skills\/5$/)
+  const rail = page.locator(RAIL)
+  await rail.getByLabel('Skill alias', { exact: true }).waitFor()
+  assert(await rail.locator('details').count() === 0, 'skill settings are hidden behind disclosures')
+  assert((await page.locator('.mm-note-abstract').innerText()).includes(ROW.description), 'note summary is missing')
+  assert((await page.locator('.note-body').innerText()).includes(ROW.body), 'the instructions are not on the sheet')
+  assert(await page.getByText('About this card', { exact: true }).count() === 0, 'metadata explanation remains on the skill')
 })
 
 await scenario('system skills are separated, immutable, and included in the size breakdown', async (page, state) => {
@@ -427,43 +441,35 @@ await scenario('system skills are separated, immutable, and included in the size
   assert(await page.locator('[data-skill-group=available] article[data-note-id="6"]').count() === 1, 'pending skill did not stay in Available')
 })
 
-await scenario('opened card has balanced setup columns, editor action, and footer Cancel', async (page, state) => {
-  state.row.short = 'Short catalogue teaser';
-  state.row.description = 'The exact saved note summary.';
-  await openPanel(page)
-  assert(await page.locator('.modal-header #skill-enabled').isVisible(), 'enable control is not in the header')
-  assert(await page.locator('.skill-summary').innerText() === state.row.description, 'panel replaced the saved summary')
-  assert(await page.locator('.modal-body').getByRole('heading', { name: 'How to use this skill', exact: true }).isVisible(), 'usage heading missing')
-  const edit = page.locator('.modal-footer').getByRole('link', { name: 'Edit this skill', exact: true })
-  assert((await edit.getAttribute('href')).endsWith('/notes/5/edit'), 'edit action does not target the note editor')
-  assert(await page.locator('.modal-header .btn-close').count() === 0, 'header still has a close icon')
-  const left = await page.locator('.skill-alias-section').boundingBox()
-  const right = await page.locator('.skill-howto-section').boundingBox()
-  assert(Math.abs(left.width - right.width) < 1 && Math.abs(left.height - right.height) < 1, 'setup columns are not equal width and height')
-  assert(left.y === right.y && right.x > left.x, 'setup sections are not side by side')
-  const access = await page.locator('.skill-connections').boundingBox()
-  assert(access.y + access.height <= left.y, 'assistant access is not above the setup columns')
-  await page.getByLabel('Skill alias', { exact: true }).fill('unsaved-alias')
-  await page.getByRole('checkbox', { name: 'Claude Code', exact: true }).uncheck()
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await page.waitForSelector('.modal.show', { state: 'hidden' })
-  assert(state.patches.length === 0, 'Cancel submitted unfinished edits')
-  await openPanel(page)
-  assert(await page.getByLabel('Skill alias', { exact: true }).inputValue() === ROW.slug, 'unsaved alias survived Cancel')
-  assert(await page.getByRole('checkbox', { name: 'All connected assistants', exact: true }).isChecked(), 'unsaved connection selection survived Cancel')
+await scenario('a skill is its note: the switch at its name, its editor, and everything a note has', async (page, state) => {
+  state.row.short = 'Short catalogue teaser'
+  state.row.description = 'The exact saved note summary.'
+  await openSkill(page)
+  assert(await page.locator(`.mm-note-heading ${SWITCH}`).isVisible(), 'enable control is not at the name')
+  assert(await page.locator('.mm-note-abstract').innerText() === state.row.description, 'the page replaced the saved summary')
+  assert(await page.locator(RAIL).getByRole('heading', { name: 'How to use this skill', exact: true }).isVisible(), 'usage heading missing')
+  const edit = page.getByRole('link', { name: 'Edit this skill', exact: true })
+  assert((await edit.getAttribute('href')).endsWith('/skills/5/edit'), 'edit action does not target the skill\'s editor')
+  assert(await page.getByRole('link', { name: 'Download SKILL.md', exact: true }).count() === 1, 'Download SKILL.md is missing')
+  assert(await page.getByRole('link', { name: 'Download .md', exact: true }).count() === 0, 'a skill offers the note\'s Markdown download beside SKILL.md')
+  assert(await page.locator('.mm-context-map').count() === 0, 'a skill shows the neighbourhood map')
+  assert(await page.getByRole('button', { name: 'Flag for curation', exact: true }).count() === 1, 'the note\'s flag is missing')
+  assert(await page.locator('.mm-history-ledger').count() === 1, 'the note\'s history is missing')
+  assert((await page.locator('.mm-note-breadcrumbs').innerText()).startsWith('Skills'), 'the skill is not under Skills')
+  assert(state.patches.length === 0, 'opening a skill changed it')
 })
 
 await scenario('twenty connections form two balanced columns and save the last choice', async (page, state) => {
   state.connections = Array.from({ length: 20 }, (_, i) => ({ ...CONNECTIONS[0], id: i + 1, display_name: `Assistant ${i + 1}` }))
-  await openPanel(page)
+  await openSkill(page)
   const options = page.locator('.connection-option')
   assert(await options.count() === 20, 'some connections are missing')
   const boxes = await options.evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width } }))
   assert(new Set(boxes.map(b => b.x)).size === 2, 'connections are not arranged into two columns')
   assert(boxes[0].y === boxes[1].y && Math.abs(boxes[0].width - boxes[1].width) < 1, 'columns are unbalanced')
-  await page.locator('.modal-body').getByRole('checkbox', { name: 'Assistant 20', exact: true }).uncheck()
+  await page.locator(RAIL).getByRole('checkbox', { name: 'Assistant 20', exact: true }).uncheck()
   await Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH'), page.getByRole('button', { name: 'Save connections', exact: true }).click()])
-  assert(state.row.grants.length === 19 && !state.row.grants.includes(20), 'last connection choice was not saved')
+  assert(JSON.stringify(state.row.blocked) === '[20]', 'last connection choice was not saved')
 })
 
 await scenario('chat examples copy the current short name and report clipboard failures', async (page, state) => {
@@ -484,8 +490,8 @@ await browser.close()
 server.close()
 
 if (failures.length) {
-  console.error(`\nSkills panel behaviour check: ${failures.length} failure(s)`)
+  console.error(`\nSkills behaviour check: ${failures.length} failure(s)`)
   for (const f of failures) console.error(`  ${f}`)
   process.exit(1)
 }
-console.log('\nSkills panel behaviour check: all scenarios passed')
+console.log('\nSkills behaviour check: all scenarios passed')

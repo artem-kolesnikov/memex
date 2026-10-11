@@ -279,7 +279,8 @@
     "breadcrumb": {
       "label": "Breadcrumb",
       "notes": "Notes",
-      "current": "View note"
+      "current": "View note",
+      "current_skill": "View skill"
     },
     "eyebrow": "Note {id}",
     "status": {
@@ -466,7 +467,8 @@
     "load_failed": {
       "title": "This note could not be loaded",
       "body": "Nothing has been changed. The editor stays closed rather than showing a blank sheet where the note should be.",
-      "back": "Back to Notes"
+      "back": "Back to Notes",
+      "back_skills": "Back to Skills"
     },
     "note_fallback": "Note",
     "new_note": "New note",
@@ -1746,12 +1748,10 @@
     },
     "panel": {
       "serving": "Access",
-      "served": "Enable this skill",
       "auto": "Allow automatic use",
       "auto_help": "The assistant can pick it when useful.",
       "command": "Add to command menu",
       "command_help": "Pick this skill yourself in apps that support Memex commands.",
-      "pending_note": "Review and approve this note before turning it on.",
       "slug": "Skill alias",
       "how_to_use": "How to use this skill",
       "rename": "Rename",
@@ -1759,9 +1759,7 @@
       "connections": "Who can use this skill",
       "save_connections": "Save connections",
       "unsaved": "Unsaved changes",
-      "last_loaded": "Last loaded {when}",
       "edit_note": "Edit this skill",
-      "all_connections": "All connected assistants",
       "not_available": "Review this note and enable the skill to use it.",
       "granted_to": "Available to {names} while served.",
       "granted_all": "Available to every connection while served. Select connections and save to limit access.",
@@ -1778,9 +1776,7 @@
       "instructions": "Read the full instructions",
       "download": "Download SKILL.md",
       "open_note": "Open note",
-      "slug_help": "Use this skill slug in chat.",
-      "future_connections": "Includes new connections",
-      "choose_connection": "Choose at least one connection, or turn the skill off."
+      "slug_help": "Use this skill slug in chat."
     },
     "what_title": "What can I do with a skill?",
     "what_example": "Save your writing rules as a skill. In your next chat, ask: “Use my writing rules to rewrite this update.” Your assistant can read the same instructions from Memex in any connected app.",

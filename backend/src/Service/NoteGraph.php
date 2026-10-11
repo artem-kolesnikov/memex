@@ -132,7 +132,7 @@ class NoteGraph
         // hundred fixture notes. Nothing but a test passes one.
         $cap = max(1, $cap ?? self::MAP_NODE_CAP);
         $conn = $this->em->getConnection();
-        $all = array_map('intval', $conn->fetchFirstColumn('SELECT id FROM notes ORDER BY id'));
+        $all = array_map('intval', $conn->fetchFirstColumn('SELECT n.id FROM notes n WHERE '.SystemTags::notSkillSql('n').' ORDER BY n.id'));
 
         $defects = $this->queue->defectsForVault();
         $flagged = $this->flaggedNotes($all);

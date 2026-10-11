@@ -3965,17 +3965,17 @@ html:has(.app-shell) { scrollbar-gutter: auto; }
 .mm-review-frame-head .mm-pane-close { grid-column: 2; grid-row: 1 / span 2; }
 .mm-review-frame-title { margin: 0; color: var(--mm-ink); font-size: 1.3rem; font-weight: 650; line-height: 1.25; }
 
-/* A skill opens as a note does, its switch before its name; its rail holds
-   what changes it. */
+/* A skill opens as a note does, its switch before its name; the rail beside
+   it holds what changes it. */
 .mm-skill-title-line { display: flex; align-items: center; gap: 12px; }
 .mm-skill-title-line > .mm-skill-switch { font-size: 1.15rem; }
 .mm-skill-aside { margin: 0; color: var(--mm-muted); font-size: .75rem; line-height: 1.5; }
 .mm-skill-alias { display: flex; gap: 8px; margin-top: 10px; }
 .mm-skill-alias .form-control { min-width: 0; font-size: .8rem; }
-.mm-skill-frame .mm-context-panel > code { display: block; margin-top: 8px; font-size: .78rem; }
+.mm-context-skill > code { display: block; margin-top: 8px; font-size: .78rem; }
 .mm-skill-usage { display: grid; gap: 6px; margin: 0; padding: 0; color: var(--mm-ink-soft); font-size: .75rem; list-style: none; }
 .mm-skill-usage > li { display: flex; align-items: center; gap: 6px; }
-.app-frame-reading.is-narrow .mm-skill-frame .mm-context-panel { order: 3; }
+.app-frame-reading.is-narrow .mm-context-skill { order: 2; }
 
 @container (max-width: 650px) {
     .mm-pane-note { padding-inline: 18px; }

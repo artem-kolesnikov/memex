@@ -74,7 +74,7 @@ const showChrome = computed(() => route.name !== 'login' && auth.user !== null)
 // stage keeps showing a page while one is open. Only the pages that read their
 // address through `usePageRoute()` can stand in for one: with a dialog matched,
 // `useRoute()` would hand them its params and they would fetch the wrong thing.
-const SETTINGS_BACKDROP_ROUTES = ['search', 'inbox', 'skills', 'note', 'note-edit', 'note-new']
+const SETTINGS_BACKDROP_ROUTES = ['search', 'inbox', 'skills', 'note', 'note-edit', 'note-new', 'skill', 'skill-edit', 'skill-new']
 // The first-run wizard is the third dialog rendered this way: a new account
 // is sent to it before it has seen any page, so the backdrop is the notes list.
 const isDialog = computed(() => DIALOG_ROUTES.includes(String(route.name)))
@@ -142,12 +142,16 @@ watch(
   { immediate: true },
 )
 
-// Notes owns every note route, so reading or editing one still lights Notes
-// rather than leaving the sidebar with nothing selected.
-const NOTE_ROUTES = ['search', 'note', 'note-new', 'note-edit']
+// Notes owns every note route and Skills every skill route, so reading or
+// editing one still lights its list rather than leaving the sidebar with
+// nothing selected.
+const OWNED_ROUTES: Record<string, string[]> = {
+  search: ['search', 'note', 'note-new', 'note-edit'],
+  skills: ['skills', 'skill', 'skill-new', 'skill-edit'],
+}
 function isActive(name: string) {
   const current = String(route.name ?? '')
-  return name === 'search' ? NOTE_ROUTES.includes(current) : current === name
+  return OWNED_ROUTES[name]?.includes(current) ?? current === name
 }
 
 /**

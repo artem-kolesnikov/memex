@@ -29,7 +29,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 final class SchemaToolSafetyTest extends DatabaseTestCase
 {
     private const RAW = [
-        'vault' => ['notes_fts', 'note_embeddings', 'note_embedding_vectors', 'note_embedding_chunks', 'note_embedding_chunk_vectors', 'deleted_notes', 'skill_settings', 'skill_grants'],
+        'vault' => ['notes_fts', 'note_embeddings', 'note_embedding_vectors', 'note_embedding_chunks', 'note_embedding_chunk_vectors', 'deleted_notes', 'skill_settings', 'skill_blocks'],
         'directory' => ['sessions', 'user_sessions', 'oauth_clients', 'oauth_codes', 'bearer_tokens', 'storage_policy'],
     ];
 

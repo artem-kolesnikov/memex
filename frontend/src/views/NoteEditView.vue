@@ -52,6 +52,7 @@ import { useLayoutStore } from '@/stores/layout'
 import { useAuthStore } from '@/stores/auth'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
+import { carriesSkill, SKILL_TAG } from '@/lib/systemTags'
 
 const route = usePageRoute()
 const router = useRouter()
@@ -61,7 +62,8 @@ const auth = useAuthStore()
 
 // In the notes list's reading frame the note (or none, for a new one) comes
 // from the list, and saving, cancelling or deleting hands the frame back to it.
-const props = defineProps<{ noteId?: number | null; inPane?: boolean }>()
+// `skill` is the skills list's frame, whose new note starts as a skill.
+const props = defineProps<{ noteId?: number | null; inPane?: boolean; skill?: boolean }>()
 const emit = defineEmits<{ saved: [id: number]; cancel: []; deleted: [] }>()
 
 const noteId = computed(() => {
@@ -69,6 +71,9 @@ const noteId = computed(() => {
   return route.params.id ? Number(route.params.id) : null
 })
 const isAddForm = computed(() => noteId.value === null)
+const asSkill = computed(() => props.inPane ? props.skill === true : ['skill-new', 'skill-edit'].includes(String(route.name)))
+const list = computed(() => ({ name: asSkill.value ? 'skills' : 'search' }))
+const newLabel = computed(() => asSkill.value ? t('skills.new') : t('editor.new_note'))
 
 const lifetime = useOperationLifetime()
 const outcomeUnknown = ref(false)
@@ -430,7 +435,7 @@ async function onFileChosen(event: Event) {
 function cancel() {
   leaving = true
   if (props.inPane) emit('cancel')
-  else router.push(isAddForm.value ? { name: 'search' } : { name: 'note', params: { id: noteId.value! } })
+  else router.push(isAddForm.value ? list.value : { name: asSkill.value ? 'skill' : 'note', params: { id: noteId.value! } })
 }
 
 /**
@@ -511,7 +516,7 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
     conflict.value = false
     leaving = true
     if (props.inPane) emit('saved', savedId)
-    else router.push({ name: 'search' })
+    else router.push({ name: carriesSkill(entity.value.tags) ? 'skills' : 'search' })
   } catch (e) {
     if (!lifetime.current(mine)) return
     // 409 is not a failure to report as one: nothing is wrong with what was
@@ -591,7 +596,7 @@ async function deleteEntity() {
     leaving = true
     deleteDialogOpen.value = false
     if (props.inPane) emit('deleted')
-    else router.push({ name: 'search' })
+    else router.push(list.value)
   } catch (e) {
     if (!lifetime.current(mine)) return
     // A draft that landed between opening this note and pressing Delete. The
@@ -636,8 +641,8 @@ async function load() {
   errors.value = { title: false, body: false }
   loadedVersion.value = null
   entity.value = { title: '', bodyMd: '', sourceUrl: '', summary: '', tags: [] }
-  if (isAddForm.value && route.query.skill === '1') {
-    entity.value.tags = ['skill']
+  if (isAddForm.value && asSkill.value) {
+    entity.value.tags = [SKILL_TAG]
     entity.value.bodyMd = t('skills.scaffold')
   }
   try {
@@ -715,7 +720,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
 
     <template v-else-if="loadFailed">
       <nav v-if="!inPane" class="app-breadcrumbs mm-editor-breadcrumbs" :aria-label="$t('editor.breadcrumb')">
-        <RouterLink :to="{ name: 'search' }">{{ $t('editor.notes') }}</RouterLink>
+        <RouterLink :to="list">{{ asSkill ? $t('app.nav.skills') : $t('editor.notes') }}</RouterLink>
         <span aria-hidden="true">›</span>
         <strong aria-current="page">{{ $t('common.edit') }}</strong>
       </nav>
@@ -724,20 +729,20 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
         <p>{{ $t('editor.load_failed.body') }}</p>
         <div class="mm-editor-failure-actions">
           <button type="button" class="btn btn-primary" @click="load">{{ $t('common.retry') }}</button>
-          <RouterLink class="btn btn-outline-secondary" :to="{ name: 'search' }">{{ $t('editor.load_failed.back') }}</RouterLink>
+          <RouterLink class="btn btn-outline-secondary" :to="list">{{ asSkill ? $t('editor.load_failed.back_skills') : $t('editor.load_failed.back') }}</RouterLink>
         </div>
       </div>
     </template>
 
     <template v-else>
       <nav v-if="!inPane" class="app-breadcrumbs mm-editor-breadcrumbs" :aria-label="$t('editor.breadcrumb')">
-        <RouterLink :to="{ name: 'search' }">{{ $t('editor.notes') }}</RouterLink>
+        <RouterLink :to="list">{{ asSkill ? $t('app.nav.skills') : $t('editor.notes') }}</RouterLink>
         <span aria-hidden="true">›</span>
         <template v-if="!isAddForm">
-          <RouterLink :to="{ name: 'note', params: { id: noteId } }">{{ entity.title || $t('editor.note_fallback') }}</RouterLink>
+          <RouterLink :to="{ name: asSkill ? 'skill' : 'note', params: { id: noteId } }">{{ entity.title || $t('editor.note_fallback') }}</RouterLink>
           <span aria-hidden="true">›</span>
         </template>
-        <strong aria-current="page">{{ isAddForm ? $t('editor.new_note') : $t('common.edit') }}</strong>
+        <strong aria-current="page">{{ isAddForm ? newLabel : $t('common.edit') }}</strong>
       </nav>
 
       <form @submit.prevent="saveEntity()">
@@ -747,7 +752,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
         <header class="mm-note-heading">
           <div class="mm-note-identity">
             <h1 class="app-eyebrow mm-note-eyebrow">
-              {{ isAddForm ? $t('editor.new_note') : $t('editor.editing_note', { id: noteId }) }}
+              {{ isAddForm ? newLabel : $t('editor.editing_note', { id: noteId }) }}
             </h1>
             <label for="title" class="visually-hidden">{{ $t('editor.title_label') }}</label>
             <!-- A textarea rather than an input, because Note View's title

@@ -5,7 +5,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { api, ApiError, noteApprovalSnapshot, type NoteDetail, type NoteRevision } from '@/api/client'
+import { api, ApiError, noteApprovalSnapshot, type NoteDetail, type NoteRevision, type SkillConnection, type SkillRow } from '@/api/client'
 import { renderNote } from '@/lib/markdown'
 import { lineDiffCounts, lineDiffHtml } from '@/lib/diffs'
 import { formatCount, noteStats } from '@/lib/noteStats'
@@ -18,7 +18,10 @@ import { useLayoutStore } from '@/stores/layout'
 import { usePageRoute } from '@/lib/pageRoute'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
-import { useSystemTags } from '@/lib/systemTags'
+import SkillRail from '@/components/skills/SkillRail.vue'
+import SkillSwitch from '@/components/skills/SkillSwitch.vue'
+import { skillOffered } from '@/components/skills/skillGroups'
+import { carriesSkill, useSystemTags } from '@/lib/systemTags'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 
 const { isSystemTag, systemReason } = useSystemTags()
@@ -39,6 +42,13 @@ const noteId = computed(() => props.noteId ?? Number(route.params.id))
 
 const note = ref<NoteDetail | null>(null)
 const loading = ref(true)
+// A note tagged `skill` is a skill: the same page, with the skill's switch at
+// its name and what changes it in the rail. It lives under Skills, not Notes.
+const isSkill = computed(() => note.value !== null && carriesSkill(note.value.tags.map((tag) => tag.name)))
+const skill = ref<SkillRow | null>(null)
+const skillConnections = ref<SkillConnection[]>([])
+const skillSaving = ref(false)
+const skillError = ref<string | null>(null)
 const loadError = ref<string | null>(null)
 const approvalConflict = ref(false)
 
@@ -189,10 +199,15 @@ async function load() {
   approvalConflict.value = false
   flagSaving.value = false
   flagEditorOpen.value = false
+  skill.value = null
+  skillSaving.value = false
+  skillError.value = null
   try {
     const result = await api.getNote(id)
     if (!lifetime.current(mine)) return
     note.value = result
+    moveToItsList()
+    if (isSkill.value) await loadSkill()
   } catch (e) {
     if (!lifetime.current(mine)) return
     loadError.value = e instanceof Error ? e.message : t('common.unknown_error')
@@ -203,6 +218,60 @@ async function load() {
   if (!lifetime.current(mine)) return
   measureSummary()
   await loadRevisions()
+}
+
+async function loadSkill() {
+  const mine = lifetime.capture()
+  try {
+    const page = await api.skills()
+    if (!lifetime.current(mine)) return
+    skill.value = page.skills.find((row) => row.kind === 'note' && row.note_id === noteId.value) ?? null
+    skillConnections.value = page.connections
+  } catch {
+    // The note still reads; what is missing says why.
+    if (lifetime.current(mine)) skillError.value = t('skills.load_failed')
+  }
+}
+
+/**
+ * A skill is opened from Skills and a note from Notes, whichever link led
+ * here. Only the page's own address moves: under a dialog it is not the
+ * router's to change.
+ */
+function moveToItsList() {
+  const name = String(route.name ?? '')
+  if (note.value === null || router.currentRoute.value.fullPath !== route.fullPath) return
+  const id = note.value.id
+  const to = props.inPane
+    ? isSkill.value && name === 'search' ? { name: 'skills', query: { open: String(id) } }
+      : !isSkill.value && name === 'skills' ? { name: 'search', query: { open: String(id) } } : null
+    : isSkill.value && name === 'note' ? { name: 'skill', params: { id } }
+      : !isSkill.value && name === 'skill' ? { name: 'note', params: { id } } : null
+  if (to !== null) void router.replace(to)
+}
+
+async function toggleSkill() {
+  if (!skill.value || skillSaving.value) return
+  const mine = lifetime.capture()
+  skillSaving.value = true
+  skillError.value = null
+  try {
+    const patch = skillOffered(skill.value) ? { enabled: false } : { enabled: true, auto: true, command: true }
+    const result = await api.updateSkill(skill.value.note_id!, patch)
+    if (!lifetime.current(mine)) return
+    skill.value = result.skill
+    emit('changed')
+  } catch (e) {
+    if (!lifetime.current(mine)) return
+    skillError.value = e instanceof Error ? e.message : t('common.unknown_error')
+  } finally {
+    if (lifetime.current(mine)) skillSaving.value = false
+  }
+}
+
+function skillUpdated(row: SkillRow) {
+  skill.value = row
+  emit('changed')
 }
 
 async function loadRevisions() {
@@ -346,9 +415,9 @@ function onPaneClick(event: MouseEvent) {
   const anchor = (event.target as HTMLElement).closest('a')
   if (!anchor) return
   const href = anchor.getAttribute('href') ?? ''
-  const own = auth.user ? `/${auth.user.team.handle}/notes/` : null
+  const own = auth.user ? `/${auth.user.team.handle}/` : null
   if (own === null || !href.startsWith(own)) return
-  const target = /^(\d+)(\/edit)?$/.exec(href.slice(own.length))
+  const target = /^(?:notes|skills)\/(\d+)(\/edit)?$/.exec(href.slice(own.length))
   if (!target) return
   event.preventDefault()
   if (target[2]) emit('edit', Number(target[1]))
@@ -501,15 +570,20 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
 
     <template v-if="!loading && note">
       <nav v-if="!inPane" class="app-breadcrumbs mm-note-breadcrumbs" :aria-label="$t('note.breadcrumb.label')">
-        <RouterLink :to="{ name: 'search' }">{{ $t('note.breadcrumb.notes') }}</RouterLink>
+        <RouterLink v-if="isSkill" :to="{ name: 'skills' }">{{ $t('app.nav.skills') }}</RouterLink>
+        <RouterLink v-else :to="{ name: 'search' }">{{ $t('note.breadcrumb.notes') }}</RouterLink>
         <span aria-hidden="true">›</span>
-        <strong aria-current="page">{{ $t('note.breadcrumb.current') }}</strong>
+        <strong aria-current="page">{{ isSkill ? $t('note.breadcrumb.current_skill') : $t('note.breadcrumb.current') }}</strong>
       </nav>
 
       <header class="mm-note-heading">
         <div class="mm-note-identity">
-          <p class="app-eyebrow mm-note-eyebrow">{{ $t('note.eyebrow', { id: note.id }) }}</p>
-          <h1 class="mm-note-title">{{ note.title }}</h1>
+          <p class="app-eyebrow mm-note-eyebrow">{{ isSkill ? $t('skills.pane.eyebrow') : $t('note.eyebrow', { id: note.id }) }}</p>
+          <div v-if="skill" class="mm-skill-title-line">
+            <SkillSwitch :skill="skill" :saving="skillSaving" @toggle="toggleSkill" />
+            <h1 class="mm-note-title">{{ note.title }}</h1>
+          </div>
+          <h1 v-else class="mm-note-title">{{ note.title }}</h1>
           <div class="mm-note-subline">
             <span
               class="app-status"
@@ -539,8 +613,8 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
               <i class="fa-solid fa-xmark"></i> {{ $t('note.review.reject') }}
             </button>
           </template>
-          <RouterLink class="btn btn-sm btn-primary" :to="{ name: 'note-edit', params: { id: note.id } }">
-            <i class="fa-solid fa-pen"></i> {{ $t('note.actions.edit') }}
+          <RouterLink class="btn btn-sm btn-primary" :to="{ name: isSkill ? 'skill-edit' : 'note-edit', params: { id: note.id } }">
+            <i class="fa-solid fa-pen"></i> {{ isSkill ? $t('skills.panel.edit_note') : $t('note.actions.edit') }}
           </RouterLink>
           <button
             type="button"
@@ -551,9 +625,12 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
             <i class="fa-solid fa-flag"></i>
             {{ note.curation_flag ? $t('note.flag.flagged') : $t('note.flag.flag_for_curation') }}
           </button>
-          <a class="btn btn-sm btn-charcoal" :href="api.exportNoteUrl(note.id)"
+          <a v-if="!isSkill" class="btn btn-sm btn-charcoal" :href="api.exportNoteUrl(note.id)"
              :title="$t('note.actions.download_title')">
             <i class="fa-regular fa-circle-down"></i> {{ $t('note.actions.download') }}
+          </a>
+          <a v-if="skill" class="btn btn-sm btn-charcoal" :href="api.exportServedSkillUrl(skill.slug)">
+            <i class="fa-regular fa-circle-down"></i> {{ $t('skills.panel.download') }}
           </a>
         </div>
         <button v-if="inPane" type="button" class="btn btn-sm btn-outline-secondary mm-pane-close"
@@ -561,6 +638,8 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
           <i class="fa-solid fa-xmark"></i>
         </button>
       </header>
+
+      <p v-if="skillError" class="alert alert-warning py-1" role="alert">{{ skillError }}</p>
 
       <!-- The standing instruction, shown above the note itself: anyone reading
            this page should see the operator's complaint before the text it is
@@ -651,6 +730,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
         </article>
 
         <aside class="mm-note-context" :aria-label="$t('note.context_label')">
+          <SkillRail v-if="skill" :key="skill.note_id ?? ''" :skill="skill" :connections="skillConnections" :busy="skillSaving" @updated="skillUpdated" />
           <section class="app-panel mm-context-panel mm-context-details">
             <h2 class="mm-context-title">{{ $t('note.details.title') }}</h2>
             <dl class="mm-note-facts">
@@ -709,7 +789,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
             </div>
           </section>
 
-          <section class="app-panel mm-context-panel mm-context-map">
+          <section v-if="!isSkill" class="app-panel mm-context-panel mm-context-map">
             <h2 class="mm-context-title">{{ $t('map.neighbourhood') }}</h2>
             <NoteMap :note-id="note.id" height="178px" compact>
               <template #caption-action>

@@ -84,7 +84,7 @@ const criteria = ref<{ tagIds: number[]; status: string; addedBy: number | null 
 // token list nothing is going to read.
 const addedByName = ref<string>('')
 
-const allTags = ref<(TagRef & { note_count: number })[]>([])
+const allTags = ref<(TagRef & { listed_count: number })[]>([])
 const savingPreset = ref(false)
 const searchHelp = ref(false)
 const presetDraft = computed(() => ({
@@ -105,7 +105,7 @@ let reloadRequestId = 0
 const tagOptions = computed(() =>
   [...allTags.value]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((t) => ({ label: `${t.name} (${t.note_count})`, value: t.id })),
+    .map((t) => ({ label: `${t.name} (${t.listed_count})`, value: t.id })),
 )
 /**
  * Strictly speaking one of these is not a status: `flagged` is a request the
@@ -500,7 +500,9 @@ function statusMark(note: NoteListItem) {
 
 onMounted(async () => {
   try {
-    allTags.value = (await api.tags()).tags
+    // Skills are listed under Skills, so a tag only skills carry filters
+    // nothing here.
+    allTags.value = (await api.tags()).tags.filter((tag) => tag.listed_count > 0)
   } catch {
     allTags.value = []
   }
@@ -576,7 +578,7 @@ const frame = computed<FrameContent | null>(() => {
 const openId = computed(() => frame.value?.id ?? null)
 
 function showInFrame(wanted: Record<string, string>) {
-  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['open', 'edit', 'skill'].includes(key)))
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['open', 'edit'].includes(key)))
   router.replace({ query: { ...rest, ...wanted } })
 }
 

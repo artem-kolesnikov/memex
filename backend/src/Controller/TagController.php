@@ -45,8 +45,9 @@ class TagController extends ApiController
     public function list(): JsonResponse
     {
         $rows = $this->em->getConnection()->executeQuery(
-            'SELECT t.id, t.name, COUNT(nt.note_id) AS note_count
-             FROM tags t LEFT JOIN note_tag nt ON nt.tag_id = t.id
+            'SELECT t.id, t.name, COUNT(nt.note_id) AS note_count,
+                    SUM(CASE WHEN n.id IS NOT NULL AND '.SystemTags::notSkillSql('n').' THEN 1 ELSE 0 END) AS listed_count
+             FROM tags t LEFT JOIN note_tag nt ON nt.tag_id = t.id LEFT JOIN notes n ON n.id = nt.note_id
              GROUP BY t.id, t.name ORDER BY '.SystemTags::sqlRank('t.name').', t.name'
         )->fetchAllAssociative();
 
@@ -55,6 +56,9 @@ class TagController extends ApiController
                 'id' => (int) $r['id'],
                 'name' => $r['name'],
                 'note_count' => (int) $r['note_count'],
+                // Of those, the notes the Notes list shows: skills are listed
+                // under Skills.
+                'listed_count' => (int) $r['listed_count'],
                 // Whether memex itself reads this word, and what breaks
                 // without it. Served per row rather than left to the client to
                 // match against a list, so the tag screen can never disagree

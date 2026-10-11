@@ -103,7 +103,7 @@ final class SkillPushTest extends ApiTestCase
     {
         $note = $this->kb->a->note('Codex only', 'For Codex.', ['skill']);
         $this->in($this->kb->a);
-        self::getContainer()->get(SkillServing::class)->update($note->getId(), ['grants' => [$this->kb->a->curatorTokenId]]);
+        self::getContainer()->get(SkillServing::class)->update($note->getId(), ['blocked' => [$this->kb->a->agentTokenId]]);
         $agent = $this->toolPayload($this->rpc($this->kb->a->agentBearer, 'tools/call', ['name' => 'health', 'arguments' => []]));
         $curator = $this->toolPayload($this->rpc($this->kb->a->curatorBearer, 'tools/call', ['name' => 'health', 'arguments' => []]));
         self::assertNotSame($agent['skills_version'], $curator['skills_version']);
