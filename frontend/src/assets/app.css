@@ -3713,7 +3713,6 @@ html:has(.app-shell) { scrollbar-gutter: auto; }
     background: var(--app-paper);
 }
 .app-frame-divider:focus-visible::after { outline: 2px solid var(--mm-primary); outline-offset: 3px; }
-.app-frame-divider:hover,
 .app-frame-divider.is-dragging,
 .app-frame-divider:focus-visible { outline: 0; background: var(--mm-primary); }
 
