@@ -5,6 +5,25 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.7
+
+- Settings › Preferences › Layout chooses, per browser, between *Windowed*, one page at a
+  time as before, *Framed*, and *Dynamic*, framed on a wide window only. In frames, Notes,
+  Review Inbox and Skills show their list on the left and what you open on the right; the
+  line between them drags and is kept, F6 moves between them and Esc closes what is open.
+- On a wide window the page stays beside the sidebar instead of centring in the space left.
+- The Activity log opens from the account menu, over the page you were on. The header no
+  longer holds it, and the button that collapses the sidebar sits at the top left.
+- The notes list has no pages: it loads the next fifty notes as you scroll, and *All shown*
+  selects what is loaded.
+- Settings and the Activity log open over a note or its editor without losing your place or
+  an unsaved draft.
+- The skill templates are named `skill-handoff` and `skill-plain-writing`, and a third,
+  `skill-ingest`, files a transcript, meeting notes, an email thread or a document as one
+  note and patches the notes it touches once you approve its plan.
+- The built-in `memex-docs` skill points assistants at docs.memex.tools instead of carrying
+  a guide of its own.
+
 ## 1.9.6
 
 - *Docs*, in the header, the account menu and the search operators' help, opens the
