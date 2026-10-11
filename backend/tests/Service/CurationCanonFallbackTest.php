@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Service;
 
 use App\Service\CurationCharter;
+use App\Service\UnlockedSkills;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
@@ -35,18 +36,16 @@ final class CurationCanonFallbackTest extends TestCase
             }
         };
 
-        return new CurationCharter(
-            $this->createMock(EntityManagerInterface::class),
-            $logger,
-            $path,
-        );
+        $em = $this->createMock(EntityManagerInterface::class);
+
+        return new CurationCharter($em, $logger, new UnlockedSkills($em), $path);
     }
 
     public function testAMissingCanonIsLoggedAndSaysSoInTheInstructions(): void
     {
         $charter = $this->charterOn('/nonexistent/canon.md', $logger);
 
-        $canon = $charter->canon();
+        $canon = $charter->shippedCanon();
 
         self::assertNotSame('', $canon['body'],
             'an empty body is served as instructions and reads as a charter that says nothing — '
@@ -70,7 +69,7 @@ final class CurationCanonFallbackTest extends TestCase
         file_put_contents($file, "no frontmatter here, just prose\n");
 
         try {
-            $canon = $this->charterOn($file, $logger)->canon();
+            $canon = $this->charterOn($file, $logger)->shippedCanon();
             self::assertStringContainsString('Do not curate', $canon['body']);
             self::assertNotEmpty($logger->records);
         } finally {
@@ -80,7 +79,7 @@ final class CurationCanonFallbackTest extends TestCase
 
     public function testTheShippedCanonParsesAndIsNotTheFallback(): void
     {
-        $canon = $this->charterOn(__DIR__.'/../../config/curation/canon.md', $logger)->canon();
+        $canon = $this->charterOn(__DIR__.'/../../config/curation/canon.md', $logger)->shippedCanon();
 
         self::assertStringContainsString(CurationCharter::CHARTER_MARKER, $canon['body']);
         self::assertEmpty($logger->records, 'the shipped canon logged an error, so the fallback is live in production');

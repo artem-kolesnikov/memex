@@ -109,6 +109,13 @@ function apiStub(state) {
     if (key === 'GET /api/tags') return json({ tags: [], retired: [] })
     if (key === 'GET /api/me/sessions') return json({ sessions: [] })
     if (key === 'GET /api/skills') return json({ skills: [state.row, PENDING_ROW, ...(state.extraRows ?? [])], connections: state.connections ?? CONNECTIONS })
+    const verb = /^POST \/api\/skills\/system\/([a-z-]+)\/(unlock|restore)$/.exec(key)
+    if (verb) {
+      state.systemVerbs = [...(state.systemVerbs ?? []), `${verb[2]} ${verb[1]}`]
+      const row = (state.extraRows ?? []).find((r) => r.slug === verb[1])
+      Object.assign(row, verb[2] === 'unlock' ? { unlocked: true, outdated: false, note_id: 77 } : { unlocked: false, outdated: false, note_id: null })
+      return json({ skill: row }, verb[2] === 'unlock' ? 201 : 200)
+    }
     if (key === 'PUT /api/notes/5') {
       state.noteSaves = (state.noteSaves ?? 0) + 1
       return json({ note: skillNote(state.row) })
@@ -125,7 +132,7 @@ function apiStub(state) {
     if (one && one[2] === '/revisions') return json({ note_id: Number(one[1]), keep_per_note: 10, revisions: [] })
     if (one && one[2] === '/graph') return json({ center: Number(one[1]), depth: 1, nodes: [], edges: [], truncated: false, total_notes: 1 })
     if (one) {
-      const row = [state.row, PENDING_ROW, ...(state.extraRows ?? [])].find((r) => r.note_id === Number(one[1]))
+      const row = [state.row, PENDING_ROW, ...(state.extraRows ?? [])].find((r) => r.note_id === Number(one[1]) && r.kind !== 'catalogue')
       if (row) return json(skillNote(row))
     }
     if (key.startsWith('GET /api/notes')) return json({ items: [], notes: [], total: 0, tags: [], tag_counts: [], presets: [] })
@@ -301,36 +308,33 @@ await scenario('long skill content and its page fit a phone', async (page, state
 })
 
 
-await scenario('memex-writing switched off in Personalization says so and is not counted', async (page, state) => {
+await scenario('memex-docs and memex-writing are served but not listed among memex\'s skills', async (page, state) => {
   state.extraRows = [
-    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 100 },
-    { ...ROW, kind: 'shipped', status: 'switched_off', note_id: null, slug: 'memex-writing', title: 'memex — writing', size_tokens: 1200 },
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-recall', title: 'memex — recall', size_tokens: 100, unlockable: true },
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 100, unlockable: false },
+    { ...ROW, kind: 'shipped', status: 'switched_off', note_id: null, slug: 'memex-writing', title: 'memex — writing', size_tokens: 1200, unlockable: false },
   ]
   await page.goto(SKILLS)
   await page.locator('.mm-skills-summary select').selectOption('system')
-  const state_ = (slug) => page.locator(`.mm-skill-row[data-skill="${slug}"] .mm-skill-state`).innerText()
-  assert(await state_('memex-writing') === 'Disabled', 'the switched-off skill does not read Disabled')
-  assert(await state_('memex-docs') === 'Enabled', 'an always-on skill does not read Enabled')
-  assert(await page.getByTestId('skills-active-count').innerText() === '1', 'a switched-off skill counted as enabled')
-  await page.locator('.mm-skill-row[data-skill="memex-writing"] .app-note-main').click()
-  const notice = page.locator('.mm-skill-frame .mm-proposal-notice')
-  await notice.waitFor()
-  assert((await notice.textContent()).includes('Off in Settings › Personalization'), 'the switched-off skill does not say so')
-  assert((await notice.getByRole('link').getAttribute('href')).endsWith('/settings/personalization'), 'the skill does not lead to Personalization')
+  const listed = await page.locator('.mm-skill-row').evaluateAll((els) => els.map((el) => el.getAttribute('data-skill')))
+  assert(JSON.stringify(listed) === JSON.stringify(['memex-recall']), `System skills: ${JSON.stringify(listed)}`)
+  assert(await page.getByTestId('skills-active-count').innerText() === '1', 'an unlisted skill is counted')
+  await page.locator('.mm-skills-summary select').selectOption('user')
+  assert(await page.locator('.mm-skill-row[data-skill^="memex-"]').count() === 0, 'memex\'s skills are listed as the owner\'s')
 })
 
 await scenario('the line above the list counts what is on and its size, for whose skills are shown', async (page, state) => {
   state.row.size_tokens = 12500
   state.extraRows = [
     { ...ROW, note_id: 9, slug: 'disabled-skill', title: 'Disabled skill', status: 'paused', enabled: false, size_tokens: 99999 },
-    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 337500 },
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-curation', title: 'memex — curation', size_tokens: 337500, unlockable: true },
   ]
   await page.goto(SKILLS)
   await page.getByTestId('skills-active-count').waitFor()
   const line = () => page.locator('.mm-skills-summary-line').innerText()
   assert(await page.getByTestId('skills-active-count').innerText() === '1', 'off or pending skills counted as enabled')
   assert((await line()).includes('~12.5K tk'), `the size counts what is off, or memex's: ${await line()}`)
-  assert(await page.locator('.mm-skill-row[data-skill="memex-docs"]').count() === 0, 'memex\'s skills are mixed into the owner\'s')
+  assert(await page.locator('.mm-skill-row[data-skill="memex-curation"]').count() === 0, 'memex\'s skills are mixed into the owner\'s')
   await page.locator('.mm-skills-summary select').selectOption('system')
   assert((await line()).includes('~337.5K tk'), `the size does not follow the selector: ${await line()}`)
   assert(await page.locator('.mm-skills-summary').evaluate((el) => el.getBoundingClientRect().height < 60), 'the selector and the count are not on one line')
@@ -349,6 +353,41 @@ await scenario('in a window the rows sit under a head, the last used first, and 
   await page.waitForURL(/\/skills\/5$/)
   await page.goBack()
   await page.locator('.mm-skill-row').first().waitFor()
+})
+
+await scenario('one of memex\'s skills is unlocked behind a warning, and restored from its note', async (page, state, { expectText }) => {
+  state.extraRows = [
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-recall', title: 'memex — recall', unlockable: true, unlocked: false, outdated: false },
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', unlockable: false, unlocked: false, outdated: false },
+  ]
+  await page.goto(`${SKILLS}?open=memex-docs`)
+  await page.locator('.mm-skill-frame').waitFor()
+  assert(await page.getByRole('button', { name: 'Unlock', exact: true }).count() === 0, 'memex-docs offers Unlock')
+  await page.goto(`${SKILLS}?open=memex-recall`)
+  await page.getByRole('button', { name: 'Unlock', exact: true }).click()
+  const dialog = page.locator('.modal.show')
+  await dialog.waitFor()
+  assert((await dialog.innerText()).includes('no longer updated by new memex releases'), 'the warning does not say what unlocking costs')
+  assert(!(state.systemVerbs ?? []).length, 'Unlock acted before it was confirmed')
+  await Promise.all([page.waitForURL(/\/skills\/77$/), dialog.getByRole('button', { name: 'Unlock and edit', exact: true }).click()])
+  assert(JSON.stringify(state.systemVerbs) === JSON.stringify(['unlock memex-recall']), `verbs: ${JSON.stringify(state.systemVerbs)}`)
+  await page.getByRole('link', { name: 'Edit this skill', exact: true }).waitFor()
+  await expectText('You unlocked this system skill')
+  assert(await page.locator(SWITCH).isDisabled(), 'an unlocked system skill can be switched off')
+  assert(await page.locator(`${RAIL} .skill-connections`).count() === 0, 'an unlocked system skill can be kept from a connection')
+
+  state.extraRows[0].outdated = true
+  await page.reload()
+  await page.getByText('memex has updated this skill since you unlocked it').waitFor()
+  await page.goto(SKILLS)
+  await page.locator('.mm-skills-summary select').selectOption('system')
+  assert(await page.locator('.mm-skill-row[data-skill="memex-recall"] .mm-skill-unlocked').count() === 1, 'the list does not mark the unlocked skill')
+  await page.goto(`${SKILLS}/77`)
+  await page.getByRole('button', { name: "Restore memex's version", exact: true }).click()
+  await Promise.all([page.waitForURL(/open=memex-recall/), page.locator('.modal.show').getByRole('button', { name: 'Restore', exact: true }).click()])
+  assert(JSON.stringify(state.systemVerbs.at(-1)) === JSON.stringify('restore memex-recall'), `verbs: ${JSON.stringify(state.systemVerbs)}`)
+  await page.getByRole('button', { name: 'Unlock', exact: true }).waitFor()
+  assert(await page.getByRole('link', { name: 'Edit this skill', exact: true }).count() === 0, 'a restored skill still offers Edit')
 })
 
 await scenario('a rejected switch on the skill page returns to the saved state', async (page, state) => {
@@ -394,13 +433,13 @@ await scenario('the skill holds its example, settings and details in the rail', 
 })
 
 await scenario('memex\'s own skills are listed apart and open with their details, nothing to switch', async (page, state) => {
-  state.extraRows = [{ ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 100 }]
+  state.extraRows = [{ ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-recall', title: 'memex — recall', size_tokens: 100, unlockable: true }]
   await page.goto(SKILLS)
   await page.locator('.mm-skills-summary select').selectOption('system')
   const listed = await page.locator('.mm-skill-row').evaluateAll((els) => els.map((el) => el.getAttribute('data-skill')))
-  assert(JSON.stringify(listed) === JSON.stringify(['memex-docs']), `System skills: ${JSON.stringify(listed)}`)
-  await page.locator('.mm-skill-row[data-skill="memex-docs"] .app-note-main').click()
-  await page.waitForURL(/open=memex-docs/)
+  assert(JSON.stringify(listed) === JSON.stringify(['memex-recall']), `System skills: ${JSON.stringify(listed)}`)
+  await page.locator('.mm-skill-row[data-skill="memex-recall"] .app-note-main').click()
+  await page.waitForURL(/open=memex-recall/)
   const frame = page.locator('.mm-skill-frame')
   await frame.waitFor()
   assert(await frame.locator('.mm-skill-switch input').isDisabled(), 'a system skill can be switched off')

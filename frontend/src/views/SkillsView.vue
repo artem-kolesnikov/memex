@@ -114,6 +114,13 @@ function onEditCancelled() {
   else close()
 }
 
+// A system skill just unlocked opens as the note it now is.
+async function onUnlocked(id: number) {
+  await load()
+  if (layout.framed) show({ open: String(id) })
+  else router.replace({ name: 'skill', params: { id } })
+}
+
 function onDeleted() {
   void load()
   close()
@@ -175,7 +182,7 @@ useFrameNavigation(() => frame.value ? `${frame.value.kind}:${openKey.value ?? '
                 @close="close" @open="openNote" @edit="show({ edit: String($event) })" @changed="load" />
       <SkillFrame v-else-if="frame?.kind === 'skill'" :key="openKey ?? ''" :skill="frame.row" :connections="connections"
                   :saving="savingKey === openKey" :failure="addFailed === frame.row.slug ? $t('skills.catalogue.add_failed') : null"
-                  @close="close" @toggle="toggle" />
+                  @close="close" @toggle="toggle" @unlocked="onUnlocked" />
       <div v-else class="app-frame-empty">
         <i class="fa-solid fa-graduation-cap app-frame-empty-icon" aria-hidden="true"></i>
         <p class="app-frame-empty-title">{{ $t('skills.frame_empty') }}</p>

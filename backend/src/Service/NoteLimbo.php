@@ -42,6 +42,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * content into search, export or MCP. Moving the row makes every read correct
  * by construction.
  */
+final class RestoreRefused extends \RuntimeException
+{
+}
+
 class NoteLimbo
 {
     /** How long a retired note can be reincarnated before its content goes. */
@@ -75,6 +79,7 @@ class NoteLimbo
         private readonly NoteRevisions $revisions,
         private readonly GrowthLimits $growth,
         private readonly Journal $journal,
+        private readonly UnlockedSkills $unlocked,
     ) {
     }
 
@@ -359,6 +364,13 @@ class NoteLimbo
                         ['note' => $id, 'tag' => (int) $tagId]
                     );
                 }
+            }
+
+            // An unlocked system skill comes back as the copy it was, unless a
+            // later copy of the same skill is served now: two cannot be.
+            $clash = $this->unlocked->clashOnReturn($id);
+            if ($clash !== null) {
+                throw new RestoreRefused($clash.' is unlocked again, and that copy is served now. Delete it first, then restore this one.');
             }
 
             $this->journal->record(

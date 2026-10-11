@@ -28,6 +28,10 @@ use Psr\Log\LoggerInterface;
  * user (the Skills page lists what is served, in full). And a shipped slug
  * is reserved in {@see SkillLibrary}, so a note can never claim it and hand an
  * agent something else under a name memex vouches for.
+ *
+ * The owner may still take the trade for some of them: an unlocked skill is
+ * served from the note {@see UnlockedSkills} records for it, under the same
+ * alias, and from here again once that note stops being a served skill.
  */
 class ShippedSkills
 {
@@ -54,6 +58,7 @@ class ShippedSkills
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly CurationCharter $charter,
+        private readonly UnlockedSkills $unlocked,
         private readonly LoggerInterface $logger,
         private readonly ShippedText $text,
         private readonly UserGuide $guide,
@@ -84,14 +89,22 @@ class ShippedSkills
      */
     public function all(?ApiToken $token = null): array
     {
-        $skills = [$this->charter->skill($token)];
+        $served = $this->unlocked->served();
+        $skills = [$this->marked($this->charter->skill($token), $this->charter->shippedCanon(), $served)];
 
         foreach ([self::RECALL, self::GUIDE, self::PROFILE, self::SKILLS] as $slug) {
             $file = $this->fileFor($slug);
             if ($file === null) {
                 continue;
             }
-            $skills[] = $file;
+            $copy = $served[$slug] ?? null;
+            $skills[] = $this->marked($copy === null ? $file : [
+                'title' => $copy['title'],
+                'description' => $copy['description'],
+                'short' => $copy['description'],
+                'body' => $copy['body'],
+                'updated_at' => $copy['updated_at'],
+            ] + $file, $file, $served);
         }
 
         $writing = $this->writing();
@@ -130,6 +143,42 @@ class ShippedSkills
     private function personalization(): array
     {
         return Personalization::read($this->em->getRepository(VaultSettings::class)->current()->getPersonalization());
+    }
+
+    /**
+     * memex's own text of a skill that can be unlocked, whatever is served
+     * under its alias now: what an unlock copies and a restore puts back.
+     *
+     * @return array{title: string, description: string, body: string}|null
+     */
+    public function original(string $slug): ?array
+    {
+        if (!UnlockedSkills::unlockable($slug)) {
+            return null;
+        }
+        $text = $slug === SkillLibrary::CURATION_CHARTER ? $this->charter->shippedCanon() : $this->fileFor($slug);
+
+        return $text === null ? null : ['title' => $text['title'], 'description' => $text['description'], 'body' => $text['body']];
+    }
+
+    /**
+     * A served entry with whether it can be unlocked and, when it is, the note
+     * it comes from and whether memex has changed its own text since.
+     *
+     * @param array{title: string, description: string, body: string} $original
+     * @param array<string, array{note_id: int, shipped_hash: string}> $served
+     */
+    private function marked(array $skill, array $original, array $served): array
+    {
+        $copy = $served[$skill['slug']] ?? null;
+
+        return $skill + [
+            'unlockable' => UnlockedSkills::unlockable($skill['slug']),
+            'unlocked' => $copy === null || !UnlockedSkills::unlockable($skill['slug']) ? null : [
+                'note_id' => $copy['note_id'],
+                'outdated' => UnlockedSkills::hash($original) !== $copy['shipped_hash'],
+            ],
+        ];
     }
 
     /** @return array{id: null, slug: string, title: string, description: string, body: string, updated_at: string}|null */

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, type SkillConnection, type SkillRow } from '@/api/client'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { renderNote } from '@/lib/markdown'
 import { useAuthStore } from '@/stores/auth'
 import SkillRail from './SkillRail.vue'
@@ -11,13 +12,30 @@ import SkillUsageFacts from './SkillUsageFacts.vue'
 // A skill that is not a note of the owner's — one built into memex, or a
 // template not yet taken — in the detail frame, laid out as a note is: its
 // switch and name, its instructions on a sheet, and the rail beside them. The
-// owner's own skills open as their notes.
+// owner's own skills open as their notes, and so does one of memex's once it
+// is unlocked: Unlock stands where Edit would, behind a warning.
 const props = defineProps<{ skill: SkillRow; connections: SkillConnection[]; saving: boolean; failure: string | null }>()
-const emit = defineEmits<{ close: []; toggle: [row: SkillRow] }>()
+const emit = defineEmits<{ close: []; toggle: [row: SkillRow]; unlocked: [noteId: number] }>()
 const router = useRouter()
 const auth = useAuthStore()
 
 const number = (value: number) => new Intl.NumberFormat().format(value)
+const confirming = ref(false)
+const unlocking = ref(false)
+const unlockFailed = ref(false)
+async function unlock() {
+  unlocking.value = true
+  unlockFailed.value = false
+  try {
+    const row = (await api.unlockSkill(props.skill.slug)).skill
+    confirming.value = false
+    if (row.note_id !== null) emit('unlocked', row.note_id)
+  } catch {
+    unlockFailed.value = true
+  } finally {
+    unlocking.value = false
+  }
+}
 const rendered = computed(() => renderNote(props.skill.body, [], auth.user?.team.handle))
 
 function onBodyClick(event: MouseEvent) {
@@ -44,6 +62,9 @@ function onBodyClick(event: MouseEvent) {
       </div>
 
       <div class="mm-note-actions">
+        <button v-if="skill.unlockable && !skill.unlocked" type="button" class="btn btn-sm btn-primary" @click="confirming = true">
+          <i class="fa-solid fa-lock-open"></i> {{ $t('skills.unlock.button') }}
+        </button>
         <a v-if="skill.kind !== 'catalogue'" class="btn btn-sm btn-charcoal" :href="api.exportServedSkillUrl(skill.slug)">
           <i class="fa-regular fa-circle-down"></i> {{ $t('skills.panel.download') }}
         </a>
@@ -55,6 +76,11 @@ function onBodyClick(event: MouseEvent) {
     </header>
 
     <p v-if="failure" class="alert alert-warning py-1" role="alert">{{ failure }}</p>
+    <p v-if="unlockFailed" class="alert alert-warning py-1" role="alert">{{ $t('skills.unlock.failed') }}</p>
+    <ConfirmDialog v-if="confirming" :title="$t('skills.unlock.title', { title: skill.title })" :confirm-label="$t('skills.unlock.confirm')"
+                   danger :busy="unlocking" @confirm="unlock" @close="confirming = false">
+      {{ $t('skills.unlock.warning') }}
+    </ConfirmDialog>
     <div v-if="skill.status === 'switched_off'" class="app-notice mm-proposal-notice">
       <span class="app-notice-mark"><i class="fa-solid fa-power-off"></i></span>
       <p><router-link :to="{ name: 'settings', params: { pane: 'personalization' } }">{{ $t('skills.cards.switched_off') }}</router-link></p>

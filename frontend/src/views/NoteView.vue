@@ -21,6 +21,7 @@ import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
 import SkillRail from '@/components/skills/SkillRail.vue'
 import SkillSwitch from '@/components/skills/SkillSwitch.vue'
 import SkillUsageFacts from '@/components/skills/SkillUsageFacts.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { skillOffered } from '@/components/skills/skillGroups'
 import { carriesSkill, useSystemTags } from '@/lib/systemTags'
 import { formatDate, formatDateTime } from '@/lib/datetime'
@@ -226,7 +227,7 @@ async function loadSkill() {
   try {
     const page = await api.skills()
     if (!lifetime.current(mine)) return
-    skill.value = page.skills.find((row) => row.kind === 'note' && row.note_id === noteId.value) ?? null
+    skill.value = page.skills.find((row) => row.kind !== 'catalogue' && row.note_id === noteId.value) ?? null
     skillConnections.value = page.connections
   } catch {
     // The note still reads; what is missing says why.
@@ -267,6 +268,32 @@ async function toggleSkill() {
     skillError.value = e instanceof Error ? e.message : t('common.unknown_error')
   } finally {
     if (lifetime.current(mine)) skillSaving.value = false
+  }
+}
+
+// A system skill the owner unlocked goes back to memex's text and is locked
+// again; the page then shows it as memex's, with Unlock.
+const restoring = ref(false)
+const restoreAsked = ref(false)
+async function restoreSkill() {
+  if (!skill.value) return
+  const mine = lifetime.capture()
+  restoring.value = true
+  skillError.value = null
+  try {
+    const slug = skill.value.slug
+    await api.restoreSkill(slug)
+    if (!lifetime.current(mine)) return
+    restoreAsked.value = false
+    restoring.value = false
+    emit('changed')
+    await router.replace({ name: 'skills', query: { open: slug } })
+  } catch (e) {
+    if (!lifetime.current(mine)) return
+    restoreAsked.value = false
+    skillError.value = e instanceof Error ? e.message : t('common.unknown_error')
+  } finally {
+    if (lifetime.current(mine)) restoring.value = false
   }
 }
 
@@ -617,6 +644,9 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
           <RouterLink class="btn btn-sm btn-primary" :to="{ name: isSkill ? 'skill-edit' : 'note-edit', params: { id: note.id } }">
             <i class="fa-solid fa-pen"></i> {{ isSkill ? $t('skills.panel.edit_note') : $t('note.actions.edit') }}
           </RouterLink>
+          <button v-if="skill?.unlocked" type="button" class="btn btn-sm btn-outline-secondary" @click="restoreAsked = true">
+            <i class="fa-solid fa-rotate-left"></i> {{ $t('skills.unlock.restore') }}
+          </button>
           <button
             type="button"
             class="btn btn-sm btn-warning"
@@ -641,6 +671,14 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
       </header>
 
       <p v-if="skillError" class="alert alert-warning py-1" role="alert">{{ skillError }}</p>
+      <div v-if="skill?.outdated" class="app-notice mm-proposal-notice">
+        <span class="app-notice-mark"><i class="fa-solid fa-rotate"></i></span>
+        <p>{{ $t('skills.unlock.outdated') }}</p>
+      </div>
+      <ConfirmDialog v-if="restoreAsked" :title="$t('skills.unlock.restore_title')" :confirm-label="$t('skills.unlock.restore_confirm')"
+                     :busy="restoring" @confirm="restoreSkill" @close="restoreAsked = false">
+        {{ $t('skills.unlock.restore_body') }}
+      </ConfirmDialog>
 
       <!-- The standing instruction, shown above the note itself: anyone reading
            this page should see the operator's complaint before the text it is

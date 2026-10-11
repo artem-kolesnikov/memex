@@ -905,6 +905,8 @@ export interface SkillRow {
   updated_at: string | null; note_id: number | null
   enabled: boolean; auto: boolean; command: boolean; blocked: number[]
   usage: SkillUsage; lint: SkillLintFinding[]; size_tokens: number
+  /** memex's own skills: whether the owner may unlock it, has, and whether memex changed its text since. */
+  unlockable: boolean; unlocked: boolean; outdated: boolean
 }
 export interface SkillConnection {
   id: number; name: string; label: string; display_name: string | null; role: 'agent' | 'curator'
@@ -1328,6 +1330,10 @@ export const api = {
   skills: () => request<{ skills: SkillRow[]; connections: SkillConnection[] }>('/api/skills'),
   updateSkill: (noteId: number, patch: SkillPatch) =>
     request<{ skill: SkillRow }>(`/api/skills/${noteId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  unlockSkill: (slug: string) =>
+    request<{ skill: SkillRow }>(`/api/skills/system/${encodeURIComponent(slug)}/unlock`, { method: 'POST' }),
+  restoreSkill: (slug: string) =>
+    request<{ skill: SkillRow }>(`/api/skills/system/${encodeURIComponent(slug)}/restore`, { method: 'POST' }),
   exportSkillsUrl: () => '/api/skills/export',
   exportServedSkillUrl: (slug: string) => `/api/skills/served/${encodeURIComponent(slug)}/export`,
   addSkill: (slug: string) =>

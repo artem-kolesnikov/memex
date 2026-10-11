@@ -111,7 +111,7 @@ const USED = {
   usage: { total_30d: 2, last_at: '2026-10-01 10:00:00', last_token_id: null, by_token: [] },
 }
 const SHIPPED = {
-  ...SKILL, kind: 'shipped', status: 'built_in', slug: 'skill-curation', title: 'Curation',
+  ...SKILL, kind: 'shipped', status: 'built_in', slug: 'skill-curation', title: 'Curation', unlockable: true,
   description: 'Tidy the notes.', body: 'Curate.', note_id: null, updated_at: null, size_tokens: 40,
 }
 const TEMPLATE = {

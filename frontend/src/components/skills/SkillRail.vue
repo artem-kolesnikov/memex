@@ -34,7 +34,7 @@ async function copySlug() {
                         :disabled="locked" @save="patch({ blocked: $event })" />
       <template v-else>
         <h2 class="mm-context-title">{{ $t('skills.panel.connections') }}</h2>
-        <p class="mm-skill-aside">{{ $t('skills.panel.origin_shipped') }}</p>
+        <p class="mm-skill-aside">{{ skill.unlocked ? $t('skills.panel.origin_unlocked') : $t('skills.panel.origin_shipped') }}</p>
       </template>
     </div>
 

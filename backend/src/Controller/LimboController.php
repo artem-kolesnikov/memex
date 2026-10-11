@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Service\NoteLimbo;
+use App\Service\RestoreRefused;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -56,7 +57,11 @@ class LimboController extends ApiController
             return $this->json($this->json400('Restoring is operator-only'), Response::HTTP_FORBIDDEN);
         }
 
-        $note = $this->limbo->restore($id);
+        try {
+            $note = $this->limbo->restore($id);
+        } catch (RestoreRefused $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_CONFLICT);
+        }
         if ($note === null) {
             return $this->json(
                 $this->json400('Not in limbo, or already purged — a tombstone has no content to restore'),

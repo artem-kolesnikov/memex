@@ -21,7 +21,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Retire the charter notes the shipped curation skill replaces.
  *
  * Retirement is `NoteLimbo::retire()` and nothing else: it moves embeddings,
- * links, revisions, proposals and flags in one transaction.
+ * links, revisions, proposals and flags in one transaction. The charter an
+ * owner unlocked is a copy they chose to keep, and is left alone.
  */
 #[AsCommand(name: 'app:retire-charter-notes', description: 'Retire knowledge-base copies of the curation charter, now served by the desk')]
 class RetireCharterNotesCommand extends Command
@@ -60,6 +61,7 @@ class RetireCharterNotesCommand extends Command
              JOIN note_tag nt ON nt.note_id = n.id
              JOIN tags t ON t.id = nt.tag_id
              WHERE t.name = 'skill' AND n.status = :status
+               AND NOT EXISTS (SELECT 1 FROM unlocked_skills u WHERE u.note_id = n.id)
              ORDER BY n.id",
             ['status' => Note::STATUS_VERIFIED],
         );

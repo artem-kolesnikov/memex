@@ -60,8 +60,27 @@ class CurationCharter
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly UnlockedSkills $unlocked,
         private readonly string $curationCanonFile,
     ) {
+    }
+
+    /**
+     * The rules served: the owner's copy while they have the charter unlocked,
+     * memex's own otherwise. The brief follows either.
+     *
+     * @return array{title: string, description: string, short?: string, body: string}
+     */
+    public function canon(): array
+    {
+        $copy = $this->unlocked->served()[self::SLUG] ?? null;
+
+        return $copy === null ? $this->shippedCanon() : [
+            'title' => $copy['title'],
+            'description' => $copy['description'],
+            'short' => $copy['description'],
+            'body' => $copy['body'],
+        ];
     }
 
     /**
@@ -73,9 +92,9 @@ class CurationCharter
      * class exists to remove, and it would be indistinguishable from a working
      * one until an agent improvised a pass (Codex, on review).
      *
-     * @return array{title: string, description: string, body: string}
+     * @return array{title: string, description: string, short?: string, body: string}
      */
-    public function canon(): array
+    public function shippedCanon(): array
     {
         $raw = is_readable($this->curationCanonFile) ? file_get_contents($this->curationCanonFile) : false;
         $parsed = $raw === false ? null : SkillLibrary::parseSkillFile($raw);

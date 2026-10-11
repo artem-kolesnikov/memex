@@ -1732,7 +1732,8 @@
       "download": "Download SKILL.md",
       "open_note": "Open note",
       "slug_help": "Use this skill slug in chat.",
-      "copy_alias": "Copy alias"
+      "copy_alias": "Copy alias",
+      "origin_unlocked": "You unlocked this system skill, so memex no longer updates it. It is always enabled for every connection."
     },
     "details": {
       "title": "Skill details",
@@ -1774,6 +1775,19 @@
       "never_used": "Never used",
       "enabled": "Enabled",
       "disabled": "Disabled"
+    },
+    "unlock": {
+      "button": "Unlock",
+      "title": "Unlock {title}?",
+      "confirm": "Unlock and edit",
+      "warning": "This is a system skill that keeps memex working properly. Once unlocked, it is no longer updated by new memex releases. Changing it may degrade how memex works, so make sure you understand what you are doing.",
+      "failed": "This skill could not be unlocked. Try again.",
+      "mark": "Unlocked: your copy is served",
+      "restore": "Restore memex's version",
+      "restore_title": "Restore memex's version?",
+      "restore_body": "memex's own text is served again, and new memex releases keep it up to date. Your edits stay in this skill's history, and Unlock opens it to edit again.",
+      "restore_confirm": "Restore",
+      "outdated": "memex has updated this skill since you unlocked it. Restore takes memex's version; your edits stay in the skill's history."
     }
   },
   "welcome": {

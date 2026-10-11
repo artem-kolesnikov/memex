@@ -28,7 +28,12 @@ class SkillServing
         return $this->em->getConnection();
     }
 
-    /** @return list<array{id:int, title:string, summary:?string, body_md:string, status:string, updated_at:string}> */
+    /**
+     * The owner's own skill notes. A system skill they unlocked is a note too,
+     * but it is served under memex's alias and never as one of theirs.
+     *
+     * @return list<array{id:int, title:string, summary:?string, body_md:string, status:string, updated_at:string}>
+     */
     public function skillNotes(bool $verifiedOnly = true): array
     {
         $statusClause = $verifiedOnly ? 'AND n.status = :verified' : "AND n.status IN ('verified', 'pending')";
@@ -39,6 +44,7 @@ class SkillServing
              JOIN note_tag nt ON nt.note_id = n.id
              JOIN tags t ON t.id = nt.tag_id
              WHERE t.name = :tag $statusClause
+               AND NOT EXISTS (SELECT 1 FROM unlocked_skills u WHERE u.note_id = n.id)
              ORDER BY n.updated_at DESC, n.id DESC",
             ['tag' => SystemTags::SKILL, 'verified' => Note::STATUS_VERIFIED],
         );

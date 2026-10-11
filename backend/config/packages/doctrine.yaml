@@ -11,7 +11,7 @@ doctrine:
                 profiling_collect_backtrace: '%kernel.debug%'
                 # Raw-SQL tables and SQLite's own, which the ORM must never
                 # propose to drop.
-                schema_filter: ~^(?!sqlite_|notes_fts|note_embedding|note_neighbours|deleted_notes|skill_settings|skill_blocks)~
+                schema_filter: ~^(?!sqlite_|notes_fts|note_embedding|note_neighbours|deleted_notes|skill_settings|skill_blocks|unlocked_skills)~
             directory:
                 driver: sqlite3
                 wrapper_class: App\Storage\SqliteConnection

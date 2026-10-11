@@ -16,10 +16,13 @@ use App\Service\NoteWriter;
 use App\Service\ShippedSkills;
 use App\Service\SkillLibrary;
 use App\Service\SkillLint;
+use App\Service\SkillNotUnlockable;
 use App\Service\SkillPackage;
 use App\Service\SkillServes;
 use App\Service\SkillServing;
 use App\Service\SkillSlugTaken;
+use App\Service\SkillUnlockConflict;
+use App\Service\SkillUnlocking;
 use App\Service\StarterSkills;
 use App\Service\StorageLimitExceeded;
 use App\Service\StorageLimits;
@@ -59,6 +62,7 @@ class SkillController extends ApiController
         private readonly StorageLimits $storageLimits,
         private readonly BoundedImportArchive $archive,
         private readonly Journal $journal,
+        private readonly SkillUnlocking $unlocking,
     ) {
     }
 
@@ -253,7 +257,11 @@ class SkillController extends ApiController
                 'short' => $skill['short'] ?? null,
                 'body' => $skill['body'],
                 'updated_at' => $skill['updated_at'],
-                'note_id' => $skill['id'],
+                // A system skill the owner unlocked opens as its note.
+                'note_id' => $skill['id'] ?? ($skill['unlocked']['note_id'] ?? null),
+                'unlockable' => $skill['unlockable'] ?? false,
+                'unlocked' => isset($skill['unlocked']),
+                'outdated' => $skill['unlocked']['outdated'] ?? false,
                 'enabled' => $skill['enabled'] ?? true,
                 'auto' => $skill['auto'] ?? true,
                 'command' => $skill['command'] ?? true,
@@ -373,6 +381,39 @@ class SkillController extends ApiController
     private function memexVersion(): string
     {
         return $this->guide->version() ?? 'dev';
+    }
+
+    /** One of memex's own skills into a note of the owner's, served in its place. */
+    #[Route('/api/skills/system/{slug}/unlock', requirements: ['slug' => '[a-z0-9-]+'], methods: ['POST'])]
+    public function unlock(string $slug, Request $request): JsonResponse
+    {
+        return $this->systemVerb($request, 'Unlocking a system skill', $slug, fn () => $this->unlocking->unlock($slug), Response::HTTP_CREATED);
+    }
+
+    /** memex's own text back into the owner's copy, as a new version of it. */
+    #[Route('/api/skills/system/{slug}/restore', requirements: ['slug' => '[a-z0-9-]+'], methods: ['POST'])]
+    public function restore(string $slug, Request $request): JsonResponse
+    {
+        return $this->systemVerb($request, 'Restoring a system skill', $slug, fn () => $this->unlocking->restore($slug), Response::HTTP_OK);
+    }
+
+    /** @param callable(): Note $verb */
+    private function systemVerb(Request $request, string $what, string $slug, callable $verb, int $status): JsonResponse
+    {
+        $this->assertSessionAuth($request, $what);
+        try {
+            $verb();
+        } catch (SkillNotUnlockable $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_NOT_FOUND);
+        } catch (SkillUnlockConflict $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_CONFLICT);
+        }
+        foreach ($this->rows() as $row) {
+            if ($row['kind'] === 'shipped' && $row['slug'] === $slug) {
+                return $this->json(['skill' => $row], $status);
+            }
+        }
+        throw $this->createNotFoundException('No skill called '.$slug.' is served here');
     }
 
     /** Write a catalogue entry into this knowledge base as a note the user owns. */

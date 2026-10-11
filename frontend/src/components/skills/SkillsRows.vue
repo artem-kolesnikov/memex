@@ -7,7 +7,8 @@ import { skillKey, skillOffered } from './skillGroups'
 
 // The skills list in every layout: the owner's skills or memex's, never mixed,
 // as one list of the notes list's rows, the last used first, each marked
-// enabled or disabled at its name. What a skill is and everything that changes
+// enabled or disabled at its name. memex's are the ones the owner can unlock;
+// memex-docs and memex-writing are served all the same, and set elsewhere. What a skill is and everything that changes
 // it, its switch included, opens from its row. In a window the rows sit on a
 // tray under a head, the last use in a column beside them, as notes do.
 const props = defineProps<{ rows: SkillRow[]; openKey: string | null }>()
@@ -16,7 +17,7 @@ const layout = useLayoutStore()
 
 const kind = ref<'user' | 'system'>('user')
 const listed = computed(() => props.rows
-  .filter((r) => (kind.value === 'system') === (r.kind === 'shipped'))
+  .filter((r) => kind.value === 'system' ? r.kind === 'shipped' && r.unlockable : r.kind !== 'shipped')
   .sort((a, b) => (b.usage.last_at ?? '').localeCompare(a.usage.last_at ?? '') || a.title.localeCompare(b.title)))
 const on = computed(() => listed.value.filter(skillOffered))
 const size = computed(() => on.value.reduce((sum, row) => sum + row.size_tokens, 0))
@@ -49,7 +50,8 @@ const number = (value: number) => new Intl.NumberFormat().format(value)
                  :class="{ 'is-open': openKey === skillKey(row), 'is-off': !skillOffered(row) }" :data-skill="row.slug">
           <div class="mm-skill-row-head">
             <button type="button" class="app-note-main" :title="row.title" :aria-pressed="openKey === skillKey(row)" @click="emit('open', row)">
-              <span class="app-note-title">{{ row.title }}</span>
+              <span class="app-note-title"><i v-if="row.unlocked" class="fa-solid fa-lock-open app-note-mark mm-skill-unlocked"
+                 :title="$t('skills.unlock.mark')" :aria-label="$t('skills.unlock.mark')"></i>{{ row.title }}</span>
             </button>
             <span class="app-status mm-skill-state" :class="skillOffered(row) ? 'app-status-verified' : 'app-status-danger'">{{ skillOffered(row) ? $t('skills.list.enabled') : $t('skills.list.disabled') }}</span>
           </div>
