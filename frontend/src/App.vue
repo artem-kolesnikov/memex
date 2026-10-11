@@ -40,6 +40,7 @@ declare global {
     setThemed?: (which: 'accent' | 'link' | 'bodyText', theme: 'light' | 'dark', value: string) => boolean
     resetThemed?: () => void
     themePalette?: (theme: 'light' | 'dark') => Record<string, string>
+    themeTokens?: (theme: 'light' | 'dark') => Record<string, string>
     inkOn?: (hex: string) => string | null
     hoverOn?: (hex: string, theme: 'light' | 'dark') => string | null
     accentContrast?: (hex: string, theme?: 'light' | 'dark') => { page: number; ink: number } | null
@@ -157,6 +158,7 @@ function isActive(name: string) {
 const isPublicPage = computed(() => route.meta.public === true)
 const currentYear = new Date().getFullYear()
 const footerLinks = editions.flatMap((edition) => edition.footerLinks ?? [])
+const overlays = editions.flatMap((edition) => edition.overlays ?? [])
 
 // Header inbox badge. The count lives in a store rather than here because the
 // screen that CHANGES it is a routed view that never navigates: deciding an
@@ -673,6 +675,10 @@ async function logout() {
                  :confirm-label="$t('common.remove')" @confirm="removePreset" @close="removingPreset = null">
     {{ $t('presets.remove.body', { name: removingPreset.name }) }}
   </ConfirmDialog>
+
+  <template v-if="showChrome">
+    <component :is="overlay" v-for="(overlay, i) in overlays" :key="i" />
+  </template>
 
   <Toast />
 </template>

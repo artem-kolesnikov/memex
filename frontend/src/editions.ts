@@ -12,6 +12,8 @@ export interface Edition {
   accountBlocks?: Component[]
   /** Assistants connected with a token, after the core's own. */
   assistantSetups?: AssistantSetup[]
+  /** Rendered over the app while somebody is signed in. */
+  overlays?: Component[]
   /** Links in the footer, after the copyright. */
   footerLinks?: { labelKey: string; href: string }[]
   /** The name assistants' settings give this memex, where it is not `memex`. */

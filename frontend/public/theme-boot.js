@@ -191,48 +191,52 @@
     document.documentElement.setAttribute(APPEARANCE[which].attr, value)
   }
 
-  const applyThemed = () => {
-    const theme = resolvedTheme()
-    const root = document.documentElement.style
-
-    const tokens = accentTokens(readThemed('accent', theme), theme)
-    for (const [prop, value] of Object.entries(tokens)) root.setProperty(prop, value)
-
-    const skillColors = SKILL_COLORS[theme]
-    skillColors.builtIn.forEach((color, index) => root.setProperty(`--mm-skill-built-in-${index}`, color))
-    skillColors.personal.forEach((color, index) => root.setProperty(`--mm-skill-${index}`, color))
-
+  const themeTokens = theme => {
     const palette = PALETTES[theme]
-    root.setProperty('--mm-bg', palette.bg)
-    root.setProperty('--mm-surface', palette.surface)
-    root.setProperty('--mm-chrome', palette.chrome)
-    root.setProperty('--mm-footer', palette.footer)
-    root.setProperty('--mm-line', palette.line)
-    root.setProperty('--mm-line-strong', palette.lineStrong)
-    root.setProperty('--mm-rule', palette.rule)
-    root.setProperty('--mm-ink', palette.ink)
-    root.setProperty('--mm-ink-soft', palette.inkSoft)
-    root.setProperty('--mm-body-ink', readThemed('bodyText', theme))
-    root.setProperty('--mm-muted', palette.muted)
-    root.setProperty('--mm-highlight', palette.highlight)
-    root.setProperty('--mm-hover', palette.hover)
-    root.setProperty('--mm-tag-bg', palette.tagBg)
-    root.setProperty('--mm-on-tag', palette.tagInk)
-    root.setProperty('--mm-tag-hover', palette.tagHover)
-    root.setProperty('--mm-table-head', palette.tableHead)
-    root.setProperty('--mm-row-bg', palette.rowBg)
-    root.setProperty('--mm-row-alt', palette.rowAlt)
-    root.setProperty('--mm-input-bg', palette.inputBg)
-    root.setProperty('--mm-select-bg', palette.selectBg)
-    root.setProperty('--mm-placeholder', palette.placeholder)
-
     const linkHex = readThemed('link', theme)
     const linkRgb = hexToRgb(linkHex)
     const [lh, ls, ll] = rgbToHsl(linkRgb)
-    root.setProperty('--mm-link', linkHex)
-    root.setProperty('--mm-link-rgb', linkRgb.map(v => Math.round(v)).join(', '))
-    root.setProperty('--mm-link-hover', rgbToHex(hoverOf(lh, ls, ll, theme)))
+    const tokens = {
+      ...accentTokens(readThemed('accent', theme), theme),
+      '--mm-bg': palette.bg,
+      '--mm-surface': palette.surface,
+      '--mm-chrome': palette.chrome,
+      '--mm-footer': palette.footer,
+      '--mm-line': palette.line,
+      '--mm-line-strong': palette.lineStrong,
+      '--mm-rule': palette.rule,
+      '--mm-ink': palette.ink,
+      '--mm-ink-soft': palette.inkSoft,
+      '--mm-body-ink': readThemed('bodyText', theme),
+      '--mm-muted': palette.muted,
+      '--mm-highlight': palette.highlight,
+      '--mm-hover': palette.hover,
+      '--mm-tag-bg': palette.tagBg,
+      '--mm-on-tag': palette.tagInk,
+      '--mm-tag-hover': palette.tagHover,
+      '--mm-table-head': palette.tableHead,
+      '--mm-row-bg': palette.rowBg,
+      '--mm-row-alt': palette.rowAlt,
+      '--mm-input-bg': palette.inputBg,
+      '--mm-select-bg': palette.selectBg,
+      '--mm-placeholder': palette.placeholder,
+      '--mm-link': linkHex,
+      '--mm-link-rgb': linkRgb.map(v => Math.round(v)).join(', '),
+      '--mm-link-hover': rgbToHex(hoverOf(lh, ls, ll, theme)),
+    }
+    SKILL_COLORS[theme].builtIn.forEach((color, index) => { tokens[`--mm-skill-built-in-${index}`] = color })
+    SKILL_COLORS[theme].personal.forEach((color, index) => { tokens[`--mm-skill-${index}`] = color })
+    return tokens
   }
+
+  const applyThemed = () => {
+    const root = document.documentElement.style
+    for (const [prop, value] of Object.entries(themeTokens(resolvedTheme()))) root.setProperty(prop, value)
+  }
+
+  window.themeTokens = theme => themeTokens(THEMES.includes(theme) ? theme : 'light')
+
+  if (document.documentElement.dataset.themeBoot === 'tokens') return
 
   for (const theme of THEMES) {
     store.remove(`mm-surface-${theme}`)
