@@ -36,6 +36,7 @@ async function navigate(page, path) {
 async function scenario(name, body) {
   if (process.env.LIFETIME_ONLY && !name.includes(process.env.LIFETIME_ONLY)) return
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+  await context.addInitScript(() => localStorage.setItem('mm-layout', 'windowed'))
   const page = await context.newPage()
   page.setDefaultTimeout(5000)
   handle = handles[1]

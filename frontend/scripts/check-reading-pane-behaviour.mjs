@@ -907,7 +907,7 @@ try {
     await context.close()
   }
 
-  // The choice itself: the first thing in Preferences, Windowed until another
+  // The choice itself: the first thing in Preferences, Dynamic until another
   // is chosen.
   {
     const { context, page } = await open({ width: 1440 })
@@ -916,8 +916,8 @@ try {
     await framed.waitFor()
     const first = await page.locator('.mm-block-title').first().textContent()
     expect(first?.trim() === 'Layout', `settings: the layout should be the first choice in Preferences, was ${JSON.stringify(first)}`)
-    expect(await page.locator('#pref-layout-windowed').isChecked(), 'settings: Windowed should be chosen until another is')
-    for (const mode of ['framed', 'dynamic']) {
+    expect(await page.locator('#pref-layout-dynamic').isChecked(), 'settings: Dynamic should be chosen until another is')
+    for (const mode of ['framed', 'windowed']) {
       await page.locator(`#pref-layout-${mode}`).check().catch(() => {})
       expect(await page.evaluate(() => localStorage.getItem('mm-layout')) === mode, `settings: ${mode} should be remembered on this device`)
     }

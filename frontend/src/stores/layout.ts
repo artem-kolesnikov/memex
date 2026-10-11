@@ -28,9 +28,9 @@ function read(key: string): boolean {
 function readLayout(): LayoutMode {
   try {
     const stored = localStorage.getItem(LAYOUT_KEY)
-    return LAYOUT_MODES.find((mode) => mode === stored) ?? 'windowed'
+    return LAYOUT_MODES.find((mode) => mode === stored) ?? 'dynamic'
   } catch {
-    return 'windowed'
+    return 'dynamic'
   }
 }
 

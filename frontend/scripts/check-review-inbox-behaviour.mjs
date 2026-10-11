@@ -257,6 +257,7 @@ const passed = []
 async function scenario(name, overrides, body) {
   if (process.env.REVIEW_SCENARIO && !name.includes(process.env.REVIEW_SCENARIO)) return
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+  await context.addInitScript(() => localStorage.setItem('mm-layout', 'windowed'))
   const page = await context.newPage()
   await page.route('**/api/**', apiStub(overrides))
   try {
