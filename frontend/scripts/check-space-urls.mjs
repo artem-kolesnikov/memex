@@ -254,7 +254,7 @@ const expect = async (what, path, options, want) => {
 
 await expect('The notes list keeps its address.', `/${MINE}/notes`, {}, { where: `/${MINE}/notes`, status: 200 })
 await expect('The inbox keeps its address.', `/${MINE}/inbox`, {}, { where: `/${MINE}/inbox` })
-await expect('The skills page lists what is served.', `/${MINE}/skills`, {}, { where: `/${MINE}/skills`, body: (t) => t.includes('House style') && t.includes('How notes are written.') && t.includes('Full instruction size') })
+await expect('The skills page lists what is served.', `/${MINE}/skills`, {}, { where: `/${MINE}/skills`, body: (t) => t.includes('House style') && t.includes('How notes are written.') && t.includes('skills enabled') })
 // The note's own title, not just the address: swapping the component for the
 // not-found page left "keeps its address" satisfied, which is the whole failure
 // a foreign handle would produce.

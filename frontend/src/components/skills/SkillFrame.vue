@@ -2,11 +2,11 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, type SkillConnection, type SkillRow } from '@/api/client'
-import { formatDateTime } from '@/lib/datetime'
 import { renderNote } from '@/lib/markdown'
 import { useAuthStore } from '@/stores/auth'
 import SkillRail from './SkillRail.vue'
 import SkillSwitch from './SkillSwitch.vue'
+import SkillUsageFacts from './SkillUsageFacts.vue'
 
 // A skill that is not a note of the owner's — one built into memex, or a
 // template not yet taken — in the detail frame, laid out as a note is: its
@@ -41,13 +41,6 @@ function onBodyClick(event: MouseEvent) {
           <SkillSwitch :skill="skill" :saving="saving" @toggle="emit('toggle', skill)" />
           <h1 class="mm-note-title">{{ skill.title }}</h1>
         </div>
-        <div class="mm-note-subline">
-          <span>{{ skill.usage.last_at ? $t('skills.list.last_used', { when: formatDateTime(skill.usage.last_at) }) : $t('skills.list.never_used') }}</span>
-          <span aria-hidden="true">·</span>
-          <span>{{ $t('skills.cards.loads', { count: skill.usage.total_30d }, skill.usage.total_30d) }}</span>
-          <span aria-hidden="true">·</span>
-          <span>{{ $t('skills.cards.tokens', { count: number(skill.size_tokens) }) }}</span>
-        </div>
       </div>
 
       <div class="mm-note-actions">
@@ -76,6 +69,16 @@ function onBodyClick(event: MouseEvent) {
 
       <aside class="mm-note-context">
         <SkillRail :skill="skill" :connections="connections" />
+        <section class="app-panel mm-context-panel mm-context-details">
+          <h2 class="mm-context-title">{{ $t('skills.details.title') }}</h2>
+          <dl class="mm-note-facts">
+            <SkillUsageFacts :skill="skill" :connections="connections" />
+            <dt>{{ $t('note.details.source') }}</dt>
+            <dd>{{ skill.kind === 'catalogue' ? $t('skills.details.source_template') : $t('skills.groups.system') }}</dd>
+            <dt>{{ $t('note.details.size') }}</dt>
+            <dd>{{ $t('skills.cards.tokens', { count: number(skill.size_tokens) }) }}</dd>
+          </dl>
+        </section>
       </aside>
     </div>
   </div>

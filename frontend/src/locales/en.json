@@ -1665,10 +1665,7 @@
       "all": "all"
     },
     "state": {
-      "paused": "Off",
-      "pending": "Needs review",
-      "built_in": "System",
-      "offered": "not added"
+      "built_in": "System"
     },
     "catalogue": {
       "add": "Add",
@@ -1677,17 +1674,8 @@
     "scaffold": "_When to use this: say what task this covers and the words that signal it._\n\n## Steps\n\n1. \n\n## Sources\n\n- ",
     "dashboard": {
       "title": "skills enabled",
-      "ready": "Ready for your assistants to use.",
-      "total_size": "Full instruction size",
-      "breakdown": "Instruction size by skill",
-      "built_in_count": "{count} built into Memex",
-      "built_in_help": "Always available · managed by Memex",
-      "personal_count": "{count} of your skills",
-      "personal_help": "Yours to edit or turn off",
-      "share": "{percent}% of total",
       "budget": "Estimated skill budget",
       "includes_system": "Includes {count} system skills",
-      "estimate": "Each segment shows a skill’s share of the full instructions. Skills load when requested.",
       "over_budget": "{count} tokens over budget",
       "percent": "{percent}% of budget",
       "description": "Check a connection to see its skills and recent loads.",
@@ -1699,25 +1687,17 @@
       "context_help": "A token is a small piece of text. These are rough sizes of the full instructions, sent when a skill is loaded—not a measure of tokens used in your chats.",
       "loads": "Loads · last 30 days",
       "loads_help": "Loads count requests for the skills currently in this library. They do not tell us whether the assistant followed the instructions.",
-      "system": "System · always enabled",
-      "tokens": "tokens"
+      "system": "System · always enabled"
     },
     "cards": {
       "every_connection": "All connections",
-      "on": "On",
-      "always_on": "Always enabled",
       "switched_off": "Off in Settings › Personalization",
       "toggle": "Enable {title}",
       "open_help": "Switch a skill on or off, or open it to make changes.",
-      "no_description": "This note has no saved summary yet.",
-      "review_help": "Review this note before an assistant can use it.",
-      "add_help": "Add this as your own editable skill note.",
-      "paused_help": "Assistants cannot load this skill. Your note is kept.",
       "tokens": "~{count} tokens",
       "loads": "{count} loads in 30 days | {count} load in 30 days | {count} loads in 30 days",
       "findings": "No suggestions | 1 suggestion | {count} suggestions",
       "your_note": "Your note",
-      "details": "Open skill",
       "system": "System",
       "source": "About this card",
       "note_source": "This card uses your note title and saved summary. Edit the note to change them; its full text is what the assistant reads.",
@@ -1747,29 +1727,30 @@
       "load_resource": "Resource",
       "load_command": "Command",
       "load_command_note": "in Claude Code; the middle part is the name you gave the server",
-      "usage": "Loaded in the last 30 days",
-      "usage_none": "Not loaded in the last 30 days.",
-      "usage_line": "{name}: {count} times, last {when} | {name}: {count} time, last {when} | {name}: {count} times, last {when}",
       "findings": "Suggestions",
       "instructions": "Read the full instructions",
       "download": "Download SKILL.md",
       "open_note": "Open note",
-      "slug_help": "Use this skill slug in chat."
+      "slug_help": "Use this skill slug in chat.",
+      "copy_alias": "Copy alias"
+    },
+    "details": {
+      "title": "Skill details",
+      "loaded": "Loaded",
+      "last_used": "Last used",
+      "never": "Never",
+      "used_by": "Used by",
+      "used_by_line": "{name} · {count}",
+      "source_template": "Template bundled with Memex"
     },
     "what_title": "What can I do with a skill?",
     "what_example": "Save your writing rules as a skill. In your next chat, ask: “Use my writing rules to rewrite this update.” Your assistant can read the same instructions from Memex in any connected app.",
     "groups": {
-      "active": "Your enabled skills",
-      "active_help": "Your instructions. Open a skill to edit it, or switch it off here.",
-      "available": "Available skills",
-      "available_help": "Turn on a saved skill or add a template.",
       "system": "Built into Memex",
-      "system_help": "Always available and updated by Memex; they cannot be edited. memex-writing can be switched off in Personalization.",
       "catalogue": "Skills to add",
       "catalogue_help": "Start with a template, then make its note your own."
     },
     "example": {
-      "title": "Usage example",
       "help": "Copy this and add your task.",
       "prompt": "Use my Memex skill {name} to [describe your task].",
       "copy": "Copy prompt",
@@ -1788,6 +1769,8 @@
       "user": "User skills",
       "system": "System skills",
       "last_used": "Last used {when}",
+      "last_used_column": "Last used",
+      "size_tk": "~{size} tk",
       "never_used": "Never used",
       "enabled": "Enabled",
       "disabled": "Disabled"

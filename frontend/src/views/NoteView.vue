@@ -20,6 +20,7 @@ import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
 import SkillRail from '@/components/skills/SkillRail.vue'
 import SkillSwitch from '@/components/skills/SkillSwitch.vue'
+import SkillUsageFacts from '@/components/skills/SkillUsageFacts.vue'
 import { skillOffered } from '@/components/skills/skillGroups'
 import { carriesSkill, useSystemTags } from '@/lib/systemTags'
 import { formatDate, formatDateTime } from '@/lib/datetime'
@@ -732,8 +733,9 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
         <aside class="mm-note-context" :aria-label="$t('note.context_label')">
           <SkillRail v-if="skill" :key="skill.note_id ?? ''" :skill="skill" :connections="skillConnections" :busy="skillSaving" @updated="skillUpdated" />
           <section class="app-panel mm-context-panel mm-context-details">
-            <h2 class="mm-context-title">{{ $t('note.details.title') }}</h2>
+            <h2 class="mm-context-title">{{ isSkill ? $t('skills.details.title') : $t('note.details.title') }}</h2>
             <dl class="mm-note-facts">
+              <SkillUsageFacts v-if="skill" :skill="skill" :connections="skillConnections" />
               <dt>{{ $t('note.details.created') }}</dt>
               <dd class="mm-note-byline">
                 {{ formatDate(note.created_at) }}
@@ -812,7 +814,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
             </div>
           </section>
 
-          <section class="app-panel mm-context-panel mm-context-backlinks" v-if="note.backlinks.length">
+          <section class="app-panel mm-context-panel mm-context-backlinks" v-if="note.backlinks.length && !isSkill">
             <h2 class="mm-context-title">{{ $t('note.backlinks') }}</h2>
             <ul class="mm-backlink-list">
               <li v-for="backlink in note.backlinks" :key="backlink.note_id">

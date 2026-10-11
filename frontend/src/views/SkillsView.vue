@@ -4,7 +4,6 @@ import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, type SkillConnection, type SkillPatch, type SkillRow } from '@/api/client'
-import SkillsCards from '@/components/skills/SkillsCards.vue'
 import SkillsRows from '@/components/skills/SkillsRows.vue'
 import SkillFrame from '@/components/skills/SkillFrame.vue'
 import { skillKey, skillOffered } from '@/components/skills/skillGroups'
@@ -89,9 +88,13 @@ function show(wanted: Record<string, string>) {
 }
 const close = () => show({})
 
+// In frames a row opens beside the list. In a window the owner's skill opens
+// as its note's page, as a note does, and memex's own or a template over the
+// list, a step Back undoes.
 function openRow(row: SkillRow) {
-  if (row.note_id !== null) show({ open: String(row.note_id) })
-  else show({ open: row.slug })
+  if (layout.framed) show(row.note_id !== null ? { open: String(row.note_id) } : { open: row.slug })
+  else if (row.note_id !== null) router.push({ name: 'skill', params: { id: row.note_id } })
+  else router.push({ query: { ...route.query, open: row.slug } })
 }
 
 // A link out of a skill to another note opens that note under Notes.
@@ -157,14 +160,10 @@ useFrameNavigation(() => frame.value ? `${frame.value.kind}:${openKey.value ?? '
     </header>
 
     <p class="alert alert-warning" v-if="loadFailed">{{ $t('skills.load_failed') }}</p>
-    <p class="alert alert-warning" v-if="addFailed && !layout.framed">{{ $t('skills.catalogue.add_failed') }}</p>
 
     <p v-if="loading" class="text-muted" role="status">{{ $t('common.loading') }}</p>
     <template v-if="!loading && !loadFailed">
-      <SkillsRows v-if="layout.framed" :rows="rows" :open-key="openKey" @open="openRow" />
-      <SkillsCards v-else :rows="rows" :saving-id="savingId" :save-error="saveError"
-                   @open="router.push({ name: 'skill', params: { id: $event.note_id! } })" @add="add($event)"
-                   @toggle="save($event, $event.enabled && ($event.auto || $event.command) ? { enabled: false } : ON)" />
+      <SkillsRows :rows="rows" :open-key="openKey" @open="openRow" />
     </template>
   </div>
 

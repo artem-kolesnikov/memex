@@ -1,69 +1,59 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { SkillConnection, SkillRow } from '@/api/client'
-import AgentMark from '@/components/AgentMark.vue'
-import { formatDateTime } from '@/lib/datetime'
+import { copyText } from '@/lib/clipboard'
 import SkillConnections from './SkillConnections.vue'
 import SkillUseExample from './SkillUseExample.vue'
 import { skillOffered } from './skillGroups'
 import { skillDraft, useSkillEditing } from './skillEditing'
 
-// What a skill adds to a note, in the rail beside it: who can use it, its
-// alias, how to ask for it, how often it was loaded and what is wrong with it.
-// memex's own skills and the templates show the same, with nothing to change.
+// What a skill adds to a note, in one box in the rail beside it: who can use
+// it, its alias to copy and how to ask for it; then what is wrong with it. How
+// often it was loaded is among the details, and the alias is changed in the
+// editor. memex's own skills and the templates show the same, with nothing to
+// change.
 const props = defineProps<{ skill: SkillRow; connections: SkillConnection[]; busy?: boolean }>()
 const emit = defineEmits<{ updated: [row: SkillRow] }>()
 
 const editable = computed(() => props.skill.kind === 'note')
 const draft = skillDraft(props.skill)
-const { slugDraft, error, saving: editing, patch, rename } = useSkillEditing(() => props.skill, draft, (row) => emit('updated', row))
+const { error, saving: editing, patch } = useSkillEditing(() => props.skill, (row) => emit('updated', row))
 const locked = computed(() => props.busy || editing.value || props.skill.status === 'pending')
-const byId = computed(() => new Map(props.connections.map((c) => [c.id, c])))
-
-function connectionName(id: number): string {
-  const c = byId.value.get(id)
-  return c ? c.display_name || c.label : String(id)
+const copied = ref(false)
+async function copySlug() {
+  copied.value = await copyText(props.skill.slug)
 }
 </script>
 
 <template>
   <p v-if="error" class="alert alert-warning py-1 mm-context-skill" role="alert">{{ error }}</p>
 
-  <section v-if="skill.kind !== 'catalogue'" class="app-panel mm-context-panel mm-context-skill mm-skill-access">
-    <SkillConnections v-if="editable" :blocked="skill.blocked" :connections="connections" :draft="draft"
-                      :disabled="locked" @save="patch({ blocked: $event })" />
-    <template v-else>
-      <h2 class="mm-context-title">{{ $t('skills.panel.connections') }}</h2>
-      <p class="mm-skill-aside">{{ $t('skills.panel.origin_shipped') }}</p>
-    </template>
-  </section>
-
-  <section class="app-panel mm-context-panel mm-context-skill">
-    <label class="mm-context-title d-block" :for="editable ? 'skill-rail-slug' : undefined">{{ $t('skills.panel.slug') }}</label>
-    <p id="skill-rail-slug-help" class="mm-skill-aside">{{ $t('skills.panel.slug_help') }}</p>
-    <div v-if="editable" class="mm-skill-alias">
-      <input id="skill-rail-slug" class="form-control form-control-sm font-monospace" v-model="slugDraft"
-             :disabled="locked" aria-describedby="skill-rail-slug-help" />
-      <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="locked || slugDraft === skill.slug"
-              @click="rename">{{ $t('common.save') }}</button>
+  <section class="app-panel mm-context-panel mm-context-skill mm-skill-box">
+    <div v-if="skill.kind !== 'catalogue'" class="mm-skill-box-part">
+      <SkillConnections v-if="editable" :blocked="skill.blocked" :connections="connections" :draft="draft"
+                        :disabled="locked" @save="patch({ blocked: $event })" />
+      <template v-else>
+        <h2 class="mm-context-title">{{ $t('skills.panel.connections') }}</h2>
+        <p class="mm-skill-aside">{{ $t('skills.panel.origin_shipped') }}</p>
+      </template>
     </div>
-    <code v-else>{{ skill.slug }}</code>
-  </section>
 
-  <section class="app-panel mm-context-panel mm-context-skill">
-    <h2 class="mm-context-title">{{ $t('skills.panel.how_to_use') }}</h2>
-    <SkillUseExample :skill="skill" compact :can-copy="skillOffered(skill)" />
-  </section>
+    <div class="mm-skill-box-part">
+      <h2 class="mm-context-title">{{ $t('skills.panel.slug') }}</h2>
+      <p class="mm-skill-aside">{{ $t('skills.panel.slug_help') }}</p>
+      <div class="mm-skill-alias">
+        <code>{{ skill.slug }}</code>
+        <button type="button" class="btn btn-sm btn-link mm-skill-alias-copy" :title="copied ? $t('skills.example.copied') : $t('skills.panel.copy_alias')"
+                :aria-label="copied ? $t('skills.example.copied') : $t('skills.panel.copy_alias')" @click="copySlug" @mouseleave="copied = false">
+          <i :class="copied ? 'fa-solid fa-check' : 'fa-regular fa-copy'" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
 
-  <section class="app-panel mm-context-panel mm-context-skill">
-    <h2 class="mm-context-title">{{ $t('skills.panel.usage') }}</h2>
-    <ul v-if="skill.usage.total_30d > 0" class="mm-skill-usage">
-      <li v-for="u in skill.usage.by_token" :key="u.token_id">
-        <AgentMark v-if="byId.get(u.token_id)" :icon="byId.get(u.token_id)!.icon" :icon-url="byId.get(u.token_id)!.icon_url" :icon-url-dark="byId.get(u.token_id)!.icon_url_dark" />
-        <span>{{ $t('skills.panel.usage_line', { name: connectionName(u.token_id), count: u.count, when: formatDateTime(u.last_at) }, u.count) }}</span>
-      </li>
-    </ul>
-    <p v-else class="mm-skill-aside">{{ $t('skills.panel.usage_none') }}</p>
+    <div class="mm-skill-box-part">
+      <h2 class="mm-context-title">{{ $t('skills.panel.how_to_use') }}</h2>
+      <SkillUseExample :skill="skill" compact :can-copy="skillOffered(skill)" />
+    </div>
   </section>
 
   <section v-if="skill.lint.length" class="app-panel mm-context-panel mm-context-skill">

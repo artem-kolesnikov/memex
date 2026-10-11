@@ -38,6 +38,7 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { DIALOG_ROUTES, usePageRoute } from '@/lib/pageRoute'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError, type AnalyzeAllowance, type AnalyzeResult, type EditProposalItem } from '@/api/client'
+import { SLUG_RE } from '@/components/skills/skillEditing'
 import AnalyzeAllowanceNote from '@/components/AnalyzeAllowanceNote.vue'
 import { renderNote } from '@/lib/markdown'
 import { formatCount, noteStats } from '@/lib/noteStats'
@@ -113,7 +114,12 @@ const entity = ref({
   sourceUrl: '',
   summary: '',
   tags: [] as string[],
+  alias: '',
 })
+// A skill's alias as saved, when the note being edited is one: the editor
+// renames it along with the rest of the save.
+const savedAlias = ref<string | null>(null)
+const aliasError = ref<string | null>(null)
 const errors = ref<{ title: boolean; body: boolean }>({ title: false, body: false })
 /** Past the target length. Colours the counter; refuses nothing. */
 const summaryOverCap = computed(() => entity.value.summary.length > SUMMARY_SOFT_CAP)
@@ -477,9 +483,26 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
     }
     return
   }
+  aliasError.value = null
+  const alias = entity.value.alias.trim()
+  const renaming = savedAlias.value !== null && alias !== savedAlias.value
+  if (renaming && (alias.length > 64 || !SLUG_RE.test(alias))) {
+    aliasError.value = t('skills.panel.slug_invalid')
+    return
+  }
   saving.value = true
   saveError.value = null
   try {
+    if (renaming) {
+      try {
+        savedAlias.value = (await api.updateSkill(noteId.value!, { slug: alias })).skill.slug
+      } catch (e) {
+        if (!lifetime.current(mine)) return
+        aliasError.value = e instanceof Error ? e.message : t('common.unknown_error')
+        return
+      }
+      if (!lifetime.current(mine)) return
+    }
     // Back to the list after saving (mm2 behavior — operator preference); in
     // the reading frame, back to the note beside it.
     let savedId = 0
@@ -640,7 +663,9 @@ async function load() {
   saving.value = false
   errors.value = { title: false, body: false }
   loadedVersion.value = null
-  entity.value = { title: '', bodyMd: '', sourceUrl: '', summary: '', tags: [] }
+  entity.value = { title: '', bodyMd: '', sourceUrl: '', summary: '', tags: [], alias: '' }
+  savedAlias.value = null
+  aliasError.value = null
   if (isAddForm.value && asSkill.value) {
     entity.value.tags = [SKILL_TAG]
     entity.value.bodyMd = t('skills.scaffold')
@@ -670,6 +695,14 @@ async function load() {
       entity.value.sourceUrl = note.source_url || ''
       entity.value.summary = note.summary || ''
       entity.value.tags = note.tags.map((t) => t.name)
+      if (carriesSkill(entity.value.tags)) {
+        const row = await api.skills().then((r) => r.skills.find((s) => s.kind === 'note' && s.note_id === wanted), () => undefined)
+        if (!lifetime.current(mine)) return
+        if (row && row.status !== 'pending') {
+          savedAlias.value = row.slug
+          entity.value.alias = row.slug
+        }
+      }
     } catch (e) {
       if (!lifetime.current(mine)) return
       loadFailed.value = true
@@ -916,6 +949,14 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
             <section class="app-panel mm-editor-panel">
               <label for="tags" class="mm-field-label"><span>{{ $t('editor.tags_label') }}</span></label>
               <TagInput v-model="entity.tags" :options="existingTagNames" :disabled="saving || outcomeUnknown" />
+            </section>
+
+            <section class="app-panel mm-editor-panel" v-if="savedAlias !== null">
+              <label for="editor_alias" class="mm-field-label"><span>{{ $t('skills.panel.slug') }}</span></label>
+              <input id="editor_alias" type="text" class="form-control form-control-sm font-monospace mm-skill-alias-input"
+                     v-model="entity.alias" :disabled="saving || outcomeUnknown" aria-describedby="editor_alias_help" />
+              <p id="editor_alias_help" class="mm-skill-aside mt-2 mb-0">{{ $t('skills.panel.slug_help') }}</p>
+              <p v-if="aliasError" class="alert alert-warning py-1 small mt-2 mb-0" role="alert">{{ aliasError }}</p>
             </section>
 
             <!-- Only when the note actually came from somewhere, and never

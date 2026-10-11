@@ -3779,7 +3779,6 @@ html:has(.app-shell) { scrollbar-gutter: auto; }
 @container (max-width: 360px) {
     .app-frame-list .app-title-line { flex-wrap: wrap; }
     .mm-skill-row-head { flex-wrap: wrap; }
-    .mm-skills-summary .form-select { width: 100%; }
 }
 .app-frame-list .app-note-meta { grid-column: 2; grid-template-columns: auto minmax(0, 1fr); padding-top: 5px; }
 .app-frame-list .app-note-row.is-plain { grid-template-columns: minmax(0, 1fr); padding-inline: 16px; }
@@ -3889,12 +3888,12 @@ html:has(.app-shell) { scrollbar-gutter: auto; }
 .app-frame-list .app-breadcrumbs { display: none; }
 
 /* The skills in frames: whose skills, and how many are on and their size, in
-   a box above the rows, and each row marked enabled or disabled at its name; the
-   switch is the open skill's, green on and red off. */
+   one line above the rows, and each row marked enabled or disabled at its name;
+   the switch is the open skill's, green on and red off. */
 .app-frame-list > .mm-skills > .mm-skills-list { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; margin: 0; }
-.mm-skills-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0 16px 14px; padding: 14px 16px; }
-.mm-skills-summary .form-select { width: 100%; }
-.mm-skills-summary-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0; color: var(--mm-ink-soft); font-size: .8rem; }
+.mm-skills-summary { display: flex; align-items: center; gap: 12px; margin: 0 16px 12px; }
+.mm-skills-summary .form-select { flex: none; width: auto; }
+.mm-skills-summary-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 0; color: var(--mm-ink-soft); font-size: .8rem; white-space: nowrap; }
 .mm-skills-summary-line strong { color: var(--mm-ink); font-size: 1rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 
 .mm-skill-row-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -3903,6 +3902,26 @@ html:has(.app-shell) { scrollbar-gutter: auto; }
 .mm-skill-row .mm-skill-state { flex: none; padding-block: 2px; }
 .mm-skill-row.is-off .app-note-title { color: var(--mm-ink); }
 .mm-skill-row.is-off > .app-note-summary { color: var(--mm-ink-soft); }
+
+/* The same skills in a window: the box above, then the rows on a tray under
+   the notes list's head, the mark following the name and the last use in the
+   column beside it. A row is one control from edge to edge. */
+.mm-skills-list.is-windowed .mm-skills-summary { margin: 0 0 14px; }
+.mm-skills-list.is-windowed .app-note-list { margin-bottom: 24px; }
+.mm-skills-list.is-windowed .app-note-list-head,
+.mm-skills-list.is-windowed .mm-skill-row { grid-template-columns: minmax(0, 1fr) var(--app-note-meta); padding-inline: 16px 14px; }
+.mm-skills-list.is-windowed .mm-skill-row { position: relative; cursor: pointer; }
+.mm-skills-list.is-windowed .mm-skill-row > .app-note-meta { grid-column: 2; grid-row: 1 / span 2; }
+.mm-skills-list.is-windowed .mm-skill-row-head > .app-note-main { flex: 0 1 auto; }
+.mm-skills-list.is-windowed button.app-note-main { padding: 0; border: 0; background: none; font: inherit; text-align: left; }
+.mm-skills-list.is-windowed .app-note-main::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.mm-skills-list.is-windowed .app-note-main:focus-visible { outline: 0; }
+.mm-skills-list.is-windowed .app-note-main:focus-visible::after { outline: 2px solid var(--mm-primary); outline-offset: -3px; }
+@media (max-width: 991.98px) {
+    .mm-skills-list.is-windowed .app-note-list-head,
+    .mm-skills-list.is-windowed .mm-skill-row { grid-template-columns: minmax(0, 1fr); }
+    .mm-skills-list.is-windowed .mm-skill-row > .app-note-meta { grid-column: 1; grid-row: auto; grid-template-columns: auto minmax(0, 1fr); padding-top: 5px; }
+}
 
 .mm-skill-switch { display: flex; flex: none; align-items: center; min-height: 0; margin: 0; padding: 0; }
 .mm-skill-switch .form-check-input,
@@ -3970,9 +3989,11 @@ html:has(.app-shell) { scrollbar-gutter: auto; }
 .mm-skill-title-line { display: flex; align-items: center; gap: 12px; }
 .mm-skill-title-line > .mm-skill-switch { font-size: 1.15rem; }
 .mm-skill-aside { margin: 0; color: var(--mm-muted); font-size: .75rem; line-height: 1.5; }
-.mm-skill-alias { display: flex; gap: 8px; margin-top: 10px; }
-.mm-skill-alias .form-control { min-width: 0; font-size: .8rem; }
-.mm-context-skill > code { display: block; margin-top: 8px; font-size: .78rem; }
+.mm-skill-alias { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.mm-skill-alias > code { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: .78rem; }
+.mm-skill-alias-copy { flex: none; min-width: 2rem; min-height: 2rem; padding: 0; color: var(--mm-muted); box-shadow: none; }
+.mm-editor-panel .mm-skill-alias-input { font-size: .8rem; }
+.mm-skill-box-part + .mm-skill-box-part { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--mm-line); }
 .mm-skill-usage { display: grid; gap: 6px; margin: 0; padding: 0; color: var(--mm-ink-soft); font-size: .75rem; list-style: none; }
 .mm-skill-usage > li { display: flex; align-items: center; gap: 6px; }
 .app-frame-reading.is-narrow .mm-context-skill { order: 2; }

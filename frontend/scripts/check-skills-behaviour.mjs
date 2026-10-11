@@ -3,10 +3,11 @@
  * The skills page and a skill's own page, asserted against the built SPA in a
  * browser with the API stubbed.
  *
- * Opening a card opens the skill as its note, with the skill's switch at its
- * name and its usage example in the rail; pausing, narrowing to a connection
- * and renaming all go through `PATCH /api/skills/<id>`, and a bad slug is
- * refused inline before it is ever sent. None of that is visible to
+ * The skills are the notes list's rows; opening one opens the skill as its
+ * note, with the skill's switch at its name and its alias, example and details
+ * in the rail. Pausing and narrowing to a connection go through
+ * `PATCH /api/skills/<id>` from the page, renaming from the editor, and a bad
+ * alias is refused inline before it is ever sent. None of that is visible to
  * `npm run build` or to a regex over the source, so this drives the panel the
  * way a person would and reads what is on screen. Needs `dist/`, no backend
  * and no database.
@@ -108,6 +109,10 @@ function apiStub(state) {
     if (key === 'GET /api/tags') return json({ tags: [], retired: [] })
     if (key === 'GET /api/me/sessions') return json({ sessions: [] })
     if (key === 'GET /api/skills') return json({ skills: [state.row, PENDING_ROW, ...(state.extraRows ?? [])], connections: state.connections ?? CONNECTIONS })
+    if (key === 'PUT /api/notes/5') {
+      state.noteSaves = (state.noteSaves ?? 0) + 1
+      return json({ note: skillNote(state.row) })
+    }
     if (key === 'PATCH /api/skills/5') {
       const patch = request.postDataJSON()
       state.patches.push(patch)
@@ -200,26 +205,33 @@ await scenario('unticking Claude Code sends {blocked:[1]}', async (page, state) 
   assert(!(await page.locator(RAIL).getByRole('checkbox', { name: 'Claude Code', exact: true }).isChecked()), 'the saved choice did not stay')
 })
 
-await scenario('a bad slug is refused inline, a good one is sent', async (page, state, { expectText }) => {
+await scenario('the alias is read and copied on the page, and renamed in the editor', async (page, state, { expectText }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copied = text } } }))
   await openSkill(page)
-  const save = page.locator(`${RAIL} .mm-skill-alias`).getByRole('button', { name: 'Save', exact: true })
-  await page.fill('#skill-rail-slug', 'Bad Slug')
+  assert(await page.locator(`${RAIL} input:not([type=checkbox])`).count() === 0, 'the alias is still a field on the page')
+  assert(await page.locator(`${RAIL} .mm-skill-alias code`).innerText() === 'house-style', 'the alias is not shown')
+  await page.locator(RAIL).getByRole('button', { name: 'Copy alias', exact: true }).click()
+  assert(await page.evaluate(() => window.copied) === 'house-style', 'Copy alias did not copy the alias')
+  await page.goto(`${SKILLS}/5/edit`)
+  const alias = page.locator('#editor_alias')
+  await alias.waitFor()
+  assert(await alias.inputValue() === 'house-style', 'the editor does not hold the alias')
+  const save = page.locator('form button[type=submit]').first()
+  await alias.fill('Bad Slug')
   await save.click()
   await expectText('lowercase letters, digits and single hyphens')
-  assert(state.patches.length === 0, `a bad slug reached the server: ${JSON.stringify(state.patches)}`)
-  await page.fill('#skill-rail-slug', 'a'.repeat(65))
+  await alias.fill('a'.repeat(65))
   await save.click()
-  assert(state.patches.length === 0, 'an overlong slug reached the server')
-  await page.fill('#skill-rail-slug', 'style')
-  await save.click()
-  await page.waitForTimeout(200)
-  assert(JSON.stringify(state.patches.at(-1)) === JSON.stringify({ slug: 'style' }), `patch: ${JSON.stringify(state.patches.at(-1))}`)
+  assert(state.patches.length === 0 && !state.noteSaves, `a bad alias reached the server: ${JSON.stringify(state.patches)}`)
+  await alias.fill('style')
+  await Promise.all([page.waitForURL(/\/skills$/), save.click()])
+  assert(JSON.stringify(state.patches) === JSON.stringify([{ slug: 'style' }]), `patch: ${JSON.stringify(state.patches)}`)
+  assert(state.noteSaves === 1, 'the note was not saved with the alias')
 })
 
-await scenario('a pending skill disables its switch, Rename and Save connections', async (page) => {
+await scenario('a pending skill disables its switch and Save connections', async (page) => {
   await openSkill(page, 'Draft skill', 6)
   assert(await page.locator(SWITCH).isDisabled(), 'the switch was not disabled on a pending skill')
-  assert(await page.locator(`${RAIL} .mm-skill-alias`).getByRole('button', { name: 'Save', exact: true }).isDisabled(), 'Rename was not disabled on a pending skill')
   assert(await page.locator(RAIL).getByRole('button', { name: 'Save connections', exact: true }).isDisabled(), 'Save connections was not disabled on a pending skill')
   assert(await page.getByRole('button', { name: 'Approve', exact: true }).count() === 1, 'a pending skill lost its note\'s Approve')
 })
@@ -281,36 +293,13 @@ await scenario('long skill content and its page fit a phone', async (page, state
   await page.goto(SKILLS)
   await page.getByRole('button', { name: state.row.title, exact: true }).waitFor()
   const fits = () => document.documentElement.scrollWidth <= window.innerWidth
-  assert(await page.evaluate(fits), 'the skill table overflows a phone')
-  const segment = page.locator(`.size-segment[data-alias="${state.row.slug}"]`)
-  await segment.focus()
-  await page.locator('#skill-size-detail').waitFor()
-  assert(await page.locator('.skills-dashboard').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'the inspected skill title overflows the summary')
-  assert(await page.evaluate(fits), 'the inspected skill title overflows a phone')
-  await segment.press('Escape')
+  assert(await page.evaluate(fits), 'the skills list overflows a phone')
   await page.getByRole('button', { name: state.row.title, exact: true }).click()
   await page.waitForURL(/\/skills\/5$/)
-  await page.locator('#skill-rail-slug').waitFor()
+  await page.locator(`${RAIL} .mm-skill-alias`).waitFor()
   assert(await page.evaluate(fits), 'the skill page overflows a phone')
-  await page.locator('#skill-rail-slug').fill('fits-on-phone')
 })
 
-
-await scenario('a card can be paused and resumed without opening its panel', async (page, state) => {
-  await page.goto(SKILLS)
-  const card = page.locator('article').filter({ has: page.getByRole('button', { name: 'House style', exact: true }) })
-  const toggle = card.getByRole('checkbox', { name: 'Enable House style', exact: true })
-  await toggle.uncheck({ timeout: 1500 })
-  await page.waitForFunction(() => document.querySelector('article[data-note-id="5"]')?.getAttribute('data-enabled') === 'false')
-  assert(state.row.enabled === false, 'pause did not save')
-  assert(await page.locator('[data-skill-group=available] article[data-note-id="5"]').count() === 1, 'disabled skill did not move to Available')
-  assert(await page.locator('.modal.show').count() === 0, 'card switch opened the panel')
-  await toggle.check()
-  await page.waitForFunction(() => document.querySelector('article[data-note-id="5"]')?.getAttribute('data-enabled') === 'true')
-  assert(state.row.enabled === true, 'resume did not save')
-  assert(await page.locator('[data-skill-group=active] article[data-note-id="5"]').count() === 1, 'enabled skill did not move to Active')
-  assert(state.row.auto && state.row.command, 'resuming did not open all supported access paths')
-})
 
 await scenario('memex-writing switched off in Personalization says so and is not counted', async (page, state) => {
   state.extraRows = [
@@ -318,73 +307,49 @@ await scenario('memex-writing switched off in Personalization says so and is not
     { ...ROW, kind: 'shipped', status: 'switched_off', note_id: null, slug: 'memex-writing', title: 'memex — writing', size_tokens: 1200 },
   ]
   await page.goto(SKILLS)
-  const card = page.locator('[data-system-skill="memex-writing"]')
-  await card.waitFor()
-  assert((await card.textContent()).includes('Off in Settings › Personalization'), 'the switched-off card does not say so')
-  assert((await card.getByRole('link').getAttribute('href')).endsWith('/settings/personalization'), 'the card does not lead to Personalization')
-  assert(!(await page.locator('[data-system-skill="memex-docs"]').textContent()).includes('Off in'), 'an always-on skill claims to be off')
-  assert(await page.getByTestId('skills-active-count').innerText() === '2', 'a switched-off skill counted as enabled')
+  await page.locator('.mm-skills-summary select').selectOption('system')
+  const state_ = (slug) => page.locator(`.mm-skill-row[data-skill="${slug}"] .mm-skill-state`).innerText()
+  assert(await state_('memex-writing') === 'Disabled', 'the switched-off skill does not read Disabled')
+  assert(await state_('memex-docs') === 'Enabled', 'an always-on skill does not read Enabled')
+  assert(await page.getByTestId('skills-active-count').innerText() === '1', 'a switched-off skill counted as enabled')
+  await page.locator('.mm-skill-row[data-skill="memex-writing"] .app-note-main').click()
+  const notice = page.locator('.mm-skill-frame .mm-proposal-notice')
+  await notice.waitFor()
+  assert((await notice.textContent()).includes('Off in Settings › Personalization'), 'the switched-off skill does not say so')
+  assert((await notice.getByRole('link').getAttribute('href')).endsWith('/settings/personalization'), 'the skill does not lead to Personalization')
 })
 
-await scenario('the size summary groups built-ins first and measures shares of enabled instructions', async (page, state) => {
+await scenario('the line above the list counts what is on and its size, for whose skills are shown', async (page, state) => {
   state.row.size_tokens = 12500
-  state.row.blocked = [1]
   state.extraRows = [
-    { ...ROW, note_id: 9, slug: 'disabled-skill', status: 'paused', enabled: false, size_tokens: 99999 },
-    { ...ROW, kind: 'shipped', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 37500 },
+    { ...ROW, note_id: 9, slug: 'disabled-skill', title: 'Disabled skill', status: 'paused', enabled: false, size_tokens: 99999 },
+    { ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 337500 },
   ]
   await page.goto(SKILLS)
-  const dashboard = page.getByRole('region', { name: 'skills enabled', exact: true })
-  await dashboard.waitFor()
-  assert(await page.getByTestId('skills-active-count').innerText() === '2', 'inactive or pending skills counted as enabled')
-  assert(await page.getByTestId('skills-context-size').innerText() === '~50K', 'unavailable text counted in total')
-  assert(await dashboard.getByRole('combobox').count() === 0, 'connection switcher remains')
-  assert(await dashboard.locator('.size-segment').count() === 2, 'incorrect segment count')
-  assert(await dashboard.locator('.size-segment').first().getAttribute('data-kind') === 'shipped', 'built-ins do not lead the bar')
-  const segment = dashboard.locator('[data-alias="house-style"]')
-  const bar = await dashboard.getByTestId('skills-size-bar').boundingBox()
-  const bounds = await segment.boundingBox()
-  assert(Math.abs(bounds.width / bar.width - .25) < .001, 'segment does not show its share of the full instruction size')
-  await segment.hover()
-  assert((await dashboard.getByRole('status').innerText()).includes('House style'), 'hover does not show the skill name')
-  assert((await dashboard.getByRole('status').innerText()).includes('25% of total'), 'share missing from details')
-  await dashboard.getByRole('heading').hover()
-  await segment.focus()
-  assert(await dashboard.getByRole('status').isVisible(), 'keyboard focus has no details')
-  await segment.press('Escape')
-  assert(await dashboard.getByRole('status').count() === 0, 'Escape did not dismiss details')
-  await page.locator('article[data-note-id="5"]').getByRole('checkbox').uncheck()
-  await page.waitForFunction(() => document.querySelector('[data-testid="skills-active-count"]')?.textContent === '1')
-  assert(await page.getByTestId('skills-context-size').innerText() === '~37.5K', 'disabled instructions remain in total')
-  assert(await dashboard.locator('.size-segment').count() === 1, 'disabled skill retains a segment')
+  await page.getByTestId('skills-active-count').waitFor()
+  const line = () => page.locator('.mm-skills-summary-line').innerText()
+  assert(await page.getByTestId('skills-active-count').innerText() === '1', 'off or pending skills counted as enabled')
+  assert((await line()).includes('~12.5K tk'), `the size counts what is off, or memex's: ${await line()}`)
+  assert(await page.locator('.mm-skill-row[data-skill="memex-docs"]').count() === 0, 'memex\'s skills are mixed into the owner\'s')
+  await page.locator('.mm-skills-summary select').selectOption('system')
+  assert((await line()).includes('~337.5K tk'), `the size does not follow the selector: ${await line()}`)
+  assert(await page.locator('.mm-skills-summary').evaluate((el) => el.getBoundingClientRect().height < 60), 'the selector and the count are not on one line')
+  const notes = await page.locator('.mm-skills-summary select').evaluate((el) => el.getBoundingClientRect().height)
+  assert(notes >= 36, `the selector is smaller than the notes list's: ${notes}px`)
 })
 
-await scenario('large libraries fill the composition bar without suggesting a capacity limit', async (page, state) => {
-  state.row.size_tokens = 300000
-  state.extraRows = [{ ...ROW, note_id: 9, slug: 'another-skill', size_tokens: 50000 }]
+await scenario('in a window the rows sit under a head, the last used first, and the whole row opens', async (page, state) => {
+  state.extraRows = [{ ...ROW, note_id: 9, slug: 'used-skill', title: 'Used skill', usage: { total_30d: 3, last_at: '2026-10-01 10:00:00', last_token_id: 1, by_token: [] } }]
   await page.goto(SKILLS)
-  const dashboard = page.getByRole('region', { name: 'skills enabled', exact: true })
-  await dashboard.waitFor()
-  assert(!(await dashboard.innerText()).includes('budget'), 'summary still suggests a capacity budget')
-  assert(await page.getByTestId('skills-context-size').innerText() === '~350K', 'total size is incorrect')
-  assert(await dashboard.locator('.size-segment').count() === 2, 'large skill disappeared')
-  const widths = await dashboard.locator('.size-segment').evaluateAll(els => els.reduce((sum, el) => sum + el.getBoundingClientRect().width, 0))
-  const bar = await dashboard.getByTestId('skills-size-bar').boundingBox()
-  assert(Math.abs(widths - bar.width) < 1, 'segments do not fill the bar')
-  assert(await dashboard.evaluate(el => el.scrollWidth <= el.clientWidth), 'bar overflows dashboard')
+  await page.locator('.app-tray .app-note-list-head').waitFor()
+  const listed = await page.locator('.mm-skill-row').evaluateAll((els) => els.map((el) => el.getAttribute('data-skill')))
+  assert(JSON.stringify(listed) === JSON.stringify(['used-skill', 'draft-skill', 'house-style']), `order: ${JSON.stringify(listed)}`)
+  assert(await page.locator('.mm-skill-row input').count() === 0, 'a row carries a switch')
+  await page.locator('.mm-skill-row[data-skill="house-style"] .app-note-summary').click({ force: true })
+  await page.waitForURL(/\/skills\/5$/)
+  await page.goBack()
+  await page.locator('.mm-skill-row').first().waitFor()
 })
-
-await scenario('a rejected card switch stays enabled and shows the error', async (page, state) => {
-  state.failPatch = true
-  await page.goto(SKILLS)
-  const card = page.locator('article[data-note-id="5"]')
-  const toggle = card.getByRole('checkbox', { name: 'Enable House style', exact: true })
-  await toggle.click()
-  await card.getByRole('alert').waitFor()
-  assert(await toggle.isChecked(), 'failed pause left the switch unchecked')
-  assert(await card.getAttribute('data-enabled') === 'true', 'failed pause dimmed the card')
-})
-
 
 await scenario('a rejected switch on the skill page returns to the saved state', async (page, state) => {
   state.failPatch = true
@@ -407,38 +372,43 @@ await scenario('every connection is ticked until unticked, and there is no All o
   assert(JSON.stringify(state.row.blocked) === '[1,2]', `unticking both did not keep the skill from both: ${JSON.stringify(state.row.blocked)}`)
 })
 
-await scenario('cards show chat examples directly and keep settings on the skill', async (page) => {
-  await page.goto(SKILLS)
-  const card = page.locator('article[data-note-id="5"]')
-  await card.getByRole('button', { name: 'Copy prompt', exact: true }).waitFor()
-  assert((await card.innerText()).includes('house-style'), 'chat example does not identify the skill')
-  assert((await card.innerText()).includes('describe your task'), 'chat example lacks a place for the actual task')
-  assert(await card.getByRole('group', { name: 'Who can use this skill' }).count() === 0, 'connection settings remain on the card')
-  assert(await card.getByText('About this card', { exact: true }).count() === 0, 'metadata explanation remains on the card')
-  await card.getByRole('button', { name: 'Open skill', exact: true }).click()
-  await page.waitForURL(/\/skills\/5$/)
+await scenario('the skill holds its example, settings and details in the rail', async (page, state) => {
+  state.row.usage = { total_30d: 3, last_at: '2026-10-01 10:00:00', last_token_id: 1, by_token: [{ token_id: 1, count: 2, last_at: '2026-10-01 10:00:00' }, { token_id: 2, count: 1, last_at: '2026-09-30 10:00:00' }] }
+  await openSkill(page)
   const rail = page.locator(RAIL)
-  await rail.getByLabel('Skill alias', { exact: true }).waitFor()
+  const box = rail.locator('.mm-skill-box')
+  assert(await box.count() === 1, 'the skill\'s own parts are not in one box')
+  for (const part of ['Who can use this skill', 'Skill alias', 'How to use this skill']) {
+    assert((await box.innerText()).includes(part), `${part} is not in the skill's box`)
+  }
+  assert((await box.innerText()).includes('describe your task'), 'chat example lacks a place for the actual task')
+  const details = await rail.locator('.mm-context-details').innerText()
+  for (const fact of ['Loaded', '3 loads in 30 days', 'Last used', 'Used by', 'Claude Code · 2', 'Codex · 1', 'Created', 'Size']) {
+    assert(details.includes(fact), `the details lack "${fact}": ${details}`)
+  }
+  assert(await rail.locator('.mm-context-backlinks').count() === 0, 'a skill shows backlinks')
   assert(await rail.locator('details').count() === 0, 'skill settings are hidden behind disclosures')
   assert((await page.locator('.mm-note-abstract').innerText()).includes(ROW.description), 'note summary is missing')
   assert((await page.locator('.note-body').innerText()).includes(ROW.body), 'the instructions are not on the sheet')
   assert(await page.getByText('About this card', { exact: true }).count() === 0, 'metadata explanation remains on the skill')
 })
 
-await scenario('system skills are separated, immutable, and included in the size breakdown', async (page, state) => {
+await scenario('memex\'s own skills are listed apart and open with their details, nothing to switch', async (page, state) => {
   state.extraRows = [{ ...ROW, kind: 'shipped', status: 'built_in', note_id: null, slug: 'memex-docs', title: 'memex — docs', size_tokens: 100 }]
   await page.goto(SKILLS)
-  await page.getByTestId('skills-active-count').waitFor()
-  assert(await page.getByTestId('skills-active-count').innerText() === '2', 'always-on system skill excluded from active total')
-  assert(await page.getByTestId('skills-context-size').innerText() === '~112', 'token breakdown total is incorrect')
-  assert(await page.locator('.size-segment[data-alias="memex-docs"]').count() === 1, 'system skill has no size segment')
-  assert(await page.getByRole('heading', { name: 'Built into Memex · 1', exact: true }).isVisible(), 'system skills section is hidden')
-  const system = page.locator('.system-skill-card').filter({ has: page.getByRole('heading', { name: 'memex — docs', exact: true }) })
-  assert(await system.getByRole('checkbox').count() === 0, 'system skills can be disabled')
-  assert((await system.innerText()).includes('~100 tokens'), 'mini-card does not show token size')
-  assert(await system.locator('button, a, input').count() === 0, 'system mini-card has interactive controls')
-  assert(await page.locator('.skill-group').last().getAttribute('data-skill-group') === 'system', 'system section is not last')
-  assert(await page.locator('[data-skill-group=available] article[data-note-id="6"]').count() === 1, 'pending skill did not stay in Available')
+  await page.locator('.mm-skills-summary select').selectOption('system')
+  const listed = await page.locator('.mm-skill-row').evaluateAll((els) => els.map((el) => el.getAttribute('data-skill')))
+  assert(JSON.stringify(listed) === JSON.stringify(['memex-docs']), `System skills: ${JSON.stringify(listed)}`)
+  await page.locator('.mm-skill-row[data-skill="memex-docs"] .app-note-main').click()
+  await page.waitForURL(/open=memex-docs/)
+  const frame = page.locator('.mm-skill-frame')
+  await frame.waitFor()
+  assert(await frame.locator('.mm-skill-switch input').isDisabled(), 'a system skill can be switched off')
+  const details = await frame.locator('.mm-context-details').innerText()
+  assert(details.includes('Built into Memex') && details.includes('~100 tokens'), `the details lack source or size: ${details}`)
+  await page.goBack()
+  await page.locator('.mm-skill-row').first().waitFor()
+  assert(!page.url().includes('open='), 'Back did not return to the list')
 })
 
 await scenario('a skill is its note: the switch at its name, its editor, and everything a note has', async (page, state) => {
@@ -474,8 +444,8 @@ await scenario('twenty connections form two balanced columns and save the last c
 
 await scenario('chat examples copy the current short name and report clipboard failures', async (page, state) => {
   await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedSkillExample = text } } }))
-  await page.goto(SKILLS)
-  const card = page.locator('article[data-note-id="5"]')
+  await openSkill(page)
+  const card = page.locator(RAIL)
   await card.getByRole('button', { name: 'Copy prompt', exact: true }).waitFor()
   await card.getByRole('button', { name: 'Copy prompt', exact: true }).click()
   await card.getByRole('button', { name: 'Copied', exact: true }).waitFor()

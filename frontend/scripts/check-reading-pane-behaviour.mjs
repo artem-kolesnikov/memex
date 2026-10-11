@@ -400,14 +400,15 @@ try {
     await context.close()
   }
 
-  // Windowed, the skills are the cards and a skill of the owner's is its note's
-  // page, under Skills.
+  // Windowed, the skills are the same rows on a tray under a head, as the
+  // notes list's, and a skill of the owner's is its note's page, under Skills.
   {
     const { context, page } = await open({ layout: 'windowed', width: 1920 })
     await page.goto(`${BASE}/${HANDLE}/skills`)
-    await settle(page.locator('.skill-card').first().waitFor({ timeout: 5000 }))
-    expect(await page.locator('.mm-skill-row').count() === 0, 'windowed: the skills should stay cards')
-    await page.locator('.skill-card[data-note-id="50"] .skill-title').click({ timeout: 5000 }).catch(() => {})
+    await settle(page.locator('.app-tray .mm-skill-row').first().waitFor({ timeout: 5000 }))
+    expect(await page.locator('.skill-card, .system-skill-card, [data-testid="skills-size-bar"]').count() === 0, 'windowed: the skills should be rows, not cards')
+    expect(await page.locator('.app-tray .app-note-list-head').count() === 1, 'windowed: the rows should sit under the notes list\'s head')
+    await page.locator('.mm-skill-row[data-skill="house-style"] .app-note-main').click({ timeout: 5000 }).catch(() => {})
     await settle(page.waitForURL(/skills\/50$/, { timeout: 5000 }))
     expect(path(page) === `/${HANDLE}/skills/50`, `windowed: a skill should open as its page, landed on ${path(page)}`)
     expect(await settle(page.locator('.mm-skill-title-line .mm-skill-switch input').waitFor({ timeout: 5000 })), 'windowed: the skill page should carry its switch at its name')
@@ -883,27 +884,26 @@ try {
   }
 
   // Dynamic swaps the skill's frame for its page as the window narrows, and
-  // an unsaved alias or choice of connections goes along.
+  // an unsaved choice of connections goes along.
   {
     skillsTaken.handoff = false
     skillState.house = { ...SKILL }
     const { context, page } = await open({ layout: 'dynamic', width: 1920 })
     await page.goto(`${BASE}/${HANDLE}/skills`)
     await page.locator('.mm-skill-row[data-skill="house-style"] .app-note-main').click({ timeout: 5000 }).catch(() => {})
-    await page.locator('#skill-rail-slug').fill('house-draft', { timeout: 5000 }).catch(() => {})
     await page.locator('.app-frame-reading .skill-connections .connection-option input').first().uncheck({ timeout: 5000 }).catch(() => {})
     const draft = (scope) => page.evaluate((s) => {
       const root = document.querySelector(s)
-      return [root?.querySelector('input.font-monospace')?.value ?? null, root?.querySelector('.connection-option input')?.checked ?? null]
+      return root?.querySelector('.connection-option input')?.checked ?? null
     }, scope)
     await page.setViewportSize({ width: 1280, height: 1000 })
-    await settle(page.locator('.app-frame-single #skill-rail-slug').waitFor({ timeout: 5000 }))
+    await settle(page.locator('.app-frame-single .skill-connections').waitFor({ timeout: 5000 }))
     const narrow = await draft('.app-frame-single')
-    expect(JSON.stringify(narrow) === JSON.stringify(['house-draft', false]), `skills: narrowing should keep the unsaved alias and connections, was ${JSON.stringify(narrow)}`)
+    expect(narrow === false, `skills: narrowing should keep the unsaved connections, was ${JSON.stringify(narrow)}`)
     await page.setViewportSize({ width: 1920, height: 1000 })
-    await settle(page.locator('.app-frame-reading #skill-rail-slug').waitFor({ timeout: 5000 }))
+    await settle(page.locator('.app-frame-reading .skill-connections').waitFor({ timeout: 5000 }))
     const wide = await draft('.app-frame-reading')
-    expect(JSON.stringify(wide) === JSON.stringify(['house-draft', false]), `skills: widening should keep the unsaved alias and connections, was ${JSON.stringify(wide)}`)
+    expect(wide === false, `skills: widening should keep the unsaved connections, was ${JSON.stringify(wide)}`)
     await context.close()
   }
 
