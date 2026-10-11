@@ -266,7 +266,7 @@ class NoteWriter
                 $this->em->persist($audit);
                 $this->journal->record(
                     (new CuratorLogEntry($token->getName(), CuratorLogEntry::ACTION_CREATE, 'Created “'.$title.'”'))
-                        ->withToken($token)->withNote($note)->withProposal($audit)
+                        ->withToken($token)->withNote($note)->withProposal($audit)->withSaid($note->getSummary())
                 );
             } else {
                 $this->journal->record(
@@ -845,6 +845,7 @@ class NoteWriter
                     ($folded ? 'Revised the held edit' : 'Proposed edit')
                         .' ('.implode(' + ', $changed).') of “'.$note->getTitle().'” — '.$why.($comment !== null && $comment !== '' ? ' '.$comment : ''),
                 );
+                $entry->withSaid($proposal->getComment());
                 $this->journal->record(($token === null ? $entry->byMemex() : $entry->withToken($token))->withNote($note));
             } elseif ($token?->isCurator()) {
                 // Applying immediately, so there is no "as it then stands" to wait
@@ -893,7 +894,7 @@ class NoteWriter
                         $token->getName(),
                         CuratorLogEntry::ACTION_EDIT,
                         'Edited '.implode(' + ', $changed).' of “'.$prevTitle.'”'.($comment !== null && $comment !== '' ? ' — '.$comment : ''),
-                    ))->withToken($token)->withNote($note)->withProposal($proposal)
+                    ))->withToken($token)->withNote($note)->withProposal($proposal)->withSaid($comment)
                 );
             }
             $this->em->flush();
@@ -999,7 +1000,7 @@ class NoteWriter
                     $token->getName(),
                     CuratorLogEntry::ACTION_DELETE_PROPOSED,
                     'Proposed deleting “'.$note->getTitle().'” — held for review.'.($comment !== null && $comment !== '' ? ' Reason: '.$comment : ''),
-                ))->withToken($token)->withNote($note)
+                ))->withToken($token)->withNote($note)->withSaid($comment)
             );
             $this->em->flush();
 
@@ -1035,7 +1036,7 @@ class NoteWriter
                     $token->getName(),
                     CuratorLogEntry::ACTION_MERGE_PROPOSED,
                     'Proposed merging “'.$absorb->getTitle().'” into “'.$into->getTitle().'” — held for review.'.($comment !== null && $comment !== '' ? ' '.$comment : ''),
-                ))->withToken($token)->withNote($absorb)
+                ))->withToken($token)->withNote($absorb)->withSaid($comment)
                     ->withAffectedNotes([(int) $absorb->getId(), (int) $into->getId()])
             );
             $this->em->flush();

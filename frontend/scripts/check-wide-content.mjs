@@ -310,37 +310,36 @@ const CASES = [
   // The `.mm-stack-sm` cases below stay — the Deleted list and two settings
   // panes are still stacked tables.
   {
-    what: 'a curation queue row naming a note whose title is 500 characters',
-    rule: '.mm-curation-queue > li { overflow-wrap: anywhere }',
-    // The C-6 pane lists the top of the curation queue as note LINKS, so it
-    // meets the same 500-character unbreakable title the review inbox met one
-    // release earlier — and it is not a table, so none of the `.mm-stack-sm`
-    // rules above cover it. Written from the column length rather than from
-    // the vault: every title the operator writes is a sentence, which is
-    // exactly why the vault cannot be the fixture (see app:seed-extremes).
+    what: 'a curation pass item naming a note whose title is 500 characters',
+    rule: '.mm-run-items > li { overflow-wrap: anywhere }',
+    // A pass lists every note it read as a LINK, so it meets the same
+    // 500-character unbreakable title the review inbox met, and it is not a
+    // table, so none of the `.mm-stack-sm` rules above cover it. Written from
+    // the column length rather than from the vault: every title the operator
+    // writes is a sentence, which is exactly why the vault cannot be the
+    // fixture (see app:seed-extremes).
     html: `<div class="container"><div class="row"><div class="col">
-      <ul class="mm-curation-queue">
+      <ul class="mm-run-items">
         <li>
-          <a href="#">${'W'.repeat(500)}</a>
-          <span class="mm-curation-why">no description, no links either way</span>
+          <div class="mm-run-item-head"><a href="#">${'W'.repeat(500)}</a><span class="mm-run-id">#5</span></div>
+          <ul class="mm-run-item-body"><li><span class="mm-run-label">Why reviewed</span><div class="mm-run-value">Checked its tags.</div></li></ul>
         </li>
       </ul>
     </div></div></div>`,
   },
   {
-    what: 'a curation row carrying an operator flag comment with no break in it',
-    rule: '.mm-curation-queue > li { overflow-wrap: anywhere } — inherited by .mm-curation-why',
-    // The second half of the case above, and it exists because the first half
-    // did not cover it (Codex, 2026-08-29): the fixture protected the TITLE
-    // link, so scoping the rule to `.mm-curation-queue a` would have kept that
-    // case green while leaving the comment unwrapped. A flag comment is up to
+    what: "a curation pass item carrying an operator flag comment with no break in it",
+    rule: '.mm-run-items > li { overflow-wrap: anywhere } — inherited by .mm-run-value',
+    // The second half of the case above (Codex, 2026-08-29): the first
+    // protects the TITLE link, so scoping the rule to the link would keep it
+    // green while leaving the text under it unwrapped. A flag comment is up to
     // CurationFlag::COMMENT_MAX — 5,000 characters — of prose somebody typed,
-    // and both this pane and the queue rows print it whole.
+    // and the item prints it whole, as it prints the pass's own sentences.
     html: `<div class="container"><div class="row"><div class="col">
-      <ul class="mm-curation-queue">
+      <ul class="mm-run-items">
         <li>
-          <a href="#">A note with an ordinary title</a>
-          <span class="mm-curation-why">${'W'.repeat(900)}</span>
+          <div class="mm-run-item-head"><a href="#">A note with an ordinary title</a></div>
+          <ul class="mm-run-item-body"><li><span class="mm-run-label">Your flag</span><div class="mm-run-value">${'W'.repeat(900)}</div></li></ul>
         </li>
       </ul>
     </div></div></div>`,

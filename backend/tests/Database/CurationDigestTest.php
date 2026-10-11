@@ -412,27 +412,24 @@ final class CurationDigestTest extends ApiTestCase
         $run = $this->digest()[0];
 
         self::assertSame(4, $run['counts']['edited'], 'four edit rows');
-        self::assertSame(3, $run['written_total'], 'but three notes written');
-        $written = array_column($run['written'], null, 'title');
+        $items = array_column($run['notes'], null, 'title');
         self::assertSame(
-            ['Read, renamed, then deleted', 'Written by the pass', 'Edited by the pass'],
-            array_keys($written),
-            'newest first, and a note renamed then deleted in the pass is one row under its last title',
+            ['Edited by the pass', 'Written by the pass', 'Read, renamed, then deleted', 'Only read'],
+            array_keys($items),
+            'every note once: the ones it wrote to in the order it worked them, then the ones it only read; '
+            .'a note renamed then deleted in the pass is one item under its last title',
         );
-        self::assertNull($written['Read, renamed, then deleted']['note_id']);
-        self::assertSame(2, $written['Read, renamed, then deleted']['rows']);
-        self::assertSame('created', $written['Written by the pass']['kind']);
-        self::assertSame((int) $created['note']['id'], $written['Written by the pass']['note_id']);
-        self::assertSame('edited', $written['Edited by the pass']['kind']);
-        self::assertSame(2, $written['Edited by the pass']['rows']);
-        self::assertSame($edited->getId(), $written['Edited by the pass']['note_id']);
-
-        self::assertSame(3, $run['counts']['examined']);
-        $examined = array_column($run['examined'], 'note_id', 'title');
-        self::assertSame($edited->getId(), $examined['Edited by the pass']);
-        self::assertSame($read->getId(), $examined['Only read']);
-        self::assertArrayHasKey('Read, renamed, then deleted', $examined, 'the row recorded the title the note had when it was read');
-        self::assertNull($examined['Read, renamed, then deleted'], 'a deleted note keeps the title its row recorded and loses its link');
+        self::assertSame(4, $run['notes_total']);
+        self::assertNull($items['Read, renamed, then deleted']['note_id']);
+        self::assertSame(['edit'], $items['Read, renamed, then deleted']['outcome']);
+        self::assertCount(2, $items['Read, renamed, then deleted']['done'], 'one line per write');
+        self::assertSame(['create'], $items['Written by the pass']['outcome']);
+        self::assertSame((int) $created['note']['id'], $items['Written by the pass']['note_id']);
+        self::assertSame(['edit'], $items['Edited by the pass']['outcome']);
+        self::assertSame($edited->getId(), $items['Edited by the pass']['note_id']);
+        self::assertSame(['examined'], $items['Only read']['outcome'], 'read and left alone is an item too');
+        self::assertSame($read->getId(), $items['Only read']['note_id']);
+        self::assertSame(3, $run['counts']['examined'], 'and all three count as read, the deleted one included');
     }
 
     public function testABoundedRunIsToldWhereItsClaimAndTheJournalDisagree(): void
@@ -824,9 +821,11 @@ final class CurationDigestTest extends ApiTestCase
         // and nothing links to it, so both carry `not_embedded` and
         // `disconnected` — and a total would pass just as well if the reasons
         // were attached to the wrong note.
-        $reasons = array_column($run['still_defective'], 'reasons', 'note_id');
-        self::assertContains('untagged', $reasons[$untagged->getId()]);
-        self::assertNotContains('untagged', $reasons[$sound->getId()] ?? []);
+        $failed = array_column($run['notes'], 'failed', 'note_id');
+        self::assertContains('untagged', $failed[$untagged->getId()]);
+        self::assertNotContains('untagged', $failed[$sound->getId()]);
+        self::assertNotContains('not_embedded', $failed[$sound->getId()], 'a note\'s embedding is memex\'s job, never a curator\'s failure');
+        self::assertSame(2, $run['failed_total'], 'both still have no links, which a curator can fix');
     }
 
     /**
@@ -848,7 +847,11 @@ final class CurationDigestTest extends ApiTestCase
         $run = $this->digest()[0];
         self::assertSame(1, $run['counts']['proposed']);
         self::assertSame(1, $run['waiting_total']);
-        self::assertSame('delete', $run['waiting'][0]['kind']);
+        $item = $run['notes'][0];
+        self::assertSame(['delete-proposed'], $item['outcome']);
+        self::assertTrue($item['waiting']);
+        self::assertSame('Superseded.', $item['done'][0]['text'], 'what was done is the reason it was filed with');
+        self::assertSame([], $item['failed'], 'a delete waiting on the operator is the answer to whatever the note fails');
 
         $this->in($this->kb->a);
         $proposalId = (int) $this->em->getConnection()->fetchOne(
@@ -861,5 +864,144 @@ final class CurationDigestTest extends ApiTestCase
         $run = $this->digest()[0];
         self::assertSame(1, $run['counts']['proposed'], 'the run did propose it, and that does not change');
         self::assertSame(0, $run['waiting_total'], 'but it is no longer waiting on anybody');
+        self::assertFalse($run['notes'][0]['waiting']);
+        self::assertSame('Superseded.', $run['notes'][0]['done'][0]['text'], 'and keeps its text once its proposal is gone');
+    }
+
+    /**
+     * Each note is one item: why the pass took it up, in the pass's own words
+     * or the operator's flag, and what was done, from what the pass filed with
+     * each write or its verdict on a note it left alone. A note that still
+     * fails a check is marked failed, beside the pass's reason for leaving it.
+     */
+    public function testEachNoteSaysWhyAndWhatWasDone(): void
+    {
+        $tagged = $this->kb->a->note('Retagged', 'Body.', ['reference'], summary: 'A description.');
+        $held = $this->kb->a->note('Held for a look', 'Body.', ['reference'], summary: 'A description.');
+        $flagged = $this->kb->a->note('Flagged', 'Body.', ['reference'], summary: 'A description.');
+        $left = $this->kb->a->note('Left untagged', 'Body.', [], summary: 'A description.');
+
+        $this->loginAs($this->kb->a);
+        $this->sessionRequest('POST', '/api/notes/'.$flagged->getId().'/flag', ['comment' => 'The body is thin.']);
+        self::assertContains($this->httpStatus(), [200, 201], $this->body());
+
+        $this->payload('propose', $this->kb->a->curatorBearer, [
+            'note_id' => $tagged->getId(),
+            'tags' => ['reference', 'rules'],
+            'change_title' => 'Add the tag its pair carries',
+            'comment' => 'The note now carries `rules`, as note 2 does.',
+        ]);
+        $this->payload('propose', $this->kb->a->curatorBearer, [
+            'note_id' => $held->getId(),
+            'patch' => [['find' => 'Body.', 'replace' => 'Body, reworded.']],
+            'hold' => true,
+            'comment' => 'The body now says it was reworded.',
+        ]);
+        $this->payload('resolve_curation_flag', $this->kb->a->curatorBearer, [
+            'note_id' => $flagged->getId(),
+            'resolution' => 'Disagree: the body is complete for what it covers.',
+        ]);
+        $this->payload('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary',
+            'description' => 'Worked one flag and three notes.',
+            'started_at' => gmdate('Y-m-d\TH:i:s\Z', time() - 60),
+            'examined' => [
+                ['note_id' => $tagged->getId(), 'why' => 'Its pair, note 2, carries rules and it did not.'],
+                ['note_id' => $held->getId(), 'why' => 'The body read as unfinished.'],
+                ['note_id' => $flagged->getId(), 'why' => 'Flagged.'],
+                ['note_id' => $left->getId(), 'why' => 'Untagged.', 'result' => 'No tag in the vocabulary fits a one-off receipt.'],
+            ],
+        ]);
+
+        $this->loginAs($this->kb->a);
+        $run = $this->digest()[0];
+        $items = array_column($run['notes'], null, 'title');
+
+        self::assertSame(['edit'], $items['Retagged']['outcome']);
+        self::assertSame('Its pair, note 2, carries rules and it did not.', $items['Retagged']['why']);
+        self::assertSame('The note now carries `rules`, as note 2 does.', $items['Retagged']['done'][0]['text']);
+        self::assertFalse($items['Retagged']['waiting']);
+
+        self::assertSame(['edit-proposed'], $items['Held for a look']['outcome']);
+        self::assertTrue($items['Held for a look']['waiting'], 'a held edit is on the operator');
+
+        self::assertSame(['flag-resolved'], $items['Flagged']['outcome']);
+        self::assertSame('The body is thin.', $items['Flagged']['flag'], "the operator's own flag");
+        self::assertSame('Disagree: the body is complete for what it covers.', $items['Flagged']['done'][0]['text']);
+        self::assertNotContains('operator_flag', $items['Flagged']['failed'], 'an answered flag is not a failure');
+
+        self::assertSame(['examined'], $items['Left untagged']['outcome']);
+        self::assertSame('Untagged.', $items['Left untagged']['why']);
+        self::assertSame('No tag in the vocabulary fits a one-off receipt.', $items['Left untagged']['done'][0]['text']);
+        self::assertContains('untagged', $items['Left untagged']['failed']);
+
+        self::assertSame(1, $run['waiting_total']);
+    }
+
+    /**
+     * A flag the pass read and did not answer is still the operator's open
+     * request, so the note is marked failed for it.
+     */
+    public function testAFlagLeftOpenIsAFailure(): void
+    {
+        $flagged = $this->kb->a->note('Flagged and skipped', 'Body.', ['reference'], summary: 'A description.');
+        $this->loginAs($this->kb->a);
+        $this->sessionRequest('POST', '/api/notes/'.$flagged->getId().'/flag', ['comment' => 'Fix the dates.']);
+        self::assertContains($this->httpStatus(), [200, 201], $this->body());
+
+        $this->payload('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary',
+            'description' => 'Read one note.',
+            'examined' => [['note_id' => $flagged->getId(), 'why' => 'Flagged.', 'result' => 'Ran out of budget.']],
+        ]);
+
+        $this->loginAs($this->kb->a);
+        $item = $this->digest()[0]['notes'][0];
+        self::assertSame('operator_flag', $item['failed'][0]);
+    }
+
+    public function testAResultThatSaysNothingIsRefused(): void
+    {
+        $note = $this->kb->a->note('Read', 'Body.', ['reference'], summary: 'A description.');
+        $error = $this->toolError('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary', 'description' => 'One note.',
+            'examined' => [['note_id' => $note->getId(), 'why' => 'Checked its dates against note 2.', 'result' => 'Fine.']],
+        ]);
+        self::assertStringContainsString('says nothing', $error);
+
+        $this->payload('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary', 'description' => 'One note.',
+            'examined' => [['note_id' => $note->getId(), 'why' => 'Checked its dates against note 2.', 'result' => 'Its dates match note 2; fine.']],
+        ]);
+    }
+
+    public function testAnExaminedSentenceOverTheLimitIsRefused(): void
+    {
+        $note = $this->kb->a->note('Read', 'Body.', ['reference'], summary: 'A description.');
+        $error = $this->toolError('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary', 'description' => 'One note.',
+            'examined' => [['note_id' => $note->getId(), 'why' => str_repeat('a', 301)]],
+        ]);
+        self::assertStringContainsString('at most 300 characters', $error);
+    }
+
+    /**
+     * A run-summary is an overview. The notes are listed from the pass's own
+     * writes, so a summary that narrates them is refused with the reason.
+     */
+    public function testARunSummaryOverSixtyWordsIsRefused(): void
+    {
+        $long = trim(str_repeat('word ', 61));
+        $error = $this->toolError('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary', 'description' => $long,
+        ]);
+        self::assertStringContainsString('at most 60 words, and this one has 61', $error);
+
+        $this->payload('log', $this->kb->a->curatorBearer, [
+            'action' => 'run-summary', 'description' => trim(str_repeat('word ', 60)),
+        ]);
+        $this->payload('log', $this->kb->a->curatorBearer, [
+            'action' => 'observation', 'description' => $long,
+        ]);
     }
 }

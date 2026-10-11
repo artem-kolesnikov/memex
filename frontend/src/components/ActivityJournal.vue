@@ -16,6 +16,7 @@
 // Filters are applied by the SERVER, before the page is cut. Filtering the
 // returned page here would answer "which of these fifty rows match", which is
 // a different question and one whose answer drifts as the log grows.
+import { actionBadge } from '@/lib/actionBadge'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -264,31 +265,6 @@ function clearFilters() {
   curationOnly.value = false
 }
 
-// Badge palette: green = things that happened, amber = waiting on the
-// operator, blue = the curator talking, red = rejected.
-const ACTION_BADGE: Record<string, string> = {
-  create: 'text-bg-success',
-  edit: 'text-bg-success',
-  delete: 'text-bg-success',
-  restore: 'text-bg-success',
-  purge: 'text-bg-success',
-  import: 'text-bg-success',
-  'history-forgotten': 'text-bg-success',
-  approved: 'text-bg-success',
-  'create-proposed': 'text-bg-warning',
-  'edit-proposed': 'text-bg-warning',
-  'delete-proposed': 'text-bg-warning',
-  'merge-proposed': 'text-bg-warning',
-  rejected: 'text-bg-danger',
-  // Amber for the same reason the proposals are: work is waiting on somebody.
-  // A raised flag waits on the curator, a resolved one is an answer delivered.
-  'flag-raised': 'text-bg-warning',
-  'flag-resolved': 'text-bg-success',
-  'run-summary': 'text-bg-primary',
-  observation: 'text-bg-info',
-  'tooling-gap': 'text-bg-secondary',
-}
-
 /** The document this entry left behind, in the review inbox's shape: the
  *  previous state plays "current", and the heading is rewritten in the past
  *  tense, because the journal records what a change DID. */
@@ -434,7 +410,7 @@ function docSource(row: LogRow): DocSource {
                     </td>
                     <td class="text-nowrap text-muted">{{ formatDateTime(row.created_at) }}</td>
                     <td>
-                      <span class="badge" :class="ACTION_BADGE[row.action] ?? 'text-bg-light border'">{{ row.action }}</span>
+                      <span class="badge" :class="actionBadge(row.action)">{{ row.action }}</span>
                       <div v-if="row.curation_run" class="small text-muted mt-1">
                         <router-link class="text-muted"
                                      :to="{ name: 'activity', query: { run: String(row.curation_run) } }">
@@ -502,7 +478,7 @@ function docSource(row: LogRow): DocSource {
             <div class="card-body py-2 px-3">
               <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
                 <a :href="`#log-m-${row.id}`" class="text-muted small text-decoration-none">#{{ row.id }}</a>
-                <span class="badge" :class="ACTION_BADGE[row.action] ?? 'text-bg-light border'">{{ row.action }}</span>
+                <span class="badge" :class="actionBadge(row.action)">{{ row.action }}</span>
                 <router-link v-if="row.curation_run" class="small text-muted ms-auto"
                              :to="{ name: 'activity', query: { run: String(row.curation_run) } }">
                   {{ $t('activity.journal.pass_link', { id: row.curation_run }) }}

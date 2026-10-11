@@ -83,10 +83,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * ## What is computed and what is quoted
  *
  * Every NUMBER here is the server's, counted from rows it wrote itself. The
- * only agent-authored text is the run-summary's own `description`, passed
- * through verbatim for the screen to quote and label. Nothing is synthesized:
- * server-side prose would need an LLM inside memex, which is forbidden, and
- * agent-side prose is the curator writing its own performance review.
+ * agent-authored text is the run-summary's own `description`, an overview
+ * capped at {@see self::OVERVIEW_WORDS} words, and each write's own line and
+ * text, passed through verbatim. Nothing is synthesized: server-side prose
+ * would need an LLM inside memex, which is forbidden, and a pass narrating its
+ * own run is the curator writing its own performance review.
  */
 class CurationDigest
 {
@@ -125,20 +126,27 @@ class CurationDigest
      */
     public const CLAIM_MAX = 1000;
 
+    /**
+     * The longest overview a run-summary may file, in words.
+     *
+     * The record of a pass is built from its writes, each under the line its
+     * writer gave it, so the summary is left saying only what the pass covered
+     * and how it ended. Uncapped, it ran to 500 to 900 words of reasoning that
+     * nobody could read in the seconds a pass is given (operator, 2026-10-11).
+     */
+    public const OVERVIEW_WORDS = 60;
+
     /** Runs rendered by default, and the ceiling a caller may ask for. */
     public const DEFAULT_RUNS = 10;
     public const MAX_RUNS = 25;
 
     /**
-     * Exception rows listed per run before the list is cut.
-     *
-     * Both caps travel with a total, because a cap that cannot be seen is the
-     * part that is wrong (Codex, 2026-08-29, on the flag list shipping 25 of
-     * 26 in silence).
+     * Notes listed per run before the list is cut: the most a pass can list
+     * as read ({@see McpServer::EXAMINED_MAX}). The cap travels with a total,
+     * because a cap that cannot be seen is the part that is wrong (Codex,
+     * 2026-08-29, on the flag list shipping 25 of 26 in silence).
      */
-    private const DEFECTS_SHOWN = 10;
-    private const WAITING_SHOWN = 10;
-    private const TOUCHED_SHOWN = 25;
+    private const NOTES_SHOWN = 60;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -162,35 +170,37 @@ class CurationDigest
 
         $counts = $this->countsByRun($runs);
         $examined = $this->examinedByRun($runs);
-        $written = $this->writtenByRun($runs);
-        $waiting = $this->waitingByRun($runs);
-        // One defect query for every note in every rendered run, rather than
-        // one per note per reason — ten runs of twenty notes across nine
-        // predicates is 1,800 round trips done the obvious way.
-        $allExamined = [];
-        foreach ($examined as $run) {
-            foreach ($run['ids'] as $noteId) {
-                $allExamined[$noteId] = true;
+        $touched = $this->touchedByRun($runs);
+
+        $items = [];
+        $allIds = [];
+        foreach ($runs as $run) {
+            $items[$run['id']] = self::itemsFor($touched[$run['id']] ?? [], $examined[$run['id']]['notes'] ?? []);
+            foreach ($items[$run['id']] as $item) {
+                if ($item['note_id'] !== null) {
+                    $allIds[$item['note_id']] = true;
+                }
             }
         }
-        $defects = $this->queue->defectsAmong(array_keys($allExamined));
+        // One query for every note in every rendered run, rather than one per
+        // note per reason — ten runs of twenty notes across nine predicates is
+        // 1,800 round trips done the obvious way.
+        $defects = $this->queue->defectsAmong(array_keys($allIds));
+        $openFlags = $this->openFlagsAmong(array_keys($allIds));
 
         $out = [];
         foreach ($runs as $run) {
             $runId = $run['id'];
             $byAction = $counts[$runId] ?? [];
-            $ids = $examined[$runId]['ids'] ?? [];
-
-            $stillDefective = [];
-            foreach ($ids as $noteId) {
-                if (isset($defects[$noteId])) {
-                    $stillDefective[] = $defects[$noteId];
-                }
+            $runItems = [];
+            $waitingTotal = 0;
+            $failedTotal = 0;
+            foreach ($items[$runId] as $item) {
+                $item['failed'] = self::failed($item, $defects, $openFlags);
+                $waitingTotal += $item['waiting'] ? 1 : 0;
+                $failedTotal += $item['failed'] !== [] ? 1 : 0;
+                $runItems[] = $item;
             }
-
-            $runWaiting = $waiting[$runId] ?? [];
-            $runWritten = $written[$runId] ?? [];
-            $runExamined = $examined[$runId]['notes'] ?? [];
 
             $out[] = [
                 'log_id' => $run['id'],
@@ -211,13 +221,10 @@ class CurationDigest
                 'counts' => $this->countsFor($byAction, $examined[$runId]['total'] ?? 0),
                 'claims' => $run['claims'],
                 'mismatches' => $run['bounded'] ? $this->mismatches($run['claims'], $byAction) : [],
-                'still_defective' => array_slice($stillDefective, 0, self::DEFECTS_SHOWN),
-                'still_defective_total' => count($stillDefective),
-                'waiting' => array_slice($runWaiting, 0, self::WAITING_SHOWN),
-                'waiting_total' => count($runWaiting),
-                'written' => array_slice($runWritten, 0, self::TOUCHED_SHOWN),
-                'written_total' => count($runWritten),
-                'examined' => array_slice($runExamined, 0, self::TOUCHED_SHOWN),
+                'waiting_total' => $waitingTotal,
+                'failed_total' => $failedTotal,
+                'notes' => array_slice($runItems, 0, self::NOTES_SHOWN),
+                'notes_total' => count($runItems),
             ];
         }
 
@@ -472,12 +479,12 @@ class CurationDigest
      * `notes` is the same rows as the reader sees them: the note's number and
      * title where it survives, the title alone where it does not.
      *
-     * @return array<int, array{total: int, ids: list<int>, notes: list<array{note_id: ?int, title: string}>}>
+     * @return array<int, array{total: int, ids: list<int>, notes: array<string, array{note_id: ?int, title: string, why: ?string, result: ?string}>}>
      */
     private function examinedByRun(array $runs): array
     {
         $rows = $this->em->getConnection()->fetchAllAssociative(
-            'SELECT e.run_id, e.note_id, e.note_title, wn.id AS note_number
+            'SELECT e.run_id, e.note_id, e.retired_note_id, e.note_title, e.why, e.said, wn.id AS note_number
              FROM curator_log e
              LEFT JOIN notes wn ON wn.id = e.note_id
              WHERE e.action = :examined AND e.run_id IN (:runs)
@@ -497,9 +504,11 @@ class CurationDigest
             if ($row['note_id'] !== null) {
                 $out[$runId]['ids'][] = (int) $row['note_id'];
             }
-            $out[$runId]['notes'][] = [
+            $out[$runId]['notes'][self::noteKey($row)] = [
                 'note_id' => $row['note_number'] === null ? null : (int) $row['note_number'],
                 'title' => (string) ($row['note_title'] ?? ''),
+                'why' => $row['why'] === null ? null : (string) $row['why'],
+                'result' => $row['said'] === null ? null : (string) $row['said'],
             ];
         }
 
@@ -507,113 +516,207 @@ class CurationDigest
     }
 
     /**
-     * The notes each run changed — one row per note, however many edits the
-     * pass made to it — over the same window the `edited` and `created`
-     * counts are taken from, so the list and the numbers cannot disagree
-     * about which pass a change belongs to.
+     * What each run did to each note it touched, in the order it did it.
      *
-     * A note the pass created and then edited is `created`. A note since
-     * deleted keeps its title and loses its link, as everywhere in the digest;
-     * the title shown is the one its latest row recorded.
+     * One entry per note, however many rows the pass wrote against it, over
+     * the same window the counts are taken from — so the record and the
+     * numbers cannot disagree about which pass a change belongs to. Each row
+     * carries what its writer filed with it; nothing here is composed by
+     * memex. A note since deleted keeps the title its latest row recorded and
+     * loses its link, as everywhere in the digest.
+     *
+     * `waiting` is the question asked of the proposals table: a rejected
+     * proposal is REMOVED ({@see ReviewVerdicts::rejectProposal()}) and an
+     * approved one is marked applied, so a surviving `held` proposal of the
+     * same kind against the same note is undecided and nothing else is. A
+     * held edit is matched to its own connection, because another
+     * connection's draft on the same note is a separate item.
      *
      * @param list<array<string, mixed>> $runs
      *
-     * @return array<int, list<array{note_id: ?int, title: string, kind: 'created'|'edited', rows: int}>>
+     * @return array<int, array<string, array{note_id: ?int, title: string, changes: list<array{log_id: int, action: string, text: string, why: ?string, waiting: bool}>}>>
      */
-    private function writtenByRun(array $runs): array
+    private function touchedByRun(array $runs): array
     {
         [$values, $params, $types] = self::windowValues($runs);
 
         $sql = 'WITH w(run_id, conn, from_at, from_id, to_at, to_id) AS (VALUES '.$values.')
-                SELECT w.run_id, e.action, e.note_id, e.retired_note_id, e.note_title, wn.id AS note_number
+                SELECT w.run_id, e.id AS log_id, e.action, e.note_id, e.retired_note_id, e.note_title,
+                       e.description, e.why, e.said, p.comment, wn.id AS note_number,
+                       CASE WHEN e.action IN (:held_edit, :del, :merge) AND EXISTS (
+                           SELECT 1 FROM edit_proposals q
+                           WHERE q.note_id = e.note_id
+                             AND q.status = :held
+                             AND q.type = CASE e.action WHEN :held_edit THEN :tedit WHEN :del THEN :tdel ELSE :tmerge END
+                             AND (e.action <> :held_edit OR e.token_id IS NULL OR q.proposed_by_token_id = e.token_id)
+                       ) THEN 1 ELSE 0 END AS undecided
                 FROM w
                 JOIN curator_log e ON '.self::IN_WINDOW.'
                 LEFT JOIN notes wn ON wn.id = e.note_id
-                WHERE e.action IN (:create, :edit)
-                ORDER BY e.created_at DESC, e.id DESC';
+                LEFT JOIN edit_proposals p ON p.id = e.proposal_id
+                WHERE e.action IN (:create, :edit, :held_edit, :del, :merge, :flag)
+                ORDER BY e.created_at, e.id';
 
         $params += [
             'create' => CuratorLogEntry::ACTION_CREATE,
             'edit' => CuratorLogEntry::ACTION_EDIT,
+            'held_edit' => CuratorLogEntry::ACTION_EDIT_PROPOSED,
+            'del' => CuratorLogEntry::ACTION_DELETE_PROPOSED,
+            'merge' => CuratorLogEntry::ACTION_MERGE_PROPOSED,
+            'flag' => CuratorLogEntry::ACTION_FLAG_RESOLVED,
+            'held' => EditProposal::STATUS_HELD,
+            'tedit' => EditProposal::TYPE_EDIT,
+            'tdel' => EditProposal::TYPE_DELETE,
+            'tmerge' => EditProposal::TYPE_MERGE,
         ];
 
         $grouped = [];
         foreach ($this->em->getConnection()->fetchAllAssociative($sql, $params, $types) as $row) {
             $runId = (int) $row['run_id'];
-            // A retired note's rows keep its id in `retired_note_id` for the
-            // thirty days it can come back, so a note renamed and then deleted
-            // inside one pass stays one row; the title is the key only once
-            // the note is purged and nothing else survives.
-            $key = 'note:'.($row['note_id'] ?? $row['retired_note_id'] ?? 'title:'.$row['note_title']);
-            $grouped[$runId][$key] ??= [
-                'note_id' => $row['note_number'] === null ? null : (int) $row['note_number'],
-                'title' => (string) ($row['note_title'] ?? ''),
-                'kind' => 'edited',
-                'rows' => 0,
+            $key = self::noteKey($row);
+            $grouped[$runId][$key] ??= ['note_id' => null, 'title' => '', 'changes' => []];
+            $grouped[$runId][$key]['note_id'] = $row['note_number'] === null ? null : (int) $row['note_number'];
+            $grouped[$runId][$key]['title'] = (string) ($row['note_title'] ?? '');
+            $grouped[$runId][$key]['changes'][] = [
+                'log_id' => (int) $row['log_id'],
+                'action' => (string) $row['action'],
+                // A row written before rows kept the writer's text takes it
+                // from its proposal, which an applied edit keeps; memex's own
+                // sentence is the last resort.
+                'text' => (string) ($row['said'] ?? $row['comment'] ?? $row['description']),
+                'why' => $row['why'] === null ? null : (string) $row['why'],
+                'waiting' => (int) $row['undecided'] === 1,
             ];
-            ++$grouped[$runId][$key]['rows'];
-            if ($row['action'] === CuratorLogEntry::ACTION_CREATE) {
-                $grouped[$runId][$key]['kind'] = 'created';
-            }
         }
 
-        return array_map('array_values', $grouped);
+        return $grouped;
     }
 
     /**
-     * The deletes and merges each run proposed that are still undecided.
+     * One item per note the pass touched or read: the notes it wrote to in the
+     * order it worked them, then the notes it only read, in the order it
+     * listed them.
      *
-     * Built from the LOG rows rather than from `edit_proposals` alone, because
-     * these are the rows the digest is summarising and the ones a click lands
-     * on. "Still waiting" is then the exact question asked of the proposals
-     * table: a rejected proposal is REMOVED ({@see ReviewVerdicts::rejectProposal()})
-     * and an approved one is marked applied, so a surviving `held` row of the
-     * same type against the same note is undecided and nothing else is.
+     * `why` is the pass's own sentence from `examined`; `flag` is the
+     * operator's, when the pass answered a flag on the note. `done` is what the
+     * writer filed with each write, or the pass's verdict on a note it left
+     * alone.
      *
-     * @param list<array<string, mixed>> $runs
+     * @param array<string, array{note_id: ?int, title: string, changes: list<array{log_id: int, action: string, text: string, why: ?string, waiting: bool}>}> $touched
+     * @param array<string, array{note_id: ?int, title: string, why: ?string, result: ?string}>                                                  $examined
      *
-     * @return array<int, list<array<string, mixed>>>
+     * @return list<array<string, mixed>>
      */
-    private function waitingByRun(array $runs): array
+    private static function itemsFor(array $touched, array $examined): array
     {
-        [$values, $params, $types] = self::windowValues($runs);
-
-        $sql = 'WITH w(run_id, conn, from_at, from_id, to_at, to_id) AS (VALUES '.$values.')
-                SELECT w.run_id, e.id AS log_id, e.action, wn.id AS note_number, e.note_title,
-                       CASE WHEN EXISTS (
-                           SELECT 1 FROM edit_proposals p
-                           WHERE p.note_id = e.note_id
-                             AND p.status = :held
-                             AND p.type = CASE e.action WHEN :del THEN :tdel ELSE :tmerge END
-                       ) THEN 1 ELSE 0 END AS undecided
-                FROM w
-                JOIN curator_log e ON '.self::IN_WINDOW.'
-                LEFT JOIN notes wn ON wn.id = e.note_id
-                WHERE e.action IN (:del, :merge) AND e.note_id IS NOT NULL
-                ORDER BY e.created_at DESC, e.id DESC';
-
-        $params += [
-            'held' => EditProposal::STATUS_HELD,
-            'del' => CuratorLogEntry::ACTION_DELETE_PROPOSED,
-            'merge' => CuratorLogEntry::ACTION_MERGE_PROPOSED,
-            'tdel' => EditProposal::TYPE_DELETE,
-            'tmerge' => EditProposal::TYPE_MERGE,
-        ];
-
-        $out = [];
-        foreach ($this->em->getConnection()->fetchAllAssociative($sql, $params, $types) as $row) {
-            if ((int) $row['undecided'] !== 1) {
-                continue;
+        $items = [];
+        foreach ($touched as $key => $note) {
+            $read = $examined[$key] ?? null;
+            $flag = null;
+            $done = [];
+            $outcome = [];
+            foreach ($note['changes'] as $change) {
+                if ($change['action'] === CuratorLogEntry::ACTION_FLAG_RESOLVED) {
+                    $flag ??= $change['why'];
+                }
+                $outcome[$change['action']] = true;
+                $done[] = ['action' => $change['action'], 'text' => $change['text'], 'waiting' => $change['waiting']];
             }
-            $out[(int) $row['run_id']][] = [
-                'log_id' => (int) $row['log_id'],
-                'kind' => $row['action'] === CuratorLogEntry::ACTION_DELETE_PROPOSED ? 'delete' : 'merge',
-                'note_id' => (int) $row['note_number'],
-                'title' => (string) ($row['note_title'] ?? ''),
+            if ($read !== null && $read['result'] !== null) {
+                $done[] = ['action' => CuratorLogEntry::ACTION_EXAMINED, 'text' => $read['result'], 'waiting' => false];
+            }
+            $items[] = [
+                'note_id' => $note['note_id'],
+                'title' => $note['title'],
+                'outcome' => array_keys($outcome),
+                'waiting' => in_array(true, array_column($note['changes'], 'waiting'), true),
+                'flag' => $flag,
+                'why' => $read['why'] ?? null,
+                'done' => $done,
+            ];
+        }
+        foreach (array_diff_key($examined, $touched) as $read) {
+            $items[] = [
+                'note_id' => $read['note_id'],
+                'title' => $read['title'],
+                'outcome' => [CuratorLogEntry::ACTION_EXAMINED],
+                'waiting' => false,
+                'flag' => null,
+                'why' => $read['why'],
+                'done' => $read['result'] === null ? [] : [['action' => CuratorLogEntry::ACTION_EXAMINED, 'text' => $read['result'], 'waiting' => false]],
             ];
         }
 
-        return $out;
+        return $items;
+    }
+
+    /**
+     * The checks a note still fails now that the pass is over — what a reader
+     * calls curation that failed.
+     *
+     * `not_embedded` is never one: a note's embedding is memex's own job and
+     * no curator can do it. Nothing is, while a delete or a merge the pass
+     * filed for the note waits on the operator: that is the pass's answer to
+     * whatever the note fails, and it keeps a flag open by design
+     * ({@see CurationFlags}).
+     *
+     * @param array<string, mixed>                                   $item
+     * @param array<int, array{reasons: list<string>}>               $defects
+     * @param array<int, true>                                       $openFlags
+     *
+     * @return list<string>
+     */
+    private static function failed(array $item, array $defects, array $openFlags): array
+    {
+        $id = $item['note_id'];
+        $retiring = array_filter(
+            $item['done'],
+            static fn (array $d): bool => $d['waiting']
+                && in_array($d['action'], [CuratorLogEntry::ACTION_DELETE_PROPOSED, CuratorLogEntry::ACTION_MERGE_PROPOSED], true),
+        );
+        if ($id === null || $retiring !== []) {
+            return [];
+        }
+        $failed = array_values(array_diff($defects[$id]['reasons'] ?? [], ['not_embedded']));
+        if (isset($openFlags[$id])) {
+            array_unshift($failed, 'operator_flag');
+        }
+
+        return $failed;
+    }
+
+    /**
+     * @param list<int> $noteIds
+     *
+     * @return array<int, true>
+     */
+    private function openFlagsAmong(array $noteIds): array
+    {
+        if ($noteIds === []) {
+            return [];
+        }
+        $ids = $this->em->getConnection()->fetchFirstColumn(
+            'SELECT note_id FROM curation_flags WHERE resolved_at IS NULL AND note_id IN (:ids)',
+            ['ids' => $noteIds],
+            ['ids' => ArrayParameterType::INTEGER],
+        );
+
+        return array_fill_keys(array_map('intval', $ids), true);
+    }
+
+    /**
+     * Which note a row is about, stable across a rename and a deletion.
+     *
+     * A retired note's rows keep its id in `retired_note_id` for the thirty
+     * days it can come back, so a note renamed and then deleted inside one
+     * pass stays one entry; the title is the key only once the note is purged
+     * and nothing else survives.
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function noteKey(array $row): string
+    {
+        return 'note:'.($row['note_id'] ?? $row['retired_note_id'] ?? 'title:'.$row['note_title']);
     }
 
     /**

@@ -2310,18 +2310,6 @@ ul.pagination li a:hover {
     margin-top: 0.15rem;
 }
 
-.mm-curation-queue {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 0.6rem;
-}
-
-.mm-curation-queue > li {
-    padding: 0.5rem 0;
-    border-top: 1px solid var(--mm-line);
-    overflow-wrap: anywhere;
-}
-
 .mm-curation-why {
     display: block;
     font-size: 0.8rem;
@@ -3169,25 +3157,6 @@ button.mm-census-row:hover {
     background: var(--mm-hover);
 }
 
-.mm-run-badge {
-    font-size: 0.78rem;
-    border-radius: 999px;
-    padding: 0.05rem 0.5rem;
-    white-space: nowrap;
-}
-
-.mm-run-badge.tone-bad {
-    background: rgba(220, 53, 69, 0.12);
-    border: 1px solid rgba(220, 53, 69, 0.45);
-    color: #a02330;
-}
-
-.mm-run-badge.tone-warn {
-    background: rgba(255, 193, 7, 0.16);
-    border: 1px solid rgba(255, 193, 7, 0.55);
-    color: #7a5a00;
-}
-
 .mm-run-scope {
     display: block;
     color: var(--mm-muted);
@@ -3198,94 +3167,104 @@ button.mm-census-row:hover {
     padding: 0.4rem 0.3rem 1.1rem;
 }
 
-.mm-run-slots {
-    display: grid;
-    grid-template-columns: 11rem minmax(0, 1fr);
-    gap: 0.7rem 1rem;
-    margin: 0 0 1.1rem;
-    font-size: 0.88rem;
+.mm-run-overview {
+    margin-bottom: 0.9rem;
+    font-size: 0.9rem;
 }
 
-.mm-run-slots > div {
-    display: contents;
+.mm-run-alert {
+    font-size: 0.85rem;
+    margin-bottom: 0.6rem;
 }
 
-.mm-run-slots dt {
-    color: var(--mm-muted);
-    font-weight: 500;
-    font-size: 0.8rem;
-}
-
-.mm-run-slots dd {
-    margin: 0;
-    max-width: 62ch;
-}
-
-.mm-run-slots dd.tone-bad {
+.mm-run-alert.tone-bad {
     color: #a02330;
 }
 
-.mm-run-slots dd.tone-quiet {
-    color: var(--mm-muted);
+/* One item per note: what was applied on the first line, then why, what was
+   done and what failed, each under its own label. */
+.mm-run-items {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    font-size: 0.88rem;
 }
 
-@media (max-width: 575.98px) {
-    .mm-run-slots {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 0.15rem;
-    }
-
-    .mm-run-slots > div + div {
-        margin-top: 0.7rem;
-    }
-
-    .mm-run-slots dt {
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        font-size: 0.72rem;
-    }
-}
-
-/* Zeros shown, not hidden: a zero says the pass checked and found none, and
-   dropping it invites "did it forget?". */
-.mm-run-breakdown {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.75rem;
-    font-size: 0.8rem;
-    color: var(--mm-ink-soft);
-    margin-top: 0.2rem;
-}
-
-.mm-run-breakdown > span:first-child {
-    color: var(--mm-muted);
-    min-width: 4rem;
-}
-
-.mm-run-breakdown .zero {
-    color: var(--mm-muted);
-    opacity: 0.6;
-}
-
-.mm-run-mismatch {
-    font-size: 0.85rem;
-    margin-bottom: 0;
-}
-
-.mm-run-todo {
-    margin-bottom: 1rem;
-}
-
-.mm-run-read {
-    margin: 0;
-    line-height: 1.7;
+.mm-run-items > li {
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--mm-line);
     overflow-wrap: anywhere;
 }
 
-.mm-run-said {
-    border-left: 3px solid var(--mm-line);
-    padding-left: 0.8rem;
-    margin-bottom: 1rem;
+.mm-run-items > li:first-child {
+    border-top: 0;
+}
+
+.mm-run-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.4rem;
+    font-weight: 600;
+}
+
+.mm-run-id {
+    color: var(--mm-muted);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.mm-run-item-body {
+    list-style: none;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.15rem 0.75rem;
+    padding: 0 0 0 1.1rem;
+    margin: 0.25rem 0 0;
+}
+
+.mm-run-item-body > li {
+    display: contents;
+}
+
+.mm-run-label {
+    color: var(--mm-muted);
+    font-size: 0.8rem;
+    padding-top: 0.08rem;
+}
+
+.mm-run-value {
+    min-width: 0;
+}
+
+.mm-run-done > :last-child,
+.mm-run-done ul {
+    margin-bottom: 0;
+}
+
+.mm-run-done ul {
+    padding-left: 1.1rem;
+}
+
+.mm-run-failed > * {
+    color: #a02330;
+}
+
+[data-bs-theme="dark"] .mm-run-failed > *,
+[data-bs-theme="dark"] .mm-run-alert.tone-bad {
+    color: #f5b7b1;
+}
+
+
+@media (max-width: 575.98px) {
+    .mm-run-item-body {
+        grid-template-columns: minmax(0, 1fr);
+        padding-left: 0;
+    }
+
+    .mm-run-item-body .mm-run-label {
+        padding-top: 0.3rem;
+    }
 }
 
 .mm-run-foot {

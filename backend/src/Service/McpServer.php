@@ -930,6 +930,14 @@ final class McpServer
         if ($description === '' || mb_strlen($description) > 10000) {
             throw new \InvalidArgumentException('description is required (max 10000 chars)');
         }
+        $words = count(preg_split('/\s+/u', $description, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        if ($action === 'run-summary' && $words > CurationDigest::OVERVIEW_WORDS) {
+            throw new \InvalidArgumentException(
+                'A run-summary is an overview of at most '.CurationDigest::OVERVIEW_WORDS.' words, and this one has '.$words
+                .': say what the pass covered and how it ended. Every note is listed from `examined` and your own writes, '
+                .'each with why you took it up and what was done, so leave the notes and your reasoning out.'
+            );
+        }
 
         $entry = (new CuratorLogEntry($token->getName(), $action, $description))
             ->withToken($token)
@@ -1055,7 +1063,33 @@ final class McpServer
         if (!isset($args['examined']) || !is_array($args['examined'])) {
             return null;
         }
-        $ids = array_values(array_unique(array_map('intval', array_filter($args['examined'], 'is_numeric'))));
+        // A bare id, or the note with what the pass says about it. Both
+        // shapes stay accepted: a pass on an older charter sends ids alone.
+        $said = [];
+        foreach ($args['examined'] as $item) {
+            if (is_array($item)) {
+                if (!isset($item['note_id']) || !is_numeric($item['note_id'])) {
+                    throw new \InvalidArgumentException('examined: each entry is a note id, or an object with note_id, why and result');
+                }
+                $id = (int) $item['note_id'];
+                foreach (['why', 'result'] as $field) {
+                    if (isset($item[$field]) && (!is_string($item[$field]) || mb_strlen(trim($item[$field])) > CuratorLogEntry::WHY_MAX)) {
+                        throw new \InvalidArgumentException(
+                            'examined: '.$field.' on note '.$id.' is one short sentence, at most '.CuratorLogEntry::WHY_MAX.' characters'
+                        );
+                    }
+                }
+                if (isset($item['result']) && self::saysNothing($item['result'])) {
+                    throw new \InvalidArgumentException(
+                        'examined: the result on note '.$id.' says nothing — say what you verified, e.g. "status lines dated 2026-09-19 still match note 87"'
+                    );
+                }
+                $said[$id] = ['why' => $item['why'] ?? null, 'result' => $item['result'] ?? null];
+            } elseif (is_numeric($item)) {
+                $said[(int) $item] ??= ['why' => null, 'result' => null];
+            }
+        }
+        $ids = array_keys($said);
         if ($ids === []) {
             return null;
         }
@@ -1087,8 +1121,9 @@ final class McpServer
             $row = (new CuratorLogEntry(
                 $summary->getTokenName(),
                 CuratorLogEntry::ACTION_EXAMINED,
-                'Read during a curation pass and needed nothing (log entry '.$summary->getId().').'
-            ))->withNote($note)->withRun($summary)->withCurationRun($summary);
+                'Read during a curation pass (log entry '.$summary->getId().').'
+            ))->withNote($note)->withRun($summary)->withCurationRun($summary)
+                ->withWhy($said[$id]['why'])->withSaid($said[$id]['result']);
             if ($token !== null) {
                 $row->withToken($token);
             }
@@ -1098,6 +1133,18 @@ final class McpServer
         $this->curationLeases->release($token?->getId());
 
         return ['examined' => count($ids), 'still_defective' => $stillDefective];
+    }
+
+    /** A verdict that is only a filler word: "Fine.", "No change", "OK". */
+    private static function saysNothing(string $result): bool
+    {
+        $bare = strtolower(trim(preg_replace('/[^\p{L}\s]+/u', ' ', $result) ?? ''));
+        $bare = (string) preg_replace('/\s+/', ' ', $bare);
+
+        return in_array($bare, [
+            '', 'fine', 'ok', 'okay', 'good', 'sound', 'correct', 'accurate', 'current', 'no change', 'no changes',
+            'nothing', 'nothing needed', 'nothing to do', 'left alone', 'left as is', 'unchanged', 'no issues', 'all good',
+        ], true);
     }
 
     private function toolLogRecent(array $args): array
@@ -1708,12 +1755,20 @@ final class McpServer
                     'type' => 'object',
                     'properties' => [
                         'action' => ['type' => 'string', 'enum' => CuratorLogEntry::AGENT_ACTIONS, 'description' => 'run-summary = end-of-run recap; observation = notable finding, no action needed; tooling-gap = missing capability hit during work'],
-                        'description' => ['type' => 'string', 'description' => 'The entry text — complete sentences, evidence cited (note titles/ids)'],
+                        'description' => ['type' => 'string', 'description' => 'The entry text. For a run-summary: an overview of at most '.CurationDigest::OVERVIEW_WORDS.' words, saying what the pass covered and how it ended — not the notes one by one, which memex lists from `examined` and your writes, and not your reasoning. For an observation or a tooling gap: complete sentences, evidence cited (note titles/ids)'],
                         'note_id' => ['type' => 'integer', 'description' => 'Note this entry is about, if any'],
                         'examined' => [
                             'type' => 'array',
-                            'items' => ['type' => 'integer'],
-                            'description' => 'CLOSE YOUR RUN WITH THIS. Every note id the pass actually READ, including the ones that turned out to need nothing — that is the half nothing else records. A note you read and left alone is otherwise indistinguishable from one nobody has ever opened, so without this list your next pass re-reads the same notes forever and never reaches the ones behind them. It is also what lets a settled note rest longer each time a pass approves of it (7, 14, 28, 56 days), so the budget goes to notes that have not been read rather than to the same evergreen cluster. Send the ids you genuinely opened, not the ids the queue offered you. If one still carries a defect you decided was a false positive, list it anyway — you are told so in `still_defective` and the record keeps your judgment repeatable.',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'note_id' => ['type' => 'integer'],
+                                    'why' => ['type' => 'string', 'maxLength' => CuratorLogEntry::WHY_MAX, 'description' => 'What you checked this note for and against, in one short sentence with its evidence inline ("checked the CV\'s reach figure against the dossier\'s open items"). Not the queue\'s reason for offering it'],
+                                    'result' => ['type' => 'string', 'maxLength' => CuratorLogEntry::WHY_MAX, 'description' => 'For a note you did NOT change, one short sentence saying what you verified ("status lines dated 2026-09-19 still match note 87"); "fine" or "no change" alone is refused. For one that still fails a check, why you left it. Leave it out for a note you changed: what you filed with each write says what was done'],
+                                ],
+                                'required' => ['note_id', 'why'],
+                            ],
+                            'description' => 'CLOSE YOUR RUN WITH THIS. Every note the pass actually READ, including the ones that turned out to need nothing — that is the half nothing else records. Each entry is the note with what you checked it for, and for a note you left alone, what you verified: the operator reads your pass as one item per note, and these are its lines. List only notes you read to the end. A note you read and left alone is otherwise indistinguishable from one nobody has ever opened, so without this list your next pass re-reads the same notes forever and never reaches the ones behind them. It is also what lets a settled note rest longer each time a pass approves of it (7, 14, 28, 56 days), so the budget goes to notes that have not been read rather than to the same evergreen cluster. Send the ids you genuinely opened, not the ids the queue offered you. If one still carries a defect you decided was a false positive, list it anyway — you are told so in `still_defective` and the record keeps your judgment repeatable.',
                         ],
                         'started_at' => [
                             'type' => 'string',

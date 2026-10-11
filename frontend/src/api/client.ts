@@ -786,13 +786,34 @@ export interface CurationRun {
   }
   claims: Record<string, number> | null
   mismatches: { claim: string; claimed: number; logged: number }[]
-  still_defective: { note_id: number; title: string; reasons: string[] }[]
-  still_defective_total: number
-  waiting: { log_id: number; kind: 'delete' | 'merge'; note_id: number; title: string }[]
   waiting_total: number
-  written: { note_id: number | null; title: string; kind: 'created' | 'edited'; rows: number }[]
-  written_total: number
-  examined: { note_id: number | null; title: string }[]
+  failed_total: number
+  notes: CurationRunNote[]
+  notes_total: number
+}
+
+export type CurationRunAction =
+  | 'create'
+  | 'edit'
+  | 'edit-proposed'
+  | 'delete-proposed'
+  | 'merge-proposed'
+  | 'flag-resolved'
+  | 'examined'
+
+/** One note a pass touched or read: why, and what was done. */
+export interface CurationRunNote {
+  note_id: number | null
+  title: string
+  outcome: CurationRunAction[]
+  waiting: boolean
+  /** Checks the note still fails after the pass; `operator_flag` is a flag left open. */
+  failed: string[]
+  /** The operator's own flag, when the pass answered one. */
+  flag: string | null
+  /** The pass's own sentence on why it took the note up. */
+  why: string | null
+  done: { action: CurationRunAction; text: string; waiting: boolean }[]
 }
 
 export interface ActivityRunScope {

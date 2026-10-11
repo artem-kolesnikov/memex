@@ -449,6 +449,24 @@ class CuratorLogEntry
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $runStartedAt = null;
 
+    /**
+     * Why a pass took this note up, in its own words — on an `examined` row,
+     * the sentence the pass closed its run with; on a `flag-resolved` row,
+     * the operator's own flag.
+     */
+    #[ORM\Column(length: 300, nullable: true)]
+    private ?string $why = null;
+
+    /**
+     * What the writer said it did, exactly as filed: an edit's comment, a
+     * delete's reason, a flag's resolution, a pass's verdict on a note it left
+     * alone. `description` holds memex's sentence around it; this is the text
+     * alone, kept on the row because a rejected proposal is deleted and would
+     * take it along exactly when the operator looks back.
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $said = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -565,6 +583,34 @@ class CuratorLogEntry
         $this->proposal = $proposal;
 
         return $this;
+    }
+
+    public const WHY_MAX = 300;
+
+    public function withWhy(?string $why): self
+    {
+        $why = $why === null ? null : trim($why);
+        $this->why = ($why === null || $why === '') ? null : mb_substr($why, 0, self::WHY_MAX);
+
+        return $this;
+    }
+
+    public function getWhy(): ?string
+    {
+        return $this->why;
+    }
+
+    public function withSaid(?string $said): self
+    {
+        $said = $said === null ? null : trim($said);
+        $this->said = ($said === null || $said === '') ? null : $said;
+
+        return $this;
+    }
+
+    public function getSaid(): ?string
+    {
+        return $this->said;
     }
 
     /**

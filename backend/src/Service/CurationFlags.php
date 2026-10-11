@@ -185,7 +185,7 @@ class CurationFlags
                 $tokenName,
                 CuratorLogEntry::ACTION_FLAG_RESOLVED,
                 'Resolved the operator flag on “'.$note->getTitle().'”: '.$resolution,
-            ))->withToken($token)->withNote($note)
+            ))->withToken($token)->withNote($note)->withWhy($flag->getComment())->withSaid($resolution)
         );
         $this->em->flush();
 

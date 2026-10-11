@@ -139,9 +139,14 @@ const RUN = {
   log_id: 102, at: '2026-09-01T09:00:00+00:00', by: 'Nightly tidy', writer: 'curator', window_from: null,
   window_bounded: true, description: 'Tidied.',
   counts: { examined: 2, created: 0, edited: 1, held: 0, proposed: 0, flags_resolved: 0, observations: 0, tooling_gaps: 0 },
-  claims: null, mismatches: [], still_defective: [], still_defective_total: 0, waiting: [], waiting_total: 0,
-  written: [{ note_id: 5, title: 'Note 5', kind: 'edited', rows: 1 }], written_total: 1,
-  examined: [{ note_id: 5, title: 'Note 5' }, { note_id: 6, title: 'Note 6' }],
+  claims: null, mismatches: [], waiting_total: 0, failed_total: 0,
+  notes: [
+    { note_id: 5, title: 'Note 5', outcome: ['edit'], waiting: false, failed: [], flag: null,
+      why: 'Checked its tags against note 6.', done: [{ action: 'edit', text: 'Tagged like note 6.', waiting: false }] },
+    { note_id: 6, title: 'Note 6', outcome: ['examined'], waiting: false, failed: [], flag: null,
+      why: 'Checked its dates against note 5.', done: [{ action: 'examined', text: 'Its dates match note 5.', waiting: false }] },
+  ],
+  notes_total: 2,
 }
 
 async function apiStub(route) {
