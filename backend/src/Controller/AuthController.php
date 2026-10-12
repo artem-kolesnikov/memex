@@ -156,46 +156,18 @@ class AuthController extends ApiController
     }
 
     /**
-     * The first-run wizard: whether this person is past it, and how far the
-     * account has actually got.
-     *
-     * The facts are read live on every call because the wizard polls this
-     * while the person is away in their assistant's settings — connecting
-     * happens in another application, and the only way memex learns it
-     * worked is a request arriving from that assistant.
+     * What the account has actually got: whether an assistant has connected,
+     * and the owner's profile notes. Read live on every call, because
+     * connecting happens in another application and the only way memex learns
+     * it worked is a request arriving from that assistant.
      */
     #[Route('/api/me/welcome', methods: ['GET'])]
     public function welcome(Request $request, WelcomeProgress $progress): JsonResponse
     {
         $this->currentAccount();
-        $this->assertSessionAuth($request, 'The welcome wizard');
+        $this->assertSessionAuth($request, 'The welcome screens');
 
-        return $this->json([
-            'completed' => $this->settings()->hasFinishedWelcome(),
-            'facts' => $progress->for(),
-        ]);
-    }
-
-    /**
-     * Stop sending this person to the wizard on sign-in.
-     *
-     * Written by finishing it AND by leaving it, and the two are deliberately
-     * the same write: a wizard that only lets you out by completing it is a
-     * wall, and somebody who connected their assistant last week has nothing
-     * to complete. It decides nothing about the account — every step it
-     * offered is still reachable in Settings, which also opens the wizard
-     * again.
-     */
-    #[Route('/api/me/welcome/done', methods: ['POST'])]
-    public function finishWelcome(Request $request): JsonResponse
-    {
-        $this->currentAccount();
-        $this->assertSessionAuth($request, 'The welcome wizard');
-
-        $this->settings()->finishWelcome();
-        $this->em->flush();
-
-        return $this->json(['completed' => true]);
+        return $this->json(['facts' => $progress->for()]);
     }
 
     /**
@@ -294,12 +266,6 @@ class AuthController extends ApiController
             ],
             'auth' => $token !== null ? 'token' : 'session',
             'token_name' => $token?->getName(),
-            // Whether sign-in should hand this person to the first-run wizard.
-            // On `me` rather than behind its own request because the router
-            // has to decide before the first view renders, and a second round
-            // trip there is a blank screen or a flash of the app behind it.
-            // Absent for a token: a connection has no screen to be sent to.
-            ...($token === null ? ['welcome_completed' => $settings->hasFinishedWelcome()] : []),
             // The tags memex itself reads, with the reason each is held. Rides
             // on `me` because it is the one payload every screen already has
             // before it renders a tag chip, and a chip appears on the note,

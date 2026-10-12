@@ -42,6 +42,7 @@ import { SLUG_RE } from '@/components/skills/skillEditing'
 import AnalyzeAllowanceNote from '@/components/AnalyzeAllowanceNote.vue'
 import { renderNote } from '@/lib/markdown'
 import { formatCount, noteStats } from '@/lib/noteStats'
+import { readIntake } from '@/lib/fileIntake'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import NoteDeleteDialog from '@/components/NoteDeleteDialog.vue'
@@ -399,7 +400,7 @@ function chooseFile() {
   fileInput.value?.click()
 }
 
-// Fills the form the way a fetch does; frontmatter title and tags are honored.
+// Fills the form the way a fetch does, from the frontmatter readIntake() reads.
 async function onFileChosen(event: Event) {
   if (outcomeUnknown.value) return
   const file = (event.target as HTMLInputElement).files?.[0]
@@ -412,23 +413,14 @@ async function onFileChosen(event: Event) {
       if (intake.current()) intakeError.value = t('editor.intake.changed')
       return
     }
-    let body = text
-    const fm = /^---\n([\s\S]*?)\n---\n?/.exec(text)
-    if (fm) {
-      body = text.slice(fm[0].length)
-      const fmBlock = fm[1] ?? ''
-      const title = /^title:\s*["']?(.+?)["']?\s*$/m.exec(fmBlock)?.[1]
-      if (title) entity.value.title = title
-      const tagList = /^tags:\s*\[(.*)\]\s*$/m.exec(fmBlock)?.[1]
-      if (tagList) {
-        const tags = tagList.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
-        entity.value.tags = [...new Set([...entity.value.tags, ...tags])]
-      }
-    }
+    const read = readIntake(text, asSkill.value)
+    if (read.title) entity.value.title = read.title
+    if (read.tags.length) entity.value.tags = [...new Set([...entity.value.tags, ...read.tags])]
+    if (read.summary) entity.value.summary = read.summary
     if (!entity.value.title) {
       entity.value.title = file.name.replace(/\.(md|markdown|txt)$/i, '')
     }
-    entity.value.bodyMd = body
+    entity.value.bodyMd = read.body
     toastSuccess(t('editor.intake.file_loaded'), file.name)
   } catch (e) {
     if (!intake.unchanged()) return

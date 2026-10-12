@@ -112,7 +112,8 @@ class TagAdmin
 
     /**
      * A name is back in the vocabulary, so the record that it was rejected is
-     * no longer true. Called from the one place a tag row is ever created.
+     * no longer true. Called when a note in force carries it
+     * ({@see NoteWriter::unretireTagsOf()}) and when the owner allows it back.
      */
     public function unretire(string $name): void
     {
@@ -182,6 +183,18 @@ class TagAdmin
             }
 
             $conn->executeStatement('DELETE FROM note_tag WHERE tag_id = :tag', ['tag' => $tagId]);
+
+            // The word merged into may be retired and held only by a pending
+            // note; once a note in force carries it, it is back
+            // ({@see NoteWriter::unretireTagsOf()}).
+            if ($into !== null) {
+                $conn->executeStatement(
+                    'DELETE FROM retired_tags WHERE name = :name AND EXISTS (
+                         SELECT 1 FROM note_tag nt JOIN notes n ON n.id = nt.note_id
+                         WHERE nt.tag_id = :into AND n.status = :verified)',
+                    ['name' => $into->getName(), 'into' => (int) $into->getId(), 'verified' => Note::STATUS_VERIFIED],
+                );
+            }
 
             if ($affected !== []) {
                 $conn->executeStatement(

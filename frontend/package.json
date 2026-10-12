@@ -13,6 +13,7 @@
     "check-responsive": "node scripts/check-responsive.mjs",
     "check-popovers": "node --experimental-strip-types scripts/check-popover-placement.mjs",
     "check-editor-commands": "node --experimental-strip-types scripts/check-editor-commands.mjs",
+    "check-file-intake": "node --experimental-strip-types scripts/check-file-intake.mjs",
     "check-wide-content": "node scripts/check-wide-content.mjs",
     "check-review-inbox": "node scripts/check-review-inbox-ledger.mjs",
     "check-review-inbox-behaviour": "node scripts/check-review-inbox-behaviour.mjs",

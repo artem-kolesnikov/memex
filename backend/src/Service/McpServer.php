@@ -1372,9 +1372,6 @@ final class McpServer
         }
 
         $this->recordServe($skill, SkillServe::PATH_TOOL);
-        if ($skill['slug'] === ShippedSkills::GUIDE) {
-            $this->recordGuideRead();
-        }
 
         return [
             'slug' => $skill['slug'],
@@ -1383,20 +1380,6 @@ final class McpServer
             'updated_at' => $skill['updated_at'],
             'instructions' => $skill['body'],
         ];
-    }
-
-    /**
-     * The first-run wizard's last step asks the person to have their
-     * assistant open the memex docs, and this is how memex finds out it did.
-     * Nothing else records what a connection READ.
-     */
-    private function recordGuideRead(): void
-    {
-        if ($this->mcpToken === null || $this->mcpToken->getGuideReadAt() !== null) {
-            return;
-        }
-        $this->mcpToken->markGuideRead();
-        $this->em->flush();
     }
 
     private function requireNote(array $args, string $key): Note

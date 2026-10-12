@@ -60,7 +60,6 @@ const ME = {
   id: 1, email: 'user@example.test', name: 'Test User',
   team: { id: 1, name: 'Demo', handle: HANDLE },
   system_tags: [], appearance: {}, icon_key: null, icon: null,
-  welcome_completed: true,
 }
 
 const LIST = [5, 6, 7].map((id) => ({

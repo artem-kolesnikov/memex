@@ -365,7 +365,6 @@ abstract class DesignSweepTestCase extends ApiTestCase
         return match ($route) {
             'POST /api/upload' => ['files' => [$file('probe.md', "---\ntags: [probe]\n---\n# Uploaded probe\n\nBody.\n")]],
             'POST /api/import' => ['archive' => $file('probe.zip', $this->zip(['Imported probe.md' => "Imported body.\n"]))],
-            'POST /api/skills/import' => ['files' => [$file('probe-skill.md', "---\nname: probe-skill\ndescription: A skill the sweep imports.\n---\n# Probe skill\n\nDo nothing.\n")]],
             'POST /api/me/icon', 'POST /api/tokens/{id}/icon' => ['icon' => $file('probe.png', self::png())],
             default => [],
         };

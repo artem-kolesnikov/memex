@@ -85,15 +85,6 @@ class VaultSettings
     #[ORM\Column(name: 'icon_blob', type: 'blob', nullable: true)]
     private mixed $iconBlob = null;
 
-    /**
-     * When the owner finished, or walked away from, the first-run wizard.
-     * Which step it opens on is derived from live state
-     * ({@see \App\Service\WelcomeProgress}); this only says whether signing in
-     * should take them there at all.
-     */
-    #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $welcomeCompletedAt = null;
-
     #[ORM\Column(name: 'updated_at')]
     private \DateTimeImmutable $updatedAt;
 
@@ -243,16 +234,6 @@ class VaultSettings
     public function hasUploadedIcon(): bool
     {
         return $this->iconKey === self::ICON_UPLOAD && $this->iconBlob !== null;
-    }
-
-    public function hasFinishedWelcome(): bool
-    {
-        return $this->welcomeCompletedAt !== null;
-    }
-
-    public function finishWelcome(): void
-    {
-        $this->welcomeCompletedAt ??= new \DateTimeImmutable();
     }
 
     public function getUpdatedAt(): \DateTimeImmutable

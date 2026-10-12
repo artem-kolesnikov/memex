@@ -56,7 +56,6 @@ const ME = {
   id: 1, email: 'user@example.test', name: 'Test User',
   team: { id: 1, name: 'Demo', handle: HANDLE },
   system_tags: [], appearance: {}, icon_key: null, icon: null,
-  welcome_completed: true,
 }
 
 const LIST = [5, 6, 7].map((id) => ({
@@ -71,7 +70,7 @@ async function stub(route) {
   if (url.pathname === '/api/me') return json(ME)
   if (url.pathname === '/api/me/setup') return json({ items: {}, complete: true, dismissed: true })
   if (url.pathname === '/api/me/onboarding') return json({ show: false, dismissed: true })
-  if (url.pathname === '/api/me/welcome') return json({ completed: true, facts: { connected: false, profiles: [] } })
+  if (url.pathname === '/api/me/welcome') return json({ facts: { connected: false, profiles: [] } })
   if (url.pathname === '/api/inbox/count') return json({ pending_notes: 0, edit_proposals: 0, total: 0 })
   if (url.pathname === '/api/presets') return json({ presets: [], icons: [] })
   if (url.pathname === '/api/tags') return json({ tags: [], retired: [] })

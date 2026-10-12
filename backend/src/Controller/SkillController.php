@@ -6,13 +6,9 @@ namespace App\Controller;
 
 use App\Attribute\ReleasesSession;
 use App\Entity\ApiToken;
-use App\Entity\CuratorLogEntry;
 use App\Entity\Note;
 use App\Service\AgentIcons;
-use App\Service\BoundedImportArchive;
 use App\Service\EmbeddingSpend;
-use App\Service\Journal;
-use App\Service\NoteWriter;
 use App\Service\ShippedSkills;
 use App\Service\SkillLibrary;
 use App\Service\SkillLint;
@@ -24,12 +20,8 @@ use App\Service\SkillSlugTaken;
 use App\Service\SkillUnlockConflict;
 use App\Service\SkillUnlocking;
 use App\Service\StarterSkills;
-use App\Service\StorageLimitExceeded;
-use App\Service\StorageLimits;
-use App\Service\SystemTags;
 use App\Service\UserGuide;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -58,10 +50,6 @@ class SkillController extends ApiController
         private readonly SkillLint $lint,
         private readonly SkillPackage $package,
         private readonly UserGuide $guide,
-        private readonly NoteWriter $writer,
-        private readonly StorageLimits $storageLimits,
-        private readonly BoundedImportArchive $archive,
-        private readonly Journal $journal,
         private readonly SkillUnlocking $unlocking,
     ) {
     }
@@ -98,147 +86,6 @@ class SkillController extends ApiController
             }
         }
         throw $this->createNotFoundException('That note is not a skill');
-    }
-
-    private const MAX_IMPORT_FILES = 20;
-
-    #[ReleasesSession]
-    #[Route('/api/skills/import', methods: ['POST'])]
-    public function import(Request $request): JsonResponse
-    {
-        $this->assertSessionAuth($request, 'Importing skills');
-
-        $files = $request->files->all();
-        $flat = [];
-        array_walk_recursive($files, function ($f) use (&$flat) { if ($f instanceof UploadedFile) { $flat[] = $f; } });
-        if ($flat === []) {
-            return $this->json($this->json400('No files uploaded'), Response::HTTP_BAD_REQUEST);
-        }
-        if (count($flat) > self::MAX_IMPORT_FILES) {
-            return $this->json($this->json400('Send at most '.self::MAX_IMPORT_FILES.' files at a time'), Response::HTTP_BAD_REQUEST);
-        }
-
-        $limits = $this->storageLimits->current();
-        $candidates = [];
-        $errors = [];
-        $ignored = [];
-        foreach ($flat as $file) {
-            $name = $file->getClientOriginalName();
-            $ext = strtolower($file->getClientOriginalExtension());
-            if ($ext === 'zip') {
-                $zip = new \ZipArchive();
-                if ($zip->open($file->getPathname()) !== true) {
-                    $errors[] = ['file' => $name, 'error' => 'Not a readable zip'];
-                    continue;
-                }
-                try {
-                    $entries = $this->archive->preflight($zip, $limits['max_import_bytes']);
-                } catch (\InvalidArgumentException $e) {
-                    $errors[] = ['file' => $name, 'error' => $e->getMessage()];
-                    $zip->close();
-                    continue;
-                }
-                foreach ($entries as $index => $entry) {
-                    $entryName = $entry['name'];
-                    if (!preg_match('~^(?:([^/]+)/)?SKILL\.md$~', $entryName, $m)) {
-                        $ignored[] = $entryName;
-                        continue;
-                    }
-                    $entryLabel = $name.':'.$entryName;
-                    if ($entry['size'] > $limits['max_note_bytes']) {
-                        $errors[] = ['file' => $entryLabel, 'error' => 'File too large (max '.$limits['max_note_bytes'].' bytes)'];
-                        continue;
-                    }
-                    try {
-                        $content = $this->archive->read($zip, $index, $entry, $limits['max_note_bytes']);
-                    } catch (\InvalidArgumentException $e) {
-                        $errors[] = ['file' => $entryLabel, 'error' => $e->getMessage()];
-                        continue;
-                    }
-                    $folder = $m[1] ?? '';
-                    $candidates[] = ['file' => $entryLabel, 'fallback' => $folder !== '' ? $folder : pathinfo($name, PATHINFO_FILENAME), 'content' => $content];
-                }
-                $zip->close();
-                continue;
-            }
-            if (!in_array($ext, ['md', 'markdown'], true)) {
-                $errors[] = ['file' => $name, 'error' => 'Only SKILL.md, .md or a zip of skill folders'];
-                continue;
-            }
-            $maxBytes = min($limits['max_note_bytes'], $limits['max_import_bytes']);
-            if ($file->getSize() > $maxBytes) {
-                $errors[] = ['file' => $name, 'error' => 'File too large (max '.$maxBytes.' bytes)'];
-                continue;
-            }
-            $content = file_get_contents($file->getPathname(), false, null, 0, $maxBytes + 1);
-            if ($content === false || strlen($content) > $maxBytes || !mb_check_encoding($content, 'UTF-8')) {
-                $errors[] = ['file' => $name, 'error' => 'File must be readable UTF-8 within '.$maxBytes.' bytes'];
-                continue;
-            }
-            $candidates[] = ['file' => $name, 'fallback' => pathinfo($name, PATHINFO_FILENAME), 'content' => $content];
-        }
-
-        $this->serving->ensureRecords();
-        $taken = array_fill_keys(ShippedSkills::reservedSlugs(), true);
-        foreach ($this->serving->settings() as $row) {
-            $taken[$row['slug']] = true;
-        }
-        $accepted = [];
-        foreach ($candidates as $c) {
-            if (trim($c['content']) === '') {
-                $errors[] = ['file' => $c['file'], 'error' => 'File is empty'];
-                continue;
-            }
-            try {
-                $parsed = $this->package->parse($c['content'], $c['fallback']);
-                $this->storageLimits->assertBody($parsed['body']);
-            } catch (\Throwable $e) {
-                $errors[] = ['file' => $c['file'], 'error' => $e->getMessage()];
-                continue;
-            }
-            if (isset($taken[$parsed['name']])) {
-                $errors[] = ['file' => $c['file'], 'error' => 'A skill is already served as '.$parsed['name']];
-                continue;
-            }
-            $taken[$parsed['name']] = true;
-            $accepted[] = $parsed + ['file' => $c['file']];
-        }
-
-        $created = [];
-        $this->journal->batch(function () use ($accepted, &$created, &$errors): void {
-            foreach ($accepted as $index => $skill) {
-                try {
-                    $note = $this->writer->create(
-                        null, mb_substr($skill['title'], 0, 500), $skill['body'], Note::SOURCE_UPLOAD, null, [SystemTags::SKILL],
-                        enrich: EmbeddingSpend::Metered, summary: $skill['description'] !== '' ? $skill['description'] : null, applyTags: false,
-                    )['note'];
-                } catch (\Throwable $e) {
-                    $limit = StorageLimitExceeded::fromThrowable($e);
-                    if ($limit === null) {
-                        throw $e;
-                    }
-                    $errors[] = ['file' => $skill['file'], 'error' => $limit->getMessage()];
-                    foreach (array_slice($accepted, $index + 1) as $left) {
-                        $errors[] = ['file' => $left['file'], 'error' => 'Not attempted: an earlier file in this upload was refused. Upload it again.'];
-                    }
-                    break;
-                }
-                $created[] = $note->getId();
-                try {
-                    $this->serving->ensureRecords();
-                    $this->serving->update($note->getId(), ['slug' => $skill['name']]);
-                } catch (\Throwable $e) {
-                    $errors[] = ['file' => $skill['file'], 'error' => $e->getMessage()];
-                }
-            }
-        }, static fn (array $notes): CuratorLogEntry => new CuratorLogEntry(
-            'operator',
-            CuratorLogEntry::ACTION_IMPORT,
-            count($notes) === 1 ? 'Imported 1 skill' : 'Imported '.count($notes).' skills',
-        ));
-        $rows = array_values(array_filter($this->rows(), static fn ($r) => in_array($r['note_id'], $created, true)));
-
-        return $this->json(['created' => $rows, 'errors' => $errors, 'ignored' => $ignored], $rows !== [] ? Response::HTTP_CREATED : Response::HTTP_BAD_REQUEST);
     }
 
     /** @return list<array> */

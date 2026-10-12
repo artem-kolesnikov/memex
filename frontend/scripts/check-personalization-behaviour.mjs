@@ -52,8 +52,8 @@ async function scenario(name, body, viewport = { width: 1440, height: 1000 }) {
     const req = route.request(), key = `${req.method()} ${new URL(req.url()).pathname}`
     const json = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) })
     if (state.on[key]) return state.on[key](json, req)
-    if (key === 'GET /api/me') return json({ id: 1, name: 'Test User', email: 'user@example.test', team: { id: 1, name: 'Demo', handle }, welcome_completed: true, system_tags: [], appearance: {}, icon_key: null, icon: null })
-    if (key === 'GET /api/me/welcome') return json({ completed: true, facts: { profiles: state.profiles, connected: true, guide_read: true } })
+    if (key === 'GET /api/me') return json({ id: 1, name: 'Test User', email: 'user@example.test', team: { id: 1, name: 'Demo', handle }, system_tags: [], appearance: {}, icon_key: null, icon: null })
+    if (key === 'GET /api/me/welcome') return json({ facts: { profiles: state.profiles, connected: true } })
     if (key === 'GET /api/personalization') return json(state.view)
     if (key === 'PATCH /api/personalization') {
       const { expected_revision, ...patch } = req.postDataJSON()

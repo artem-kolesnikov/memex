@@ -243,13 +243,14 @@ class NoteWriter
             $note->setSummary($summary, $summaryBy ?? self::describedBy($token));
         }
 
-        // One transaction from tag resolution to the row: resolving a retired
-        // tag un-retires it with a raw delete, and a refusal at the row must
+        // One transaction from tag resolution to the row: a note in force
+        // un-retires its tags with a raw delete, and a refusal at the row must
         // take that back with it.
         $this->limbo->whileHoldingNotes([], function () use ($note, $token, $title, $bodyMd, $tagNames, $status, $createdAt, $updatedAt): void {
             foreach ($this->resolveTags($tagNames) as $tag) {
                 $note->addTag($tag);
             }
+            $this->unretireTagsOf($note);
             $note->carryDates($createdAt, $updatedAt);
 
             $this->em->persist($note);
@@ -376,6 +377,7 @@ class NoteWriter
                 foreach ($this->resolveTags($tagNames) as $tag) {
                     $note->addTag($tag);
                 }
+                $this->unretireTagsOf($note);
             }
             $this->em->flush();
 
@@ -1336,6 +1338,7 @@ class NoteWriter
         foreach ($this->resolveTags($union) as $tag) {
             $keeper->addTag($tag);
         }
+        $this->unretireTagsOf($keeper);
         $this->enricher->syncLinks($keeper);
         $this->em->flush();
 
@@ -1407,17 +1410,30 @@ class NoteWriter
             if ($tag === null) {
                 $tag = new Tag($name);
                 $this->em->persist($tag);
-                // The one place a tag row is ever created, and therefore the
-                // one place a retirement can stop being true. A name the owner
-                // took out of the vocabulary is suppressed as a SUGGESTION; it
-                // was never forbidden, and once it is back on a note, going on
-                // telling assistants it was rejected would make `list_tags`
-                // describe a vocabulary that is not this one.
-                $this->tags->unretire($name);
             }
             $tags[] = $tag;
         }
 
         return $tags;
+    }
+
+    /**
+     * End the retirement of every word a note in force carries.
+     *
+     * A name the owner took out of the vocabulary is suppressed as a
+     * SUGGESTION; it was never forbidden, and once it is back on a note, going
+     * on telling assistants it was rejected would make `list_tags` describe a
+     * vocabulary that is not this one. A pending note is not back: it is an
+     * assistant's proposal, so its words stay retired until the owner approves
+     * it ({@see ReviewVerdicts::approveNote()}), and a rejection leaves them so.
+     */
+    public function unretireTagsOf(Note $note): void
+    {
+        if ($note->getStatus() !== Note::STATUS_VERIFIED) {
+            return;
+        }
+        foreach ($note->getTags() as $tag) {
+            $this->tags->unretire($tag->getName());
+        }
     }
 }

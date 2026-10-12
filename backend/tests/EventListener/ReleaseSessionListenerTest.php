@@ -60,7 +60,6 @@ final class ReleaseSessionListenerTest extends TestCase
             [NoteController::class, 'create'],
             [NoteController::class, 'update'],
             [RevisionController::class, 'restore'],
-            [SkillController::class, 'import'],
             [SkillController::class, 'add'],
         ];
         foreach ($routes as [$class, $method]) {

@@ -59,14 +59,6 @@ class ApiToken
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $revokedAt = null;
 
-    /**
-     * When this connection last opened the memex docs, by fetching the seeded
-     * note or loading the `memex-docs` skill. The first-run wizard's last
-     * step asks the person to make that happen and checks for it here.
-     */
-    #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $guideReadAt = null;
-
     #[ORM\Column(name: 'skills_seen', length: 16, nullable: true)]
     private ?string $skillsSeen = null;
 
@@ -160,16 +152,6 @@ class ApiToken
     public function touch(): void
     {
         $this->lastUsedAt = new \DateTimeImmutable();
-    }
-
-    public function markGuideRead(): void
-    {
-        $this->guideReadAt = new \DateTimeImmutable();
-    }
-
-    public function getGuideReadAt(): ?\DateTimeImmutable
-    {
-        return $this->guideReadAt;
     }
 
     public function getSkillsSeen(): ?string

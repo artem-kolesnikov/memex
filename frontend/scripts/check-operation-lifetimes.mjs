@@ -18,7 +18,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 const base = `http://127.0.0.1:${server.address().port}`
 const handles = { 1: 'k7m2pq9wd4rn', 2: 'b3n8xq2vt6kc' }
 let handle = handles[1]
-const me = id => ({ name: `Account ${id}`, email: `account${id}@example.test`, team: { name: `Space ${id}`, handle: handles[id] }, welcome_completed: true, system_tags: [], appearance: {}, icon_key: null, icon: null })
+const me = id => ({ name: `Account ${id}`, email: `account${id}@example.test`, team: { name: `Space ${id}`, handle: handles[id] }, system_tags: [], appearance: {}, icon_key: null, icon: null })
 const note = (id, patch = {}) => ({ id, title: `Note ${id}`, body_md: `Body ${id}`, summary: '', version: id + 2, tags: [], status: 'verified', source: 'manual', source_url: null, created_at: '2026-09-01', updated_at: '2026-09-01', links: [], backlinks: [], pending_proposals: 0, curation_flag: null, ...patch })
 const revision = id => ({ id, body_md: `History ${id}`, title: `Old ${id}`, version: 1, content_updated_at: '2026-09-01', replaced_at: '2026-09-02', replaced_by: 'operator', replaced_by_actor: null, operation: 'edit' })
 const waitForStart = promise => Promise.race([promise, new Promise((_, reject) => { const timer = setTimeout(() => reject(new Error('expected request did not start')), 5000); timer.unref() })])
@@ -61,7 +61,7 @@ async function scenario(name, body) {
     const match = /^GET \/api\/notes\/(\d+)(\/revisions)?$/.exec(key)
     if (match) return json(match[2] ? { revisions: [], note_id: Number(match[1]) } : note(Number(match[1])))
     if (key === 'GET /api/deleted') return json({ notes: [], total: 0, page: 1, pages: 1, per_page: 20, limbo_days: 30 })
-    if (key === 'GET /api/me/welcome') return json({ completed: state.user.welcome_completed, facts: { connected: true, connection: 'Synthetic', guide_read: true } })
+    if (key === 'GET /api/me/welcome') return json({ facts: { connected: true, profiles: [] } })
     return json({})
   })
   page.on('dialog', dialog => dialog.accept())

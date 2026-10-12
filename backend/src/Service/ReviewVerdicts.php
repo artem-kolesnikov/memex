@@ -263,6 +263,7 @@ class ReviewVerdicts
                 $amended = $this->journal->quietly($amend);
             }
             $note->approve();
+            $this->noteWriter->unretireTagsOf($note);
             $this->journal->record(
                 (new CuratorLogEntry(
                     'operator',

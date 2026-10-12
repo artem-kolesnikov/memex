@@ -92,7 +92,6 @@ export interface PersonalizationView {
   profile_paragraph: string
 }
 
-/** The setup banner's four facts. Keys are the server's; the words are ours. */
 export interface CurationFlag {
   comment: string
   flagged_by: string

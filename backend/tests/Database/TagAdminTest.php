@@ -150,6 +150,70 @@ final class TagAdminTest extends DatabaseTestCase
         self::assertNotNull($this->tag('inbox'));
     }
 
+    /**
+     * An assistant's note is a proposal, not the word back in use: the owner
+     * has not looked at it yet, and a rejection must leave their decision as
+     * it was.
+     */
+    public function testAnAssistantsPendingNoteLeavesTheWordRetired(): void
+    {
+        $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
+        $this->tags->remove($this->tag('inbox'), $this->kb->account->getName());
+
+        $note = $this->pendingNote(['inbox']);
+        self::assertSame(['inbox'], $this->tags->retiredNames(), 'Proposing the word is not using it');
+
+        $this->verdicts()->rejectNote($note, ['comment' => null, 'precedent' => false]);
+        self::assertSame(['inbox'], $this->tags->retiredNames());
+        self::assertNull($this->tag('inbox'));
+    }
+
+    public function testApprovingThePendingNoteEndsTheRetirement(): void
+    {
+        $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
+        $this->tags->remove($this->tag('inbox'), $this->kb->account->getName());
+
+        $note = $this->pendingNote(['inbox']);
+        $this->verdicts()->approveNote($note, ['comment' => null, 'precedent' => false], $note->getVersion());
+
+        self::assertSame([], $this->tags->retiredNames());
+    }
+
+    /** The pending note created the tag row, so the owner's use must not depend on creating it. */
+    public function testThePersonUsingAWordAPendingNoteHoldsEndsTheRetirement(): void
+    {
+        $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
+        $this->tags->remove($this->tag('inbox'), $this->kb->account->getName());
+        $this->pendingNote(['inbox']);
+
+        $this->kb->note($this->writer, 'Written later', 'Body.', ['inbox']);
+
+        self::assertSame([], $this->tags->retiredNames());
+    }
+
+    public function testMergingYourNotesIntoAWordAPendingNoteHoldsEndsItsRetirement(): void
+    {
+        $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
+        $this->tags->remove($this->tag('inbox'), $this->kb->account->getName());
+        $this->pendingNote(['inbox']);
+        $this->kb->note($this->writer, 'Two', 'Body.', ['todo']);
+
+        $this->tags->merge($this->tag('todo'), $this->tag('inbox'), $this->kb->account->getName());
+
+        self::assertSame(['todo'], $this->tags->retiredNames());
+    }
+
+    public function testMergingOnlyPendingNotesIntoARetiredWordLeavesItRetired(): void
+    {
+        $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
+        $this->tags->remove($this->tag('inbox'), $this->kb->account->getName());
+        $this->pendingNote(['inbox', 'todo']);
+
+        $this->tags->merge($this->tag('todo'), $this->tag('inbox'), $this->kb->account->getName());
+
+        self::assertSame(['inbox', 'todo'], $this->tags->retiredNames());
+    }
+
     public function testRetiringATagTwiceKeepsOneRecord(): void
     {
         $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
@@ -338,6 +402,20 @@ final class TagAdminTest extends DatabaseTestCase
         $raw = $this->em->getConnection()->fetchOne('SELECT tag_ids FROM search_presets WHERE id = :id', ['id' => $presetId]);
 
         return json_decode((string) $raw, true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /** @param string[] $tags */
+    private function pendingNote(array $tags): Note
+    {
+        $note = $this->writer->create($this->kb->agentToken, 'Proposed', 'Body.', Note::SOURCE_AGENT, null, $tags, enrich: null)['note'];
+        self::assertSame(Note::STATUS_PENDING, $note->getStatus());
+
+        return $note;
+    }
+
+    private function verdicts(): \App\Service\ReviewVerdicts
+    {
+        return self::getContainer()->get(\App\Service\ReviewVerdicts::class);
     }
 
     private function tag(string $name): ?Tag
