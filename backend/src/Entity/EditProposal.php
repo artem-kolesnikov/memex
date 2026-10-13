@@ -162,6 +162,33 @@ class EditProposal
     private int $revision = 0;
 
     /**
+     * The note as its author read it: every field of the note this draft was
+     * written against, captured when it was filed and again whenever the
+     * author revises its text (operator, 2026-10-13).
+     *
+     * Without it memex could not tell a draft written against the note as it
+     * stands from one written against text somebody has since changed. On
+     * 2026-10-13 a curator rewrote the sentence an agent's held patch quoted;
+     * the patch could then be neither approved nor revised, and nothing said
+     * why. With it the draft is STALE ({@see staleFields()}), the inbox shows
+     * what changed since, and the author's next edit replaces it.
+     *
+     * A merge's base is the note that survives, plus the absorbed note's body
+     * its merged text was built from. Null on a row filed before 2026-10-13,
+     * and on deletes and reports, which carry no text to go stale.
+     *
+     * @var array{version: int, title: string, body_md: string, tags: string[], summary: ?string, absorbed_body_md?: string}|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $base = null;
+
+    /** Not a column: the stale draft this one replaced, for the reply to its author. */
+    private ?array $replacedStale = null;
+
+    /** @var array<int, array<string, mixed>> Not a column: other drafts this write left stale. */
+    private array $leftStale = [];
+
+    /**
      * @param string[]|null $proposedTags
      */
     public function __construct(
@@ -221,6 +248,7 @@ class EditProposal
         $proposal = new self($absorb, $token, null, $mergedBodyMd, null, $comment);
         $proposal->type = self::TYPE_MERGE;
         $proposal->mergeIntoNote = $into;
+        $proposal->rebase();
 
         return $proposal;
     }
@@ -253,6 +281,7 @@ class EditProposal
     public function markApplied(?string $prevTitle, ?string $prevBodyMd, ?array $prevTags, ?string $prevSummary = null): void
     {
         $this->status = self::STATUS_APPLIED;
+        $this->base = null;
         $this->prevSummary = $prevSummary;
         $this->appliedAt = new \DateTimeImmutable();
         $this->prevTitle = $prevTitle;
@@ -570,8 +599,119 @@ class EditProposal
         if ($changeTitle !== null && trim($changeTitle) !== '') {
             $this->withChangeTitle($changeTitle);
         }
+        // New text is written against the note in front of its author. A
+        // revision of the reasoning alone is not: it reread nothing.
+        if ($title !== null || $bodyMd !== null || $patch !== null || $tags !== null || $summary !== null) {
+            $this->rebase();
+        }
         ++$this->revision;
         $this->revisedAt = new \DateTimeImmutable();
+    }
+
+    /** Take the note as it now stands as what this draft is written against. */
+    public function rebase(): void
+    {
+        $subject = $this->subject();
+        if ($subject === null || !in_array($this->type, [self::TYPE_EDIT, self::TYPE_MERGE], true)) {
+            return;
+        }
+        $base = ['version' => $subject->getVersion()] + self::fieldsOf($subject);
+        if ($this->type === self::TYPE_MERGE) {
+            $base['absorbed_body_md'] = $this->note->getBodyMd();
+        }
+        $this->base = $base;
+    }
+
+    /** @return array{version: int, title: string, body_md: string, tags: string[], summary: ?string, absorbed_body_md?: string}|null */
+    public function getBase(): ?array
+    {
+        return $this->base;
+    }
+
+    /**
+     * The fields this draft changes that have changed in the note since it was
+     * written: `title`, `body`, `tags`, `summary`, and for a merge that brings
+     * its own text `absorbed_body`, the absorbed note's text it was built from.
+     *
+     * By content rather than by version: the version moves for a change to
+     * any field, and a tag added beside a body edit has not made that edit
+     * stale. Empty for a draft with no base, which cannot be judged and is
+     * not called stale on a guess.
+     *
+     * @return string[]
+     */
+    public function staleFields(): array
+    {
+        $subject = $this->subject();
+        if ($this->base === null || $subject === null || $this->status !== self::STATUS_HELD) {
+            return [];
+        }
+        $base = $this->base;
+        $now = self::fieldsOf($subject);
+        $stale = [];
+        if ($this->proposedTitle !== null && $now['title'] !== $base['title']) {
+            $stale[] = 'title';
+        }
+        if (($this->proposedBodyMd !== null || $this->proposedPatch !== null) && $now['body_md'] !== $base['body_md']) {
+            $stale[] = 'body';
+        }
+        if ($this->proposedTags !== null && self::asSet($now['tags']) !== self::asSet($base['tags'])) {
+            $stale[] = 'tags';
+        }
+        if ($this->type === self::TYPE_EDIT && $this->proposedSummary !== null
+            && self::blankIsAbsent($now['summary']) !== self::blankIsAbsent($base['summary'])) {
+            $stale[] = 'summary';
+        }
+        if ($this->type === self::TYPE_MERGE && $this->proposedBodyMd !== null
+            && array_key_exists('absorbed_body_md', $base) && $this->note->getBodyMd() !== $base['absorbed_body_md']) {
+            $stale[] = 'absorbed_body';
+        }
+
+        return $stale;
+    }
+
+    public function isStale(): bool
+    {
+        return $this->staleFields() !== [];
+    }
+
+    /** @param array<string, mixed> $draft the stale draft this one replaced, as its author last saw it */
+    public function replacing(array $draft): self
+    {
+        $this->replacedStale = $draft;
+
+        return $this;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getReplacedStale(): ?array
+    {
+        return $this->replacedStale;
+    }
+
+    /** @param array<int, array<string, mixed>> $drafts other authors' drafts this write left stale */
+    public function leaving(array $drafts): self
+    {
+        $this->leftStale = $drafts;
+
+        return $this;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function getLeftStale(): array
+    {
+        return $this->leftStale;
+    }
+
+    /** @return array{title: string, body_md: string, tags: string[], summary: ?string} */
+    private static function fieldsOf(Note $note): array
+    {
+        return [
+            'title' => $note->getTitle(),
+            'body_md' => $note->getBodyMd(),
+            'tags' => array_values(array_map(static fn (Tag $tag): string => $tag->getName(), $note->getTags()->toArray())),
+            'summary' => $note->getSummary(),
+        ];
     }
 
     public function getRevision(): int

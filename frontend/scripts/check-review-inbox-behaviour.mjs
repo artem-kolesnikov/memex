@@ -1278,6 +1278,78 @@ await scenario('queue refresh uses the shared discard dialog and cancellation ke
   })
 }
 
+// A held draft written before somebody else changed what it changes
+// (operator, 2026-10-13). The card says which of three things that means.
+const writtenAgainst = (body) => ({ base: { version: 4, title: EDIT.note.title, body_md: body, tags: [], summary: null } })
+
+await scenario('a stale patch that still fits says what changed since and stays approvable', {
+  '/api/proposals': proposalsOverride(501, {
+    stale: ['body'], proposed_body_md: null,
+    proposed_patch: [{ find: 'second line', replace: 'second line, revised' }],
+    ...writtenAgainst('older body\nsecond line'),
+  }),
+}, async page => {
+  const row = page.locator('.mm-review-card').filter({ has: page.locator('#review-proposal-501') })
+  await row.locator('.mm-signal.is-risk').waitFor()
+  assert((await row.locator('.mm-signal.is-risk').textContent()).includes('Written before the note changed'), 'the row did not say the draft is stale')
+  await page.click('#review-proposal-501')
+  await page.waitForSelector('.mm-evidence .mm-stale')
+  const notice = await page.textContent('.mm-evidence .mm-stale')
+  assert(notice.includes('The note changed after this edit was written'), `wrong stale notice: ${notice}`)
+  assert(notice.includes('older body'), 'the notice did not show what changed since')
+  assert(!await page.isDisabled('.mm-decision-actions .btn-primary'), 'a stale patch that fits could not be approved')
+})
+
+await scenario('a stale whole-body edit says approving undoes what changed since', {
+  '/api/proposals': proposalsOverride(501, { stale: ['body'], ...writtenAgainst('older body\nsecond line') }),
+}, async page => {
+  await page.click('#review-proposal-501')
+  await page.waitForSelector('.mm-evidence .mm-stale')
+  assert((await page.textContent('.mm-evidence .mm-stale')).includes('Approving this undoes changes made after it was written'), 'a stale rewrite did not say what approving undoes')
+  assert(!await page.isDisabled('.mm-decision-actions .btn-primary'), 'a stale rewrite could not be approved')
+})
+
+await scenario('a stale patch that no longer fits is said once and cannot be approved', {
+  '/api/proposals': proposalsOverride(501, {
+    stale: ['body'], proposed_body_md: null,
+    proposed_patch: [{ find: 'the sentence somebody rewrote', replace: 'a correction' }],
+    ...writtenAgainst('the sentence somebody rewrote\nsecond line'),
+  }),
+}, async page => {
+  await page.click('#review-proposal-501')
+  await page.waitForSelector('.mm-evidence .mm-stale')
+  assert((await page.textContent('.mm-evidence .mm-stale')).includes('This edit no longer applies'), 'the refused variant was not shown')
+  assert(await page.locator('.mm-evidence .mm-doc-refusal').count() === 0, 'the refusal was said twice')
+  assert(await page.isDisabled('.mm-decision-actions .btn-primary'), 'a patch that no longer fits could be approved')
+})
+
+{
+  let reads = 0
+  await scenario('a batch that skips a stale item shows what changed since and leaves its card approvable', {
+    '/api/proposals/501': (route, json) => {
+      reads++
+      return json(detailFor(reads === 1 ? EDIT : { ...EDIT, stale: ['body'], note: { ...EDIT.note, version: 6 }, ...writtenAgainst('older body\nsecond line') }))
+    },
+    '/api/inbox/batch': (route, json) => json({
+      action: 'approve', done: 0,
+      failed: [{ kind: 'proposal', id: 501, error: 'Written before the note changed. Open it to see what changed since, then decide.', reason: 'stale' }],
+    }),
+  }, async page => {
+    await page.click('#review-proposal-501')
+    await page.waitForSelector('.mm-evidence .mm-doc')
+    assert(await page.locator('.mm-evidence .mm-stale').count() === 0, 'a current draft showed a stale notice')
+    await page.locator('.mm-review-card.is-open .mm-review-check').check()
+    await page.click('.mm-batch .btn-primary')
+    await page.waitForSelector('.mm-batch-dialog.show')
+    await page.click('.mm-batch-dialog .modal-footer .btn:last-child')
+    await page.waitForSelector('.mm-batch-dialog', { state: 'hidden' })
+    await page.waitForSelector('.mm-evidence .mm-stale', { timeout: 5000 })
+    assert(reads === 2, `the skipped card was not fetched again (${reads} reads)`)
+    assert(await page.locator('.mm-decision-error').count() === 0, 'a stale skip was reported as a changed item')
+    assert(!await page.isDisabled('.mm-decision-actions .btn-primary'), 'a stale skip blocked the card')
+  })
+}
+
 for (const status of [200, 409]) {
   let historyReads = 0
   const deletions = []

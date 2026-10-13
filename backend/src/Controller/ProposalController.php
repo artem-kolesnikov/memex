@@ -62,6 +62,10 @@ class ProposalController extends ApiController
         if ($proposal->getMergeIntoNote() !== null) {
             $data['merge_into'] += $this->keeperToArray($proposal->getMergeIntoNote());
         }
+        // What the author read, so a stale card can show what changed since.
+        if ($data['stale'] !== []) {
+            $data['base'] = $proposal->getBase();
+        }
         if ($proposal->getType() !== EditProposal::TYPE_EDIT) {
             $data['note']['backlinks'] = $this->em->getConnection()->executeQuery(
                 'SELECT n.id AS id, n.title FROM note_links nl JOIN notes n ON n.id = nl.from_note_id

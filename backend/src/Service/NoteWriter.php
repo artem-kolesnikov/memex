@@ -788,7 +788,23 @@ class NoteWriter
             $folded = false;
             $drafts = $this->heldDrafts($note, $token);
             $draft = $drafts[0] ?? null;
-            $foldInto = !$applies && $draft?->getType() === EditProposal::TYPE_EDIT ? $draft : null;
+            // A draft written against text that has changed since is not one to
+            // add to: its anchors may no longer fit, and folding into it left an
+            // agent unable to say anything about the note at all (2026-10-13).
+            // The author is writing against the note as it stands, so this edit
+            // replaces the stale draft, and the reply hands back what it held.
+            //
+            // A draft whose own anchors no longer fit is stale whatever it
+            // recorded: one filed before drafts recorded a base has none, and
+            // folding into it is the same dead end.
+            $editDraft = !$applies && $draft?->getType() === EditProposal::TYPE_EDIT ? $draft : null;
+            $broken = $editDraft !== null && !$editDraft->isStale() && !self::stillFits($editDraft, $this->lockedBody($note));
+            $stale = $editDraft !== null && ($broken || $editDraft->isStale()) ? $editDraft : null;
+            $foldInto = $stale === null ? $editDraft : null;
+            $replaced = $stale === null ? null : NoteJson::proposal($stale);
+            if ($broken) {
+                $replaced['stale'] = ['body'];
+            }
 
             // Checked NOW, against the note as it stands, so a mistyped anchor is a
             // refusal the author can act on rather than a proposal that sits in
@@ -819,6 +835,12 @@ class NoteWriter
                     ->withProposedSummary($summary)
                     ->withProposedPatch($patch)
                     ->withChangeTitle($changeTitle);
+                if (!$applies) {
+                    $proposal->rebase();
+                }
+                if ($replaced !== null) {
+                    $proposal->replacing($replaced);
+                }
                 $this->em->persist($proposal);
             }
             $this->em->flush();
@@ -844,7 +866,7 @@ class NoteWriter
                 $entry = new CuratorLogEntry(
                     $token?->getName() ?? 'memex',
                     CuratorLogEntry::ACTION_EDIT_PROPOSED,
-                    ($folded ? 'Revised the held edit' : 'Proposed edit')
+                    ($folded ? 'Revised the held edit' : ($replaced !== null ? 'Replaced its stale held edit with an edit' : 'Proposed edit'))
                         .' ('.implode(' + ', $changed).') of “'.$note->getTitle().'” — '.$why.($comment !== null && $comment !== '' ? ' '.$comment : ''),
                 );
                 $entry->withSaid($proposal->getComment());
@@ -859,6 +881,7 @@ class NoteWriter
                 // journal reads, and a row holding only the anchors expands to
                 // nothing. It is the one apply path that keeps its proposal.
                 $bodyMd = $this->resolveBodyForApply($proposal);
+                $staleBefore = $this->staleDraftsOn($note);
                 $prevTitle = $note->getTitle();
                 $proposal->markApplied(
                     $prevTitle,
@@ -890,6 +913,18 @@ class NoteWriter
                     operation: NoteRevision::OP_EDIT,
                 ));
                 $this->gcTags();
+                // Somebody else's draft written against the text this just
+                // changed is stale now, and the connection that changed it is
+                // the one that knows it happened.
+                $proposal->leaving(array_values(array_map(
+                    static fn (EditProposal $draft): array => [
+                        'proposal_id' => $draft->getId(),
+                        'proposed_by' => $draft->authorName(),
+                        'change_title' => $draft->getChangeTitle(),
+                        'stale' => $draft->staleFields(),
+                    ],
+                    array_diff_key($this->staleDraftsOn($note), $staleBefore),
+                )));
                 $changed = self::changedFields($title, $bodyMd, $tagNames, $summary);
                 $this->journal->record(
                     (new CuratorLogEntry(
@@ -913,6 +948,47 @@ class NoteWriter
             $this->em->flush();
         }
         return $proposal;
+    }
+
+    /** Whether a draft's own anchors still apply to the body as it stands. */
+    private static function stillFits(EditProposal $draft, string $body): bool
+    {
+        if ($draft->getProposedPatch() === null) {
+            return true;
+        }
+        try {
+            NotePatch::apply($body, $draft->getProposedPatch());
+
+            return true;
+        } catch (NotePatchException) {
+            return false;
+        }
+    }
+
+    /**
+     * The held drafts on this note, or merging into it, that are stale, by id.
+     *
+     * @return array<int, EditProposal>
+     */
+    private function staleDraftsOn(Note $note): array
+    {
+        $held = $this->em->createQueryBuilder()
+            ->select('p')
+            ->from(EditProposal::class, 'p')
+            ->where('p.status = :held')
+            ->andWhere('p.note = :note OR p.mergeIntoNote = :note')
+            ->setParameter('held', EditProposal::STATUS_HELD)
+            ->setParameter('note', $note)
+            ->getQuery()
+            ->getResult();
+        $stale = [];
+        foreach ($held as $draft) {
+            if ($draft->isStale()) {
+                $stale[(int) $draft->getId()] = $draft;
+            }
+        }
+
+        return $stale;
     }
 
     private static function proposedAction(EditProposal $proposal): string

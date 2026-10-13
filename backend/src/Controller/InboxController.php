@@ -9,6 +9,7 @@ use App\Entity\EditProposal;
 use App\Entity\Note;
 use App\Service\ClientMessage;
 use App\Service\ReviewVerdicts;
+use App\Service\StaleProposalException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -93,18 +94,35 @@ class InboxController extends ApiController
 
         $done = 0;
         $failed = [];
+        // Versions this batch itself moved, by note id: the first it found and
+        // the last it left. Approving an assistant's held edit to its own
+        // pending note raises that note's version, and the note's approval in
+        // the same batch then failed against the version the operator was
+        // shown (2026-10-13). They selected both; the batch's own write is not
+        // a change made behind their back.
+        $moved = [];
         foreach ($items as $i => $item) {
             $kind = is_array($item) && is_string($item['kind'] ?? null) ? $item['kind'] : '';
             $id = is_array($item) && is_numeric($item['id'] ?? null) ? (int) $item['id'] : 0;
             try {
-                $this->decide($kind, $id, $action, $verdict, is_array($item) ? $item : []);
+                $notes = $this->notesOf($kind, $id);
+                $before = array_map(static fn (Note $note): int => $note->getVersion(), $notes);
+                $seen = is_array($item) ? $item : [];
+                $this->decide($kind, $id, $action, $verdict, $this->carriesForward($kind, $id) ? self::seenThroughBatch($seen, $notes, $moved) : $seen);
+                foreach ($notes as $key => $note) {
+                    $noteId = (int) $note->getId();
+                    if ($noteId !== 0 && $this->em->contains($note) && $note->getVersion() !== $before[$key]) {
+                        $moved[$noteId] = ['from' => $moved[$noteId]['from'] ?? $before[$key], 'to' => $note->getVersion()];
+                    }
+                }
                 ++$done;
             } catch (\Throwable $e) {
                 $message = ClientMessage::of($e);
                 if ($message === null) {
                     $this->logger->error('A held item could not be decided', ['kind' => $kind, 'id' => $id, 'exception' => $e]);
                 }
-                $failed[] = ['kind' => $kind, 'id' => $id, 'error' => $message ?? 'memex hit an internal error deciding this item.'];
+                $failed[] = ['kind' => $kind, 'id' => $id, 'error' => $message ?? 'memex hit an internal error deciding this item.']
+                    + ($e instanceof StaleProposalException ? ['reason' => 'stale'] : []);
                 // The unit of work is poisoned once a write throws mid-flush;
                 // without this the NEXT item fails for a reason that has
                 // nothing to do with it, and the report blames the wrong rows.
@@ -138,6 +156,9 @@ class InboxController extends ApiController
                 if ($proposal === null || $proposal->isApplied()) {
                     throw new \InvalidArgumentException('Proposal '.$id.' is not a held item');
                 }
+                if ($action === 'approve' && $proposal->isStale()) {
+                    throw new StaleProposalException('Written before the note changed. Open it to see what changed since, then decide.');
+                }
                 $action === 'approve'
                     ? $this->verdicts->approveProposal($proposal, $verdict, \App\Service\ReviewSnapshot::proposal($item, $proposal->getMergeIntoNote() !== null))
                     : $this->verdicts->rejectProposal($proposal, $verdict);
@@ -158,5 +179,64 @@ class InboxController extends ApiController
             default:
                 throw new \InvalidArgumentException('Unknown item kind "'.$kind.'" (proposal|note)');
         }
+    }
+
+    /**
+     * The notes an item's snapshot names, in the order of its version keys:
+     * `expected_version`, then a merge's `expected_merge_version`.
+     *
+     * @return Note[]
+     */
+    private function notesOf(string $kind, int $id): array
+    {
+        if ($kind === 'note') {
+            return array_filter([$this->em->find(Note::class, $id)]);
+        }
+        if ($kind !== 'proposal') {
+            return [];
+        }
+        $proposal = $this->em->find(EditProposal::class, $id);
+
+        return $proposal === null ? [] : array_values(array_filter([$proposal->getNote(), $proposal->getMergeIntoNote()]));
+    }
+
+    /**
+     * Whether a version this batch moved may be read as the one the operator
+     * saw. A pending note, yes: what moved it is its own held edit, approved
+     * in the same selection. A draft that recorded what it was written
+     * against, yes: if the batch changed what it changes it is stale, and
+     * skipped. A draft filed before drafts recorded that, no: nothing could
+     * tell a second rewrite from the one it would silently undo.
+     */
+    private function carriesForward(string $kind, int $id): bool
+    {
+        if ($kind !== 'proposal') {
+            return true;
+        }
+
+        return $this->em->find(EditProposal::class, $id)?->getBase() !== null;
+    }
+
+    /**
+     * The item as the operator saw it, with any version this batch moved read
+     * as the version it moved it to.
+     *
+     * Only a version exactly where the batch found it is carried forward: one
+     * the operator saw before something ELSE changed the note still fails.
+     *
+     * @param Note[] $notes
+     * @param array<int, array{from: int, to: int}> $moved
+     * @return array<string, mixed>
+     */
+    private static function seenThroughBatch(array $item, array $notes, array $moved): array
+    {
+        foreach (['expected_version', 'expected_merge_version'] as $key => $field) {
+            $noteId = isset($notes[$key]) ? (int) $notes[$key]->getId() : 0;
+            if (isset($moved[$noteId]) && ($item[$field] ?? null) === $moved[$noteId]['from']) {
+                $item[$field] = $moved[$noteId]['to'];
+            }
+        }
+
+        return $item;
     }
 }

@@ -100,6 +100,11 @@ final class NoteJson
             // filing another, so `created_at` alone would date text written
             // hours later.
             'revised_at' => $proposal->getRevisedAt()?->format(DATE_ATOM),
-        ];
+            // The fields this draft changes that changed in the note after it
+            // was written. Empty when it is current, or too old to tell.
+            'stale' => $proposal->staleFields(),
+        ]
+            + ($proposal->getReplacedStale() === null ? [] : ['replaced_stale_draft' => $proposal->getReplacedStale()])
+            + ($proposal->getLeftStale() === [] ? [] : ['left_stale' => $proposal->getLeftStale()]);
     }
 }

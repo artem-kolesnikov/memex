@@ -15,6 +15,7 @@ import {
   type NoteApprovalEdits,
   type NoteListItem,
   type OperatorVerdict,
+  type ProposalBase,
 } from '@/api/client'
 import ActorMark from '@/components/ActorMark.vue'
 import InboxBatchDialog from '@/components/InboxBatchDialog.vue'
@@ -22,6 +23,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import TagInput from '@/components/TagInput.vue'
 import ProposedDocument from '@/components/ProposedDocument.vue'
+import StaleDraftNotice, { type StaleView } from '@/components/StaleDraftNotice.vue'
 import { toastError, toastSuccess } from '@/components/toastService'
 import { useInboxStore } from '@/stores/inbox'
 import { useAuthStore } from '@/stores/auth'
@@ -50,6 +52,7 @@ interface ProposalRow extends EditProposalItem, Loadable {
   keeperTags?: string[]
   keeperSummary?: string | null
   backlinks?: { id: number; title: string }[]
+  base?: ProposalBase
 }
 
 interface NoteRow extends NoteListItem, Loadable {
@@ -270,7 +273,7 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
       // say IS the comment, and there is nothing else to fall back to.
       reason: row.comment ?? row.change_title ?? '',
       preview: '',
-      signals: [],
+      signals: row.stale?.length ? [{ text: t('inbox.stale.signal'), risk: true }] : [],
       destructive: row.type === 'delete' || row.type === 'merge',
       // Acknowledged, not applied: the note is untouched either way, so a
       // verdict that said "Apply" would promise something it cannot do.
@@ -603,7 +606,40 @@ function docOf(entry: FeedEntry): ProposedDoc | null {
   const row = entry.proposal
   if (!row.detailLoaded) return null
 
-  return proposedDoc(row, t)
+  const doc = proposedDoc(row, t)
+  // A stale patch that no longer fits is said once, by the notice that also
+  // shows what changed since.
+  return staleOf(entry)?.variant === 'refused' ? { ...doc, refusal: null } : doc
+}
+
+/** What changed in the note after a held draft was written, and what that
+ *  means for approving it. Null for a current draft, or one too old to tell. */
+function staleOf(entry: FeedEntry): StaleView | null {
+  if (entry.kind !== 'proposal') return null
+  const row = entry.proposal
+  const base = row.base
+  if (!row.detailLoaded || !row.stale?.length || !base) return null
+  const merge = row.type === 'merge'
+  const now = {
+    title: (merge ? row.merge_into?.title : row.note.title) ?? '',
+    body: (merge ? row.keeperBody : row.currentBody) ?? '',
+    tags: (merge ? row.keeperTags : row.currentTags) ?? [],
+    summary: (merge ? row.keeperSummary : row.currentSummary) ?? '',
+  }
+  const fields = row.stale.map((field) => {
+    const [before, after] = field === 'title' ? [base.title, now.title]
+      : field === 'tags' ? ['', '']
+      : field === 'summary' ? [base.summary ?? '', now.summary]
+      : field === 'absorbed_body' ? [base.absorbed_body_md ?? '', row.currentBody ?? '']
+      : [base.body_md, now.body]
+    return { field, before, after, tagsBefore: base.tags, tagsAfter: now.tags }
+  })
+  const patched = !merge && !!row.proposed_patch?.length
+  const variant = patched && !resolvePatch(row.currentBody ?? '', row.proposed_patch!).ok ? 'refused'
+    : row.stale.some((field) => field !== 'body' || !patched) ? 'undoes'
+    : 'changed'
+
+  return { variant, fields }
 }
 // ── selection and batches ────────────────────────────────────────────────
 
@@ -729,7 +765,18 @@ async function runBatch() {
       toastSuccess(t(action === 'approve' ? 'inbox.batch.approved_toast' : 'inbox.batch.rejected_toast', result.done))
     } else {
       const failed = new Set(result.failed.map(item => `${item.kind}:${item.id}`))
-      if (action === 'approve') failed.forEach(key => reviewConflicts.value.add(key))
+      // A stale item is waiting for a look, not a refresh: what the card
+      // holds predates the batch, so it is fetched again to show what changed
+      // since, and it can be approved from there.
+      if (action === 'approve') {
+        result.failed.filter(item => item.reason !== 'stale').forEach(item => reviewConflicts.value.add(`${item.kind}:${item.id}`))
+        for (const item of result.failed.filter(item => item.reason === 'stale')) {
+          const row = proposals.value.find(p => p.id === item.id)
+          if (row === undefined) continue
+          row.detailLoaded = false
+          void loadProposal(row)
+        }
+      }
       const succeeded = new Set(body.items.map(item => `${item.kind}:${item.id}`).filter(key => !failed.has(key)))
       pendingTotal.value = Math.max(0, pendingTotal.value - items.value.filter(row => succeeded.has(`note:${row.id}`)).length)
       pendingPage = 0
@@ -1265,6 +1312,7 @@ useFrameNavigation(() => openKey.value, () => {
                 <span class="mm-review-kind" :class="card.chipClass">{{ card.chip }}</span>
                 <span class="mm-review-id">{{ card.identity }}</span>
                 <span class="mm-review-noteref" v-if="card.noteRef">{{ card.noteRef }}</span>
+                <span class="mm-signal" :class="{ 'is-risk': signal.risk }" v-for="signal in card.signals" :key="signal.text">{{ signal.text }}</span>
               </span>
             </div>
           </template>
@@ -1405,6 +1453,7 @@ useFrameNavigation(() => openKey.value, () => {
                        the same order. Not a second box below the diff — two
                        panes of one note left the operator reading the change
                        in one place and making it in another. -->
+                  <StaleDraftNotice v-if="staleOf(entry)" :view="staleOf(entry)!" />
                   <div class="mm-note-form" v-if="editableProposal(entry) || editableNote(entry)">
                     <template v-if="amendsTitle(entry)">
                       <label class="form-label" :for="`${expandId(entry.key)}-amend-title`">{{ $t('inbox.amend.title_label') }}</label>

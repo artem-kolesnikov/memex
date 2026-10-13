@@ -694,6 +694,19 @@
     },
     "verdict_failed": "The verdict was not recorded",
     "items_waiting": "{count} items waiting | {count} item waiting | {count} items waiting",
+    "stale": {
+      "signal": "Written before the note changed",
+      "changed_title": "The note changed after this edit was written",
+      "changed_body": "Approving applies it to the note as it is now. What changed since:",
+      "undoes_title": "Approving this undoes changes made after it was written",
+      "undoes_body": "What it would undo:",
+      "refused_title": "This edit no longer applies",
+      "refused_body": "The text it changes was changed after it was written, so approving it will be refused. The assistant's next edit to this note replaces it. What changed since:",
+      "field": {
+        "title": "Title",
+        "absorbed_body": "Note being merged in"
+      }
+    },
     "panel": {
       "stale_title": "This edit no longer applies",
       "stale_body": "It changes text that is not in the note any more — it was written against an earlier version. Approving it will be refused, so the note is safe either way; ask for it again and it will be written against the note as it stands.",

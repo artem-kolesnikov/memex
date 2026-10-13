@@ -2601,6 +2601,12 @@ body.app-settings-open .app-stage { overflow: hidden; }
 .mm-doc-refusal { margin-bottom: 12px; }
 .mm-doc-refusal strong { display: block; }
 .mm-doc-refusal p { margin: 2px 0 0; }
+.mm-stale { margin-bottom: 12px; }
+.mm-stale-copy { flex: 1; min-width: 0; }
+.mm-stale-copy strong { display: block; }
+.mm-stale-copy > p { margin: 2px 0 8px; }
+.mm-stale-field + .mm-stale-field { margin-top: 8px; }
+.mm-stale-field .mm-doc-label { display: block; margin-bottom: 4px; }
 
 /* The note a merge destroys, inside the body it is folded into: the removal it
    already looks like, set off by a rule rather than by a heading that would

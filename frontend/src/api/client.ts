@@ -129,6 +129,20 @@ export interface EditProposalItem {
   created_at: string
   /** When its author last folded a further edit into it; null if never. */
   revised_at: string | null
+  /** The fields it changes that changed in the note after it was written. */
+  stale: StaleField[]
+}
+
+export type StaleField = 'title' | 'body' | 'tags' | 'summary' | 'absorbed_body'
+
+/** The note as the author of a held draft read it. */
+export interface ProposalBase {
+  version: number
+  title: string
+  body_md: string
+  tags: string[]
+  summary: string | null
+  absorbed_body_md?: string
 }
 
 export interface SuggestedTags {
@@ -1041,6 +1055,7 @@ export const api = {
           backlinks?: { id: number; title: string }[]
         }
         merge_into: { id: number; title: string; version: number; body_md?: string; tags?: string[]; summary?: string | null } | null
+        base?: ProposalBase
       }
     >(`/api/proposals/${id}`),
   /** `bodyMd` is the operator's own version of an edit, applied instead of the proposed one. */
@@ -1321,7 +1336,7 @@ export const api = {
     request<{ token: string }>(`/api/tokens/${id}/token`, { method: 'POST' }).then((r) => r.token),
 
   inboxBatch: (body: InboxBatchRequest) =>
-    request<{ action: string; done: number; failed: { kind: string; id: number; error: string }[] }>(
+    request<{ action: string; done: number; failed: { kind: string; id: number; error: string; reason?: 'stale' }[] }>(
       '/api/inbox/batch',
       { method: 'POST', body: JSON.stringify(body) },
     ),

@@ -1,0 +1,1 @@
+ALTER TABLE edit_proposals ADD COLUMN base CLOB DEFAULT NULL;

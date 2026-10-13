@@ -25,6 +25,7 @@ final class ClientMessage
             || $e instanceof SystemTagException
             || $e instanceof AlreadyDecidedException
             || $e instanceof ProposalRevisedException
+            || $e instanceof StaleProposalException
             || $e::class === \InvalidArgumentException::class) {
             return $e->getMessage();
         }
