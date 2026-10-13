@@ -5,6 +5,23 @@ Each release is a tag `vMAJOR.MINOR.PATCH` and the image
 below is renamed from *Unreleased* to its version, and that section becomes the release's
 notes.
 
+## 1.9.9
+
+- An assistant's held edit remembers the note as the assistant read it. When someone else
+  then changes text the edit changes, its card in Review Inbox says *Written before the note
+  changed* and shows what changed since. The assistant's next edit to that note replaces
+  it, and *Approve selected* skips it.
+- Approving an assistant's new note and its own held edit in one batch no longer fails the
+  note.
+- A tag you retired stays retired while an assistant's pending note carries it, until you
+  approve that note.
+- *Import note…* in a new skill reads a `SKILL.md`'s name and description into the skill's
+  title and description.
+- `memex-skills` tells an assistant how to import a skill from a link (a `SKILL.md`, a
+  GitHub folder or a skills.sh page), or why memex cannot carry it.
+- In frames, the line between the list and what you open stays a grey hairline under the
+  pointer and turns blue only while you drag it.
+
 ## 1.9.7
 
 - Settings › Preferences › Layout chooses, per browser, between *Windowed*, one page at a
