@@ -11,7 +11,7 @@
  * Usage: node --experimental-strip-types scripts/check-rendered-html.mjs
  */
 import { renderNote, renderReason, renderLogEntry } from '../src/lib/markdown.ts'
-import { diffHtml, lineDiffHtml } from '../src/lib/diffs.ts'
+import { diffHtml, trackedChangesHtml } from '../src/lib/diffs.ts'
 
 const TAGS = new Set([
   'p', 'em', 'strong', 's', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'hr', 'br',
@@ -107,8 +107,9 @@ const RENDERERS = {
   'renderNote without a handle': (text) => renderNote(text, LINKS),
   renderReason: (text) => renderReason(text).html,
   renderLogEntry: (text) => renderLogEntry(text),
-  lineDiffHtml: (text) => lineDiffHtml(text, `${text}\nchanged`),
-  'lineDiffHtml, removed': (text) => lineDiffHtml(text, ''),
+  trackedChangesHtml: (text) => trackedChangesHtml(text, `${text}\nchanged`),
+  'trackedChangesHtml, removed': (text) => trackedChangesHtml(text, ''),
+  'trackedChangesHtml, changed words': (text) => trackedChangesHtml(text, `${text} changed`),
   diffHtml: (text) => diffHtml(text, `${text} changed`),
 }
 

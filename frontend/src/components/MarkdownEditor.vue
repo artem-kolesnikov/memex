@@ -34,7 +34,6 @@ import {
 import { defaultKeymap, history, historyKeymap, redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { unifiedMergeView } from '@codemirror/merge'
 import {
   autocompletion,
   closeBrackets,
@@ -44,6 +43,7 @@ import {
   type CompletionContext,
 } from '@codemirror/autocomplete'
 import { tags } from '@lezer/highlight'
+import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
 import {
   headingSpec,
@@ -54,6 +54,7 @@ import {
   wrapSpec,
   type ListKind,
 } from '@/lib/editorCommands'
+import { trackChanges } from '@/lib/trackChanges'
 
 const props = withDefaults(
   defineProps<{
@@ -64,11 +65,11 @@ const props = withDefaults(
     invalid?: boolean
     describedBy?: string
     /**
-     * Show the text as a change AGAINST this, the way a diff is read in code:
-     * removed lines as red widgets, added lines green, each chunk with accept
-     * and reject beside it — and the whole thing still typed into. Undefined
-     * for text that replaces nothing, where every line would be an addition
-     * and the marking says nothing.
+     * Show the text with its changes AGAINST this tracked, as a word
+     * processor does: removed words struck in place, added words green, accept
+     * and reject on the change the cursor is in, and the whole thing still
+     * typed into. Undefined for text that replaces nothing, where every word
+     * would be an addition and the marking says nothing.
      */
     trackChangesAgainst?: string
   }>(),
@@ -82,6 +83,7 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
+const { t } = useI18n()
 
 const host = ref<HTMLDivElement | null>(null)
 const view = shallowRef<EditorView | null>(null)
@@ -271,13 +273,7 @@ function extensions(): Extension[] {
 function trackChangesExtension(): Extension {
   if (props.trackChangesAgainst === undefined) return []
 
-  return unifiedMergeView({
-    original: props.trackChangesAgainst,
-    highlightChanges: true,
-    gutter: true,
-    mergeControls: true,
-    syntaxHighlightDeletions: true,
-  })
+  return trackChanges(props.trackChangesAgainst, { accept: t('editor.track.accept'), reject: t('editor.track.reject') })
 }
 
 function fieldStateExtension(): Extension {

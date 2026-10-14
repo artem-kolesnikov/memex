@@ -6,7 +6,7 @@
 // proposed. The kind decides what goes into the three fields, never how they
 // are drawn.
 import { computed } from 'vue'
-import { lineDiffHtml } from '@/lib/diffs'
+import { trackedChangesHtml } from '@/lib/diffs'
 import { useSystemTags } from '@/lib/systemTags'
 import type { ProposedDoc } from '@/lib/proposedDoc'
 
@@ -37,7 +37,7 @@ const tagPills = computed(() => {
   ]
 })
 
-/** `lineDiffHtml` collapses an unchanged run into "⋯ N unchanged lines", which
+/** `trackedChangesHtml` collapses an unchanged run into "⋯ N unchanged lines", which
  *  is right inside a diff and wrong as a whole field: the operator is being
  *  shown the resulting document, and a field nothing touched is still part of
  *  it. So an unchanged field is rendered as itself. */
@@ -86,23 +86,23 @@ const summaryChanged = computed(() => props.doc.summary.before !== props.doc.sum
 
     <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">
       <span class="mm-doc-label">{{ $t('inbox.doc.summary') }}</span>
-      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-      <div class="mm-diff mm-diff-body mm-diff-summary" v-if="summaryChanged" v-html="lineDiffHtml(doc.summary.before, doc.summary.after)"></div>
+      <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
+      <div class="mm-diff mm-diff-body mm-diff-summary" v-if="summaryChanged" v-html="trackedChangesHtml(doc.summary.before, doc.summary.after)"></div>
       <p class="mm-doc-summary" v-else-if="doc.summary.after">{{ doc.summary.after }}</p>
       <span class="mm-doc-none" v-else>{{ $t('inbox.doc.no_summary') }}</span>
     </div>
 
     <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">
       <span class="mm-doc-label">{{ $t('inbox.doc.body') }}</span>
-      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-      <div class="mm-diff mm-diff-body" v-if="bodyChanged" v-html="lineDiffHtml(doc.body.before, doc.body.after)"></div>
+      <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
+      <div class="mm-diff mm-diff-body" v-if="bodyChanged" v-html="trackedChangesHtml(doc.body.before, doc.body.after)"></div>
       <div class="mm-diff mm-diff-body mm-diff-plain" v-else>{{ doc.body.after }}</div>
       <!-- The absorbed note's text belongs to the body it is being folded
            into, as the removal it is. Unlabelled on purpose: the row above the
            card already names the note, and saying it again here was the third
            time on one card (operator, 2026-09-07). -->
-      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-      <div class="mm-diff mm-diff-body mm-doc-destroyed" v-if="doc.destroyed" v-html="lineDiffHtml(doc.destroyed.body, '')"></div>
+      <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
+      <div class="mm-diff mm-diff-body mm-doc-destroyed" v-if="doc.destroyed" v-html="trackedChangesHtml(doc.destroyed.body, '')"></div>
     </div>
   </div>
 </template>

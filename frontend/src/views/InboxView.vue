@@ -28,7 +28,7 @@ import { toastError, toastSuccess } from '@/components/toastService'
 import { useInboxStore } from '@/stores/inbox'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
-import { lineDiffHtml, resolvePatch } from '@/lib/diffs'
+import { trackedChangesHtml, resolvePatch } from '@/lib/diffs'
 import { proposedDoc, type ProposedDoc } from '@/lib/proposedDoc'
 import { formatDateTime } from '@/lib/datetime'
 import { renderReason } from '@/lib/markdown'
@@ -1507,8 +1507,8 @@ useFrameNavigation(() => openKey.value, () => {
                          the moment it is being used. -->
                     <template v-if="docOf(entry)?.destroyed">
                       <label class="form-label">{{ $t('inbox.amend.folding_in') }}</label>
-                      <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-                      <div class="mm-diff mm-diff-body mm-doc-destroyed" v-html="lineDiffHtml(docOf(entry)!.destroyed!.body, '')"></div>
+                      <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
+                      <div class="mm-diff mm-diff-body mm-doc-destroyed" v-html="trackedChangesHtml(docOf(entry)!.destroyed!.body, '')"></div>
                     </template>
                   </div>
                   <ProposedDocument

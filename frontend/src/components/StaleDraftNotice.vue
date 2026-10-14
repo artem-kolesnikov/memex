@@ -4,7 +4,7 @@
 // shows what changed since, field by field: a patch that still fits applies on
 // top of it, an edit that replaces a field undoes it, and a patch whose text is
 // gone cannot be applied at all.
-import { lineDiffHtml } from '@/lib/diffs'
+import { trackedChangesHtml } from '@/lib/diffs'
 
 export interface StaleField {
   field: 'title' | 'body' | 'tags' | 'summary' | 'absorbed_body'
@@ -56,8 +56,8 @@ function tagPills(item: StaleField) {
         <div class="mm-was" v-else-if="item.field === 'title'">
           <del>{{ item.before }}</del> <span>{{ item.after }}</span>
         </div>
-        <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
-        <div class="mm-diff mm-diff-body" v-else v-html="lineDiffHtml(item.before, item.after)"></div>
+        <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
+        <div class="mm-diff mm-diff-body" v-else v-html="trackedChangesHtml(item.before, item.after)"></div>
       </div>
     </div>
   </div>

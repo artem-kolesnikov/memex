@@ -1477,15 +1477,7 @@ a.mm-tag-system,
     white-space: pre-wrap;
     word-break: break-word;
     padding: 0 0.4rem;
-    border-radius: 3px;
-}
-.mm-diff-body .mm-diff-line.ins {
-    background: rgba(26, 138, 79, 0.16);
-    color: #14532d;
-}
-.mm-diff-body .mm-diff-line.del {
-    background: rgba(192, 57, 43, 0.14);
-    color: #7f1d1d;
+    min-height: 1.5em;
 }
 .mm-diff-body .mm-diff-line.skip {
     color: var(--mm-muted, #7b8794);
@@ -1519,22 +1511,16 @@ a.mm-tag-system,
 [data-bs-theme='dark'] .mm-diff-body {
     background: rgba(255, 255, 255, 0.05);
 }
-[data-bs-theme='dark'] .mm-diff-body .mm-diff-line.ins {
-    background: rgba(26, 138, 79, 0.32);
-    color: #b7f0cd;
-}
-[data-bs-theme='dark'] .mm-diff-body .mm-diff-line.del {
-    background: rgba(192, 57, 43, 0.3);
-    color: #f5b7b1;
-}
 
-.mm-diff ins {
+.mm-diff ins,
+.mm-diff-body ins {
     background: rgba(26, 138, 79, 0.18);
     color: #14532d;
     text-decoration: none;
     border-radius: 2px;
 }
-.mm-diff del {
+.mm-diff del,
+.mm-diff-body del {
     background: rgba(192, 57, 43, 0.16);
     color: #7f1d1d;
     border-radius: 2px;
@@ -1968,7 +1954,8 @@ a.mm-tag-system,
     border-radius: 3px;
     padding: 0.05em 0.15em;
 }
-.mm-cm .cm-tooltip.cm-tooltip-autocomplete {
+.mm-cm .cm-tooltip.cm-tooltip-autocomplete,
+.mm-cm .cm-tooltip.mm-tc-controls {
     background: var(--mm-surface);
     border: 1px solid var(--mm-line-strong);
     border-radius: var(--mm-radius-sm);
@@ -2166,11 +2153,13 @@ ul.pagination li a:hover {
         background: rgba(255, 255, 255, 0.08);
     }
 
-    .mm-diff ins {
+    .mm-diff ins,
+    .mm-diff-body ins {
         background: rgba(26, 138, 79, 0.35);
         color: #b7f0cd;
     }
-    .mm-diff del {
+    .mm-diff del,
+    .mm-diff-body del {
         background: rgba(192, 57, 43, 0.32);
         color: #f5b7b1;
     }

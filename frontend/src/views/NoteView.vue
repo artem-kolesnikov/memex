@@ -7,7 +7,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError, noteApprovalSnapshot, type NoteDetail, type NoteRevision, type SkillConnection, type SkillRow } from '@/api/client'
 import { renderNote } from '@/lib/markdown'
-import { lineDiffCounts, lineDiffHtml } from '@/lib/diffs'
+import { lineDiffCounts, trackedChangesHtml } from '@/lib/diffs'
 import { formatCount, noteStats } from '@/lib/noteStats'
 import { toastError, toastSuccess } from '@/components/toastService'
 import ActorMark from '@/components/ActorMark.vue'
@@ -349,12 +349,12 @@ function changeSize(revision: NoteRevision, index: number): { added: number; rem
   return lineDiffCounts(revision.body_md, after)
 }
 
-/** The diff itself: what the edit removed and added, git-style. */
+/** What the edit removed and added, as tracked changes. */
 function changeDiff(revision: NoteRevision, index: number): string | null {
   const after = replacedBy(index)
   if (after === null || revision.body_md === null) return null
 
-  return lineDiffHtml(revision.body_md, after)
+  return trackedChangesHtml(revision.body_md, after)
 }
 
 /**
@@ -945,7 +945,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
               that is what somebody reads before pressing Restore.
             -->
             <template v-if="showFullText !== revision.id && changeDiff(revision, index) !== null">
-              <!-- eslint-disable-next-line vue/no-v-html — lineDiffHtml escapes both sides -->
+              <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
               <div class="mm-diff-body" v-html="changeDiff(revision, index)"></div>
             </template>
             <pre v-else class="mm-revision-body small">{{ revision.body_md }}</pre>

@@ -602,35 +602,41 @@ await scenario('unlocking a proposal replaces the diff rather than sitting besid
   assert(/new body/.test(state.body), `the editor did not open on the proposed text: ${JSON.stringify(state.body.slice(0, 40))}`)
 })
 
-await scenario('the proposed change is shown as a change, not as a fresh body', {}, async (page) => {
-  // The point of unlocking into a merge view rather than a plain editor: what
-  // the agent removed has to stay visible while it is being edited.
+await scenario('the proposed change is shown as tracked changes while it is amended', {}, async (page) => {
+  // The point of unlocking into tracked changes rather than a plain editor:
+  // what the agent removed has to stay visible, in place, while it is edited.
   await page.click('#review-proposal-501')
   await page.waitForSelector('.mm-evidence .mm-diff-body')
   await page.click('.mm-amend-toggle')
   await page.waitForSelector('.mm-note-form .mm-cm')
-  await page.waitForFunction(() => document.querySelector('.mm-note-form .cm-deletedChunk') !== null)
+  await page.waitForFunction(() => document.querySelector('.mm-note-form .mm-tc-del') !== null)
+  await page.click('.mm-note-form .mm-tc-ins')
+  await page.waitForSelector('.mm-note-form .mm-tc-controls')
   const marks = await page.evaluate(() => {
-    const deleted = document.querySelector('.mm-note-form .cm-deletedChunk')
-    const added = document.querySelector('.mm-note-form .cm-merge-b .cm-changedLine')
+    const deleted = document.querySelector('.mm-note-form .mm-tc-del')
+    const added = document.querySelector('.mm-note-form .mm-tc-ins')
 
     return {
-      removedText: deleted?.innerText ?? '',
-      controls: [...document.querySelectorAll('.mm-note-form .cm-deletedChunk button')].map((b) => b.textContent),
-      // The colours are the point, and WHOSE colours matters: CodeMirror
-      // injects its own merge theme at a specificity that has already beaten
-      // ours once in this file's history. Its green is rgb(100 160 128) and
-      // ours is the rgb(26 138 79) the read-only diffs use, so asserting the
-      // exact triple is what tells a working style from a losing one —
-      // "something is coloured" passes either way.
+      removedText: [...document.querySelectorAll('.mm-note-form .mm-tc-del')].map((el) => el.textContent).join(' '),
+      inline: deleted?.closest('.cm-line') !== null,
+      lineChunks: document.querySelectorAll('.mm-note-form .cm-deletedChunk').length,
+      controls: [...document.querySelectorAll('.mm-note-form .mm-tc-controls button')].map((b) => b.textContent),
+      // The colours are the point, and WHOSE colours matter: they must be the
+      // rgb(26 138 79) and rgb(192 57 43) the read-only cards use, so a
+      // change reads the same whether it is being read or edited.
       addedBg: added ? getComputedStyle(added).backgroundColor : null,
       removedBg: deleted ? getComputedStyle(deleted).backgroundColor : null,
+      struck: deleted ? getComputedStyle(deleted).textDecorationLine : null,
     }
   })
-  assert(/old body/.test(marks.removedText), `the removed text is not shown: ${JSON.stringify(marks.removedText.slice(0, 60))}`)
-  assert(marks.controls.length === 2, `expected accept and reject on the chunk, got ${JSON.stringify(marks.controls)}`)
-  assert(/^rgba?\(26, 138, 79[,)]/.test(marks.addedBg ?? ''), `added lines are not wearing our green: ${marks.addedBg}`)
-  assert(/^rgba?\(192, 57, 43[,)]/.test(marks.removedBg ?? ''), `removed lines are not wearing our red: ${marks.removedBg}`)
+  assert(/old/.test(marks.removedText), `the removed text is not shown: ${JSON.stringify(marks.removedText.slice(0, 60))}`)
+  assert(marks.inline && marks.lineChunks === 0, 'the removed text is shown as a block of old lines instead of in place')
+  assert(JSON.stringify(marks.controls) === JSON.stringify(['Accept', 'Reject']), `expected accept and reject on the change, got ${JSON.stringify(marks.controls)}`)
+  assert(/^rgba?\(26, 138, 79[,)]/.test(marks.addedBg ?? ''), `added text is not wearing our green: ${marks.addedBg}`)
+  assert(/^rgba?\(192, 57, 43[,)]/.test(marks.removedBg ?? ''), `removed text is not wearing our red: ${marks.removedBg}`)
+  assert(marks.struck === 'line-through', `removed text is not struck through: ${marks.struck}`)
+  await page.click('.mm-note-form .mm-tc-reject')
+  await page.waitForFunction(() => /old/.test(document.querySelector('.mm-note-form .cm-content')?.textContent ?? '') && document.querySelector('.mm-note-form .mm-tc-del') === null)
 })
 
 /** Approve the open proposal, recording exactly what the verdict posted. */
@@ -996,10 +1002,15 @@ await scenario('a merge is documented by the note that survives it', {}, async (
     // PROPOSED body, so "is it on screen" passes with keeperBody pointed at
     // the absorbed note (Codex, 2026-09-07). What the before/after pair can
     // only get right when keeperBody really is the keeper is which text it is
-    // REPLACING — so this reads the removed side of the body diff, excluding
-    // the absorbed note's own block, which is a removal for a different reason.
-    replacing: [...document.querySelectorAll('.mm-doc-field .mm-diff-body:not(.mm-doc-destroyed) .mm-diff-line.del')]
-      .map((el) => el.textContent.replace(/^−\s*/, '').trim()),
+    // REPLACING — so this reads the old side of the body's tracked changes
+    // (every line without what the merge adds), excluding the absorbed note's
+    // own block, which is a removal for a different reason.
+    replacing: [...document.querySelectorAll('.mm-doc-field .mm-diff-body:not(.mm-doc-destroyed) .mm-diff-line:not(.skip)')]
+      .map((el) => {
+        const old = el.cloneNode(true)
+        old.querySelectorAll('ins').forEach((ins) => ins.remove())
+        return old.textContent.trim()
+      }),
   }))
   assert(state.title === 'The note that absorbs it', `the card is not titled by the survivor: ${JSON.stringify(state.title)}`)
   assert(state.summary === 'What the keeper is about.', `the document describes the wrong note: ${JSON.stringify(state.summary)}`)
@@ -1296,7 +1307,12 @@ await scenario('a stale patch that still fits says what changed since and stays 
   await page.waitForSelector('.mm-evidence .mm-stale')
   const notice = await page.textContent('.mm-evidence .mm-stale')
   assert(notice.includes('The note changed after this edit was written'), `wrong stale notice: ${notice}`)
-  assert(notice.includes('older body'), 'the notice did not show what changed since')
+  const since = await page.evaluate(() => {
+    const old = document.querySelector('.mm-evidence .mm-stale .mm-diff-body').cloneNode(true)
+    old.querySelectorAll('ins').forEach((ins) => ins.remove())
+    return old.textContent
+  })
+  assert(since.includes('older body'), `the notice did not show what changed since: ${since}`)
   assert(!await page.isDisabled('.mm-decision-actions .btn-primary'), 'a stale patch that fits could not be approved')
 })
 

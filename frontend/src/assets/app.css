@@ -2695,27 +2695,19 @@ body.app-settings-open .app-stage { overflow: hidden; }
 .mm-was { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; color: var(--mm-muted); font-size: .72rem; }
 .mm-was del { color: inherit; }
 
-/* Track changes in the body, coloured off the same pair the read-only diffs
-   use, so a change reads the same whether it is being read or edited.
+/* Tracked changes in the body, coloured off the same pair the read-only cards
+   use, so a change reads the same whether it is being read or edited. */
+.mm-cm .mm-tc-ins { background: rgba(26, 138, 79, 0.18); color: #14532d; border-radius: 2px; }
+.mm-cm .mm-tc-del { background: rgba(192, 57, 43, 0.16); color: #7f1d1d; border-radius: 2px; white-space: pre-wrap; cursor: text; }
+.mm-cm .mm-tc-line { box-shadow: inset 3px 0 0 rgba(26, 138, 79, 0.45); }
+.mm-cm .mm-tc-controls { display: flex; gap: 4px; padding: 3px; }
+.mm-cm .mm-tc-controls button { border: 0; border-radius: 4px; padding: 1px 8px; font: 600 .72rem/1.6 var(--bs-body-font-family); color: #fff; }
+.mm-cm .mm-tc-accept { background: #1a8a4f; }
+.mm-cm .mm-tc-reject { background: #c0392b; }
 
-   Every selector here carries `.cm-merge-b` or `.cm-deletedChunk` under
-   `.mm-cm` on purpose. CodeMirror's own merge theme is injected at runtime as
-   `.ͼ1.cm-merge-b .cm-changedLine` — three classes — so the obvious
-   `.mm-note-form .cm-changedLine` is a class short and loses to it silently,
-   which is how this shipped once already. */
-.mm-note-form .mm-cm .cm-merge-b .cm-changedLine { background: rgba(26, 138, 79, 0.16); }
-.mm-note-form .mm-cm .cm-merge-b .cm-changedText { background: rgba(26, 138, 79, 0.3); }
-.mm-note-form .mm-cm .cm-deletedChunk { background: rgba(192, 57, 43, 0.14); color: #7f1d1d; }
-.mm-note-form .mm-cm .cm-deletedChunk .cm-deletedText { background: rgba(192, 57, 43, 0.3); }
-.mm-note-form .mm-cm .cm-changedLineGutter { background: rgba(26, 138, 79, 0.22); }
-.mm-note-form .mm-cm .cm-deletedLineGutter { background: rgba(192, 57, 43, 0.2); }
-
-[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-merge-b .cm-changedLine { background: rgba(26, 138, 79, 0.3); }
-[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-merge-b .cm-changedText { background: rgba(26, 138, 79, 0.45); }
-[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-deletedChunk { background: rgba(192, 57, 43, 0.26); color: #f5b7b1; }
-[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-deletedChunk .cm-deletedText { background: rgba(192, 57, 43, 0.42); }
-[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-changedLineGutter { background: rgba(26, 138, 79, 0.38); }
-[data-bs-theme='dark'] .mm-note-form .mm-cm .cm-deletedLineGutter { background: rgba(192, 57, 43, 0.36); }
+[data-bs-theme='dark'] .mm-cm .mm-tc-ins { background: rgba(26, 138, 79, 0.35); color: #b7f0cd; }
+[data-bs-theme='dark'] .mm-cm .mm-tc-del { background: rgba(192, 57, 43, 0.32); color: #f5b7b1; }
+[data-bs-theme='dark'] .mm-cm .mm-tc-line { box-shadow: inset 3px 0 0 rgba(26, 138, 79, 0.7); }
 
 .mm-revision-amended {
     margin-left: 6px;

@@ -415,6 +415,10 @@
     }
   },
   "editor": {
+    "track": {
+      "accept": "Accept",
+      "reject": "Reject"
+    },
     "analyze": {
       "nothing_to_check": "Write something first — there is nothing to check yet.",
       "failed": "Could not analyze"
@@ -870,8 +874,8 @@
     "entry": {
       "notes": "{count} notes: | {count} note: | {count} notes:",
       "gone": "{count} no longer exist | {count} no longer exist | {count} no longer exist",
-      "hide_diff": "Hide diff",
-      "show_diff": "Show diff",
+      "hide_diff": "Hide tracked changes",
+      "show_diff": "Show tracked changes",
       "precedent_title": "The curator may apply this reasoning to comparable cases",
       "precedent": "precedent"
     },
