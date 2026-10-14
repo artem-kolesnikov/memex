@@ -29,7 +29,7 @@ import { useInboxStore } from '@/stores/inbox'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
 import { trackedChangesHtml, resolvePatch } from '@/lib/diffs'
-import { proposedDoc, type ProposedDoc } from '@/lib/proposedDoc'
+import { proposedDoc, authoredBody, type ProposedDoc } from '@/lib/proposedDoc'
 import { formatDateTime } from '@/lib/datetime'
 import { renderReason } from '@/lib/markdown'
 
@@ -1000,13 +1000,13 @@ function editableNote(entry: FeedEntry): boolean {
   return entry.kind === 'note' && entry.note.detailLoaded && amendOpen.value
 }
 
-/** The edit as it would land, the same text the evidence panel diffs; a stale patch has none, so the note as it stands. */
+/** The edit as it would land, the same text the evidence panel diffs; a stale patch has none, so what its author wrote. */
 function proposedBodyOf(row: ProposalRow): string {
   if (row.type === 'merge') return row.proposed_body_md ?? row.keeperBody ?? ''
   if (row.proposed_patch?.length) {
     const resolved = resolvePatch(row.currentBody ?? '', row.proposed_patch)
     if (resolved.ok) return resolved.body
-    return resolved.reason === 'empties' ? '' : row.currentBody ?? ''
+    return resolved.reason === 'empties' ? '' : authoredBody(row) ?? row.currentBody ?? ''
   }
   return row.proposed_body_md ?? row.currentBody ?? ''
 }

@@ -812,12 +812,18 @@ class NoteWriter
             // on approval, which is the check that matters: this one is courtesy.
             // Composed with anchors the draft already holds, because approving it
             // will run all of them in order against one body.
+            $narrowed = null;
             if ($patch !== null || $bodyMd !== null) {
                 $liveBody = $this->lockedBody($note);
                 $priorBody = $foldInto?->getProposedBodyMd()
                     ?? ($foldInto?->getProposedPatch() !== null ? NotePatch::apply($liveBody, $foldInto->getProposedPatch()) : $liveBody);
                 $nextBody = $patch !== null ? NotePatch::apply($liveBody, self::composedPatch($foldInto, $patch)) : $bodyMd;
                 $this->storageLimits->assertBody($nextBody, strlen($priorBody));
+                // A held edit is kept as the words it changes, however it was
+                // sent, so approving it lays only those onto the note as it
+                // then stands (operator, 2026-10-13). One that applies now has
+                // nothing to wait for.
+                $narrowed = $applies ? null : SurgicalEdit::narrow($liveBody, $nextBody);
             }
 
             // Everything this write supersedes: a different kind of decision from
@@ -842,6 +848,9 @@ class NoteWriter
                     $proposal->replacing($replaced);
                 }
                 $this->em->persist($proposal);
+            }
+            if ($narrowed !== null) {
+                $proposal->narrowTo($narrowed);
             }
             $this->em->flush();
 

@@ -63,10 +63,16 @@ final class StaleHeldEditTest extends DatabaseTestCase
         $held = $this->held((int) $note->getId());
         self::assertCount(1, $held, 'Still one document from this author');
         self::assertSame($next, $held[0]);
-        self::assertSame([['find' => 'The Designer is not on the squad.', 'replace' => 'The Designer joined the squad.']], $next->getProposedPatch());
+        self::assertSame(
+            "The first epic, TROI-5, has its first stage merged.\n\nThe Designer joined the squad.",
+            \App\Service\NotePatch::apply($note->getBodyMd(), $next->getProposedPatch() ?? []),
+        );
         self::assertSame([], $next->staleFields());
         self::assertSame(['body'], $next->getReplacedStale()['stale']);
-        self::assertSame('The first epic, TROI-5, is filed.', $next->getReplacedStale()['proposed_patch'][0]['replace']);
+        self::assertSame(
+            "The first epic, TROI-5, is filed.\n\nThe Designer is not on the squad.",
+            \App\Service\NotePatch::apply("The first epic has not been filed yet.\n\nThe Designer is not on the squad.", $next->getReplacedStale()['proposed_patch']),
+        );
 
         $this->verdicts->approveProposal($next, self::VERDICT, $this->reviewSnapshot($next));
         self::assertSame("The first epic, TROI-5, has its first stage merged.\n\nThe Designer joined the squad.", $note->getBodyMd());

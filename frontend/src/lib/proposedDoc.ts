@@ -38,6 +38,21 @@ export interface DocSource {
   keeperBody?: string
   keeperTags?: string[]
   keeperSummary?: string | null
+  /** The note as the author read it, for a held edit that recorded one. */
+  base?: { body_md: string } | null
+}
+
+/**
+ * What the author wrote, for an edit whose anchors no longer fit the note: a
+ * whole body as it was sent, or the anchors laid on the note as the author
+ * read it. Null when neither was kept.
+ */
+export function authoredBody(source: DocSource): string | null {
+  if (source.proposed_body_md !== null) return source.proposed_body_md
+  if (!source.proposed_patch?.length || !source.base) return null
+  const resolved = resolvePatch(source.base.body_md, source.proposed_patch)
+
+  return resolved.ok ? resolved.body : null
 }
 
 /**
@@ -45,8 +60,8 @@ export interface DocSource {
  *
  * A patch is a way of WRITING an edit, not a different thing to review, so it
  * is resolved to the body it produces. One the server would refuse — a moved
- * anchor — has no resulting body to show, and falls back to the note as it
- * stands so the field is not silently blank; the card says separately that it
+ * anchor — has no resulting body, so the card shows what its author wrote,
+ * which is also what Amend starts from; the card says separately that it
  * cannot be applied.
  */
 function editedBody(source: DocSource): { body: string; refusal: 'stale' | 'empties' | null } {
@@ -57,7 +72,7 @@ function editedBody(source: DocSource): { body: string; refusal: 'stale' | 'empt
 
     return resolved.reason === 'empties'
       ? { body: '', refusal: 'empties' }
-      : { body: current, refusal: 'stale' }
+      : { body: authoredBody(source) ?? current, refusal: 'stale' }
   }
 
   return { body: source.proposed_body_md ?? current, refusal: null }

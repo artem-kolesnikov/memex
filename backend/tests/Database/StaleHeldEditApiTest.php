@@ -55,7 +55,11 @@ final class StaleHeldEditApiTest extends ApiTestCase
 
         $agent = $this->propose($this->kb->b->agentBearer, $note, 'The Designer is not on the squad.', 'The Designer joined the squad.');
         self::assertStringContainsString('replaced it', $agent['review']);
-        self::assertSame('The first epic, TROI-5, is filed.', $agent['proposal']['replaced_stale_draft']['proposed_patch'][0]['replace']);
+        self::assertSame(
+            "The first epic, TROI-5, is filed.\n\nThe Designer is not on the squad.",
+            \App\Service\NotePatch::apply("The first epic has not been filed yet.\n\nThe Designer is not on the squad.", $agent['proposal']['replaced_stale_draft']['proposed_patch']),
+            'The author is handed back what its stale draft held',
+        );
         self::assertSame([], $agent['proposal']['stale']);
     }
 

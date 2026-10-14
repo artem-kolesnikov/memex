@@ -1339,6 +1339,29 @@ await scenario('a stale patch that no longer fits is said once and cannot be app
   assert(await page.isDisabled('.mm-decision-actions .btn-primary'), 'a patch that no longer fits could be approved')
 })
 
+for (const [shape, held] of [
+  ['a whole body kept beside its narrowed anchors', { proposed_body_md: 'a correction\nsecond line' }],
+  ['anchors alone, laid on the note the author read', { proposed_body_md: null }],
+]) {
+  await scenario(`an edit that no longer fits shows and amends from what its author wrote: ${shape}`, {
+    '/api/proposals': proposalsOverride(501, {
+      stale: ['body'],
+      proposed_patch: [{ find: 'the sentence somebody rewrote', replace: 'a correction' }],
+      ...held,
+      ...writtenAgainst('the sentence somebody rewrote\nsecond line'),
+    }),
+  }, async page => {
+    await page.click('#review-proposal-501')
+    await page.waitForSelector('.mm-evidence .mm-stale')
+    const shown = await page.evaluate(() => [...document.querySelectorAll('.mm-evidence .mm-doc-field .mm-diff-body')].map((el) => el.textContent).join(' '))
+    assert(shown.includes('a correction'), `the card hid what the author wrote: ${shown}`)
+    await page.click('.mm-amend-toggle')
+    await page.waitForSelector('.mm-note-form .mm-cm')
+    const seeded = await page.textContent('.mm-note-form .cm-content')
+    assert(seeded.includes('a correction'), `Amend did not start from what the author wrote: ${seeded}`)
+  })
+}
+
 {
   let reads = 0
   await scenario('a batch that skips a stale item shows what changed since and leaves its card approvable', {

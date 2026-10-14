@@ -383,6 +383,23 @@ class EditProposal
      * The patch itself is kept beside it: it records how the edit was written,
      * which the inbox still reads while the proposal is pending.
      */
+    /**
+     * Apply this edit as the operations that make it, each narrowed to the
+     * words it changes ({@see \App\Service\SurgicalEdit}): what it does to the
+     * note it was written against is unchanged, and approving it later lays
+     * only those words onto the note as it then stands.
+     *
+     * A whole body stays beside its operations, as sent: it is the author's
+     * own wording when the operations no longer fit, and it keeps a body's
+     * revision rule, that anchors sent next replace it ({@see revise()}).
+     *
+     * @param array<int, array{find: string, replace: string}> $operations
+     */
+    public function narrowTo(array $operations): void
+    {
+        $this->proposedPatch = $operations;
+    }
+
     public function recordResolvedBody(string $body): void
     {
         $this->proposedBodyMd = $body;
