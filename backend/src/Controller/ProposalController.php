@@ -62,8 +62,10 @@ class ProposalController extends ApiController
         if ($proposal->getMergeIntoNote() !== null) {
             $data['merge_into'] += $this->keeperToArray($proposal->getMergeIntoNote());
         }
-        // What the author read, so a stale card can show what changed since.
-        if ($data['stale'] !== []) {
+        // What the author read: a stale card shows what changed since, a tag
+        // change is shown as what it adds and removes, and an edit that no
+        // longer fits shows what its author wrote.
+        if ($proposal->getBase() !== null) {
             $data['base'] = $proposal->getBase();
         }
         if ($proposal->getType() !== EditProposal::TYPE_EDIT) {
@@ -114,6 +116,52 @@ class ProposalController extends ApiController
 
         return $this->json([
             // null after an applied delete — the note is gone
+            'note' => $result['note'] === null ? null : $this->noteToArray($result['note'], true),
+            'suggested_tags' => $result['suggestions'],
+        ]);
+    }
+
+    /**
+     * Every change waiting on one note, approved together, with the owner's
+     * amendment after them, in one transaction (operator, 2026-10-14). Nothing
+     * is applied unless all of it is.
+     */
+    #[ReleasesSession]
+    #[Route('/api/proposals/approve-together', methods: ['POST'])]
+    public function approveTogether(Request $request): JsonResponse
+    {
+        if ($this->requestToken($request) !== null) {
+            return $this->json($this->json400('Only the operator can approve edit proposals'), Response::HTTP_FORBIDDEN);
+        }
+        try {
+            $data = $request->toArray();
+            $rows = $data['items'] ?? null;
+            if (!is_array($rows) || $rows === [] || !array_is_list($rows)) {
+                throw new BadRequestHttpException('items must be a non-empty list');
+            }
+            $items = [];
+            foreach ($rows as $row) {
+                if (!is_array($row) || !is_int($row['id'] ?? null)) {
+                    throw new BadRequestHttpException('each item needs an id');
+                }
+                $items[] = [$this->findProposal($row['id']), \App\Service\ReviewSnapshot::proposal($row, false)];
+            }
+            $amended = $this->amendment($request);
+        } catch (BadRequestHttpException $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
+        }
+        $note = $items[0][0]->getNote();
+        try {
+            $result = $this->verdicts->approveTogether($note, $items, $this->operatorVerdict($request), $amended);
+        } catch (\App\Service\NotePatchException $e) {
+            return $this->json($this->json400('A change no longer fits the note. '.$e->getMessage()), Response::HTTP_CONFLICT);
+        } catch (\App\Service\StaleProposalException $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_CONFLICT);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->json([
             'note' => $result['note'] === null ? null : $this->noteToArray($result['note'], true),
             'suggested_tags' => $result['suggestions'],
         ]);

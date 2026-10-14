@@ -28,7 +28,7 @@ import { toastError, toastSuccess } from '@/components/toastService'
 import { useInboxStore } from '@/stores/inbox'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
-import { trackedChangesHtml, resolvePatch } from '@/lib/diffs'
+import { changedRanges, trackedChangesHtml, resolvePatch, type AuthorRange } from '@/lib/diffs'
 import { proposedDoc, authoredBody, type ProposedDoc } from '@/lib/proposedDoc'
 import { formatDateTime } from '@/lib/datetime'
 import { renderReason } from '@/lib/markdown'
@@ -53,6 +53,9 @@ interface ProposalRow extends EditProposalItem, Loadable {
   keeperSummary?: string | null
   backlinks?: { id: number; title: string }[]
   base?: ProposalBase
+  /** Several connections' waiting changes to one note, reviewed as one card (operator, 2026-10-14). */
+  members?: ProposalRow[]
+  bodyAuthors?: AuthorRange[]
 }
 
 interface NoteRow extends NoteListItem, Loadable {
@@ -118,12 +121,102 @@ const visibleNotes = computed(() =>
   !kindFilter.value || kindFilter.value === 'new_note' ? items.value : [],
 )
 
+/**
+ * Several connections' waiting changes to one note as the one document they
+ * make together: each change applied in the order it was filed, every changed
+ * stretch labelled with its author. No two touch the same sentence, so each
+ * still applies alone (operator, 2026-10-14).
+ */
+function groupRow(members: ProposalRow[]): ProposalRow {
+  const first = members[0]!
+  const current = first.currentBody ?? ''
+  const currentTags = first.currentTags ?? []
+  const authors: AuthorRange[] = []
+  let whole: string | null = null
+  let tags: string[] | null = null
+  let title: string | null = null
+  let summary: string | null = null
+  // Only changes that still fit the note make the combined document: one
+  // whose sentence the owner has since rewritten is listed, marked, and
+  // decided on its own, and does not hide the others.
+  const fitting: ProposalRow[] = []
+  let combined = current
+  for (const member of members) {
+    const own = member.proposed_patch?.length ? resolvePatch(current, member.proposed_patch)
+      : member.type === 'edit' && member.proposed_body_md !== null ? { ok: true as const, body: member.proposed_body_md } : null
+    if (own && !own.ok) continue
+    if (member.proposed_patch?.length) {
+      const next = resolvePatch(combined, member.proposed_patch)
+      if (!next.ok) continue
+      combined = next.body
+    }
+    fitting.push(member)
+    if (own?.ok) authors.push(...changedRanges(current, own.body).map((range) => ({ ...range, name: member.proposed_by })))
+    if (!member.proposed_patch?.length && member.type === 'edit' && member.proposed_body_md !== null) whole = member.proposed_body_md
+    if (member.proposed_title !== null) title = member.proposed_title
+    if (member.proposed_summary !== null) summary = member.proposed_summary
+    if (member.proposed_tags !== null) {
+      const read: string[] = member.base?.tags ?? tags ?? currentTags
+      const proposed: string[] = member.proposed_tags
+      const start: string[] = tags ?? currentTags
+      tags = [...start.filter((tag) => !(read.includes(tag) && !proposed.includes(tag))), ...proposed.filter((tag) => !read.includes(tag) && !start.includes(tag))]
+    }
+  }
+  const latest = (pick: (row: ProposalRow) => string | null | undefined) =>
+    members.map(pick).filter((at): at is string => !!at).sort().at(-1) ?? first.created_at
+  const patch = fitting.flatMap((member) => member.proposed_patch ?? [])
+
+  return {
+    ...first,
+    type: 'edit',
+    kinds: [...new Set(members.flatMap((member) => member.kinds ?? []))],
+    proposed_by: [...new Set(members.map((member) => member.proposed_by))].join(', '),
+    created_at: latest((row) => row.created_at),
+    revised_at: latest((row) => row.revised_at ?? row.created_at),
+    change_title: null,
+    comment: members.map((member) => `- **${member.proposed_by}**: ${[member.change_title, member.comment].filter(Boolean).join(' — ')}`).join('\n'),
+    proposed_title: title,
+    proposed_summary: summary,
+    proposed_tags: tags,
+    proposed_patch: whole === null && patch.length ? patch : null,
+    proposed_body_md: whole,
+    // Tags are already combined here, so the document reads them against the note as it is.
+    base: { ...(first.base ?? {}), body_md: current, tags: currentTags } as ProposalBase,
+    stale: [],
+    detailLoaded: members.every((member) => member.detailLoaded),
+    detailError: members.find((member) => member.detailError)?.detailError ?? null,
+    members,
+    bodyAuthors: authors,
+  }
+}
+
 // One feed, newest first: a proposed edit and a note an agent wrote are the
 // same question — apply this or not — and splitting them into two sections made
 // the answer depend on where the item happened to land.
 const feed = computed<FeedEntry[]>(() => {
+  // One card per note (operator, 2026-10-14): the edits and reports several
+  // connections have waiting on a note are reviewed together. Deletes and
+  // merges keep cards of their own; they are a different question.
+  const byNote = new Map<number, ProposalRow[]>()
+  for (const p of visibleProposals.value) {
+    if (p.type !== 'edit' && p.type !== 'report') continue
+    // A change written before the note changed keeps a card of its own, to be
+    // decided or rescued with what changed in front of the owner.
+    if (p.stale?.length) continue
+    byNote.set(p.note.id, [...(byNote.get(p.note.id) ?? []), p])
+  }
+  const grouped = new Set<number>()
+  const groups: FeedEntry[] = []
+  for (const [noteId, rows] of byNote) {
+    if (rows.length < 2 || !rows.some((row) => row.type === 'edit')) continue
+    const members = [...rows].sort((a, b) => a.id - b.id)
+    members.forEach((row) => grouped.add(row.id))
+    const group = groupRow(members)
+    groups.push({ key: `group:${noteId}`, kind: 'proposal', at: group.revised_at ?? group.created_at, proposal: group })
+  }
   const entries: FeedEntry[] = [
-    ...visibleProposals.value.map(
+    ...groups,
+    ...visibleProposals.value.filter((p) => !grouped.has(p.id)).map(
       // A draft its author revised is as old as the text in it, not as old as
       // the first attempt: the author has one item per note and keeps writing
       // into it until a verdict lands.
@@ -239,6 +332,32 @@ function cardOf(entry: FeedEntry): Card {
 }
 
 function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
+
+  if (entry.kind === 'proposal' && entry.proposal.members) {
+    const row = entry.proposal
+    const members = row.members!
+
+    return {
+      key: entry.key,
+      kind: 'proposal',
+      id: row.id,
+      chip: t('inbox.chip.changes', members.length),
+      chipClass: 'is-edit',
+      title: row.note.title,
+      noteId: row.note.id,
+      identity: members.map((member) => t('inbox.proposal_identity', { id: member.id })).join(' + '),
+      noteRef: t('inbox.note_ref', { id: row.note.id }),
+      relation: null,
+      reason: row.comment ?? '',
+      preview: '',
+      signals: members.some((member) => member.stale?.length) ? [{ text: t('inbox.stale.signal'), risk: true }] : [],
+      destructive: false,
+      approveLabel: t('inbox.verdict.apply_all'),
+      approveDanger: false,
+      rejectLabel: t('inbox.verdict.reject_all'),
+      rejectDanger: false,
+    }
+  }
 
   if (entry.kind === 'proposal') {
     const row = entry.proposal
@@ -525,6 +644,10 @@ function beginDetail(row: Loadable) {
 const stillWanted = (row: Loadable, ticket: NonNullable<ReturnType<typeof beginDetail>>) => lifetime.current(ticket.owner) && row.detailRequest === ticket.request && !row.detailLoaded
 
 async function loadProposal(row: ProposalRow) {
+  if (row.members) {
+    await Promise.all(row.members.map((member) => loadProposal(member)))
+    return
+  }
   const ticket = beginDetail(row)
   if (ticket === null) return
   try {
@@ -576,6 +699,7 @@ async function refreshReview(entry: FeedEntry) {
   if (!(await mayDiscardAmendment())) return
   const row = entry.kind === 'proposal' ? entry.proposal : entry.note
   row.detailLoaded = false
+  if (entry.kind === 'proposal') entry.proposal.members?.forEach((member) => { member.detailLoaded = false })
   resetDecision()
   if (entry.kind === 'proposal') await loadProposal(entry.proposal)
   else await loadNote(entry.note)
@@ -670,9 +794,13 @@ function clearSelection() {
 watch(kindFilter, clearSelection)
 
 const selectedItems = computed(() =>
-  [...selected.value].map((key) => {
+  [...selected.value].flatMap((key) => {
     const [kind, id] = key.split(':')
-    return { kind: kind as 'proposal' | 'note', id: Number(id) }
+    if (kind === 'group') {
+      const group = feed.value.find((entry) => entry.key === key)
+      return group?.kind === 'proposal' ? (group.proposal.members ?? []).map((member) => ({ kind: 'proposal' as const, id: member.id })) : []
+    }
+    return [{ kind: kind as 'proposal' | 'note', id: Number(id) }]
   }),
 )
 // Destructive work in the selection earns a second question, whatever the
@@ -1088,7 +1216,30 @@ async function decide(entry: FeedEntry, approve: boolean) {
   const v = verdictPayload()
   const neighbour = neighbourOf(entry.key)
   try {
-    if (entry.kind === 'proposal') {
+    if (entry.kind === 'proposal' && entry.proposal.members) {
+      const row = entry.proposal
+      const members = row.members!
+      if (approve) {
+        // One transaction: every change, then the owner's own words as an
+        // entry of their own (operator, 2026-10-14). If any of it cannot
+        // apply, none of it does, and the card stays as the owner left it.
+        await api.approveTogether(members.map((member) => ({ id: member.id, ...proposalApprovalSnapshot(member) })), v, amendment(entry))
+        if (!lifetime.current(mine)) return
+        proposals.value = proposals.value.filter((p) => !members.some((member) => member.id === p.id))
+      } else {
+        const items = members.map((member) => ({ kind: 'proposal' as const, id: member.id }))
+        const result = await api.inboxBatch({ action: 'reject', items, comment: v?.comment ?? undefined })
+        if (!lifetime.current(mine)) return
+        const failed = new Set(result.failed.map((item) => item.id))
+        proposals.value = proposals.value.filter((p) => !members.some((member) => member.id === p.id && !failed.has(p.id)))
+        if (result.failed.length) {
+          decisionError.value = result.failed.map((item) => `#${item.id}: ${item.error}`).join(' ')
+          await inbox.refresh()
+          return
+        }
+      }
+      toastSuccess(approve ? t('inbox.toast.changes_applied', members.length) : t('inbox.toast.changes_rejected', members.length), row.note.title)
+    } else if (entry.kind === 'proposal') {
       const row = entry.proposal
       if (approve) {
         await api.approveProposal(row.id, proposalApprovalSnapshot(row), v, amendment(entry))
@@ -1141,6 +1292,33 @@ async function decide(entry: FeedEntry, approve: boolean) {
     if (lifetime.current(mine)) decisionBusy.value = false
   }
 }
+/** One author's change on a card of several, decided on its own. */
+async function decideMember(entry: FeedEntry, member: ProposalRow, approve: boolean) {
+  if (decisionBusy.value || batchBusy.value || outcomeUnknown.value || amendOpen.value) return
+  const mine = lifetime.capture()
+  decisionBusy.value = true
+  decisionError.value = null
+  const v = verdictPayload()
+  try {
+    if (approve) await api.approveProposal(member.id, proposalApprovalSnapshot(member), v)
+    else await api.rejectProposal(member.id, v)
+    if (!lifetime.current(mine)) return
+    proposals.value = proposals.value.filter((p) => p.id !== member.id)
+    const rest = entry.kind === 'proposal' ? (entry.proposal.members ?? []).filter((other) => other.id !== member.id) : []
+    // The card stays open on what is left: still a card of several, or the one change left.
+    for (const other of rest) other.detailLoaded = false
+    if (rest.length === 1) openKey.value = `proposal:${rest[0]!.id}`
+    await Promise.all(rest.map((other) => loadProposal(other)))
+    toastSuccess(approve ? t('inbox.toast.proposal_applied') : t('inbox.toast.proposal_rejected'), member.change_title ?? member.note.title)
+    await inbox.refresh()
+  } catch (e) {
+    if (!lifetime.current(mine)) return
+    decisionError.value = e instanceof Error ? e.message : t('common.unknown_error')
+  } finally {
+    if (lifetime.current(mine)) decisionBusy.value = false
+  }
+}
+
 useFrameNavigation(() => openKey.value, () => {
   const entry = feed.value.find((entry) => entry.key === openKey.value)
   if (entry) void toggleCard(entry)
@@ -1453,6 +1631,27 @@ useFrameNavigation(() => openKey.value, () => {
                        the same order. Not a second box below the diff — two
                        panes of one note left the operator reading the change
                        in one place and making it in another. -->
+                  <ul class="mm-group-changes" v-if="entry.kind === 'proposal' && entry.proposal.members" :aria-label="$t('inbox.group.changes')">
+                    <li class="mm-group-change" v-for="member in entry.proposal.members" :key="member.id">
+                      <div class="mm-group-change-copy">
+                        <div class="mm-group-change-head">
+                          <span class="mm-review-id">{{ $t('inbox.proposal_identity', { id: member.id }) }}</span>
+                          <strong class="mm-group-author">{{ member.proposed_by }}</strong>
+                          <span class="mm-review-kind is-report" v-if="member.type === 'report'">{{ $t('inbox.chip.report') }}</span>
+                          <span class="mm-group-title" v-if="member.change_title">{{ member.change_title }}</span>
+                          <span class="mm-signal is-risk" v-if="member.stale?.length">{{ $t('inbox.stale.signal') }}</span>
+                        </div>
+                      </div>
+                      <div class="mm-group-change-actions">
+                        <button type="button" class="btn btn-sm btn-secondary" :disabled="decisionBusy || amendOpen" @click="decideMember(entry, member, false)">
+                          {{ member.type === 'report' ? $t('inbox.verdict.dismiss') : $t('inbox.verdict.reject') }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary" :disabled="decisionBusy || amendOpen" @click="decideMember(entry, member, true)">
+                          {{ member.type === 'report' ? $t('inbox.verdict.acknowledge') : $t('inbox.verdict.apply_this') }}
+                        </button>
+                      </div>
+                    </li>
+                  </ul>
                   <StaleDraftNotice v-if="staleOf(entry)" :view="staleOf(entry)!" />
                   <div class="mm-note-form" v-if="editableProposal(entry) || editableNote(entry)">
                     <template v-if="amendsTitle(entry)">

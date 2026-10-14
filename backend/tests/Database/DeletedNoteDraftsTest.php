@@ -57,14 +57,14 @@ final class DeletedNoteDraftsTest extends DatabaseTestCase
 
     public function testRetiringANoteRecordsEveryDraftItDiscards(): void
     {
-        $note = $this->kb->note($this->writer, 'Has work waiting', 'Original body.');
+        $note = $this->kb->note($this->writer, 'Has work waiting', "Original body.\n\nSecond part.");
         $this->writer->propose(
             $note, $this->kb->agentToken,
-            null, 'One connection had this.', null, applyTags: false,
+            null, "One connection had this.\n\nSecond part.", null, applyTags: false,
         );
         $this->writer->propose(
             $note, $this->kb->otherAgentToken,
-            null, 'Another connection had this.', null, applyTags: false,
+            null, "Original body.\n\nAnother connection had this.", null, applyTags: false,
         );
         $noteId = $note->getId();
 

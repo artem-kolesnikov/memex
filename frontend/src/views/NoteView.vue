@@ -624,6 +624,9 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
             <template v-if="note.edited_by">
               <span aria-hidden="true">·</span>
               <ActorMark :actor="note.edited_by" />
+              <template v-for="(actor, index) in note.edited_with ?? []" :key="index">,
+                <ActorMark :actor="actor" />
+              </template>
             </template>
           </div>
         </div>
@@ -801,6 +804,9 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
                 <template v-if="note.edited_by">
                   <span class="text-muted">{{ $t('note.details.by') }}</span>
                   <ActorMark :actor="note.edited_by" />
+                  <template v-for="(actor, index) in note.edited_with ?? []" :key="index">,
+                    <ActorMark :actor="actor" />
+                  </template>
                 </template>
               </dd>
 

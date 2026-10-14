@@ -182,6 +182,15 @@ class EditProposal
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $base = null;
 
+    /**
+     * Not a column: the edit as its author filed it, kept by {@see amend()} for
+     * the approval in the same request, which records the author's change and
+     * then the owner's words as two revisions.
+     *
+     * @var array{title: ?string, body: ?string, patch: ?array, tags: ?array, summary: ?string, owner: array{title: ?string, body_md: ?string, tags: ?array, summary: ?string}}|null
+     */
+    private ?array $filed = null;
+
     /** Not a column: the stale draft this one replaced, for the reply to its author. */
     private ?array $replacedStale = null;
 
@@ -438,6 +447,20 @@ class EditProposal
             // screen asked about.
             throw new \InvalidArgumentException('A merge cannot be amended in the title of the note that is kept');
         }
+        $this->filed ??= [
+            'title' => $this->proposedTitle,
+            'body' => $this->proposedBodyMd,
+            'patch' => $this->proposedPatch,
+            'tags' => $this->proposedTags,
+            'summary' => $this->proposedSummary,
+            'owner' => ['title' => null, 'body_md' => null, 'tags' => null, 'summary' => null],
+        ];
+        $this->filed['owner'] = [
+            'title' => $title ?? $this->filed['owner']['title'],
+            'body_md' => $body ?? $this->filed['owner']['body_md'],
+            'tags' => $tags ?? $this->filed['owner']['tags'],
+            'summary' => $summary ?? $this->filed['owner']['summary'],
+        ];
         $changed = false;
         if ($title !== null) {
             $changed = $changed || $title !== $this->effectiveTitle();
@@ -511,11 +534,13 @@ class EditProposal
     /** @return string[] */
     private function effectiveTags(): array
     {
-        if ($this->proposedTags !== null) {
-            return $this->proposedTags;
-        }
         $keeper = $this->subject();
         $own = $keeper === null ? [] : array_map(static fn (Tag $tag): string => $tag->getName(), $keeper->getTags()->toArray());
+        if ($this->proposedTags !== null) {
+            // What the owner was shown: an edit's tags as what they add and
+            // remove, on the note as it is now.
+            return $this->type === self::TYPE_EDIT ? ($this->tagsAgainst($own) ?? $own) : $this->proposedTags;
+        }
         if ($this->type !== self::TYPE_MERGE || $this->note === null) {
             return $own;
         }
@@ -619,7 +644,17 @@ class EditProposal
         // New text is written against the note in front of its author. A
         // revision of the reasoning alone is not: it reread nothing.
         if ($title !== null || $bodyMd !== null || $patch !== null || $tags !== null || $summary !== null) {
+            // Tags this revision leaves alone keep what they add and remove,
+            // against the note as it is now rather than as it was first read.
+            $read = $this->base['tags'] ?? null;
+            $kept = $tags === null && $this->proposedTags !== null && is_array($read)
+                ? [array_values(array_diff($this->proposedTags, $read)), array_values(array_diff($read, $this->proposedTags))]
+                : null;
             $this->rebase();
+            if ($kept !== null && is_array($this->base['tags'] ?? null)) {
+                [$added, $removed] = $kept;
+                $this->proposedTags = array_values(array_unique([...array_diff($this->base['tags'], $removed), ...$added]));
+            }
         }
         ++$this->revision;
         $this->revisedAt = new \DateTimeImmutable();
@@ -669,12 +704,12 @@ class EditProposal
         if ($this->proposedTitle !== null && $now['title'] !== $base['title']) {
             $stale[] = 'title';
         }
-        if (($this->proposedBodyMd !== null || $this->proposedPatch !== null) && $now['body_md'] !== $base['body_md']) {
+        if (($this->proposedBodyMd !== null || $this->proposedPatch !== null) && $now['body_md'] !== $base['body_md']
+            && !$this->bodyUntouchedSince($base['body_md'], $now['body_md'])) {
             $stale[] = 'body';
         }
-        if ($this->proposedTags !== null && self::asSet($now['tags']) !== self::asSet($base['tags'])) {
-            $stale[] = 'tags';
-        }
+        // Tags are not here: an edit applies what it added and removed
+        // ({@see tagsAgainst()}), so a tag changed since does not undo anything.
         if ($this->type === self::TYPE_EDIT && $this->proposedSummary !== null
             && self::blankIsAbsent($now['summary']) !== self::blankIsAbsent($base['summary'])) {
             $stale[] = 'summary';
@@ -685,6 +720,32 @@ class EditProposal
         }
 
         return $stale;
+    }
+
+    /**
+     * Whether the note changed only where this edit does not: every sentence
+     * its anchors hold is still in the note as written, and the anchors still
+     * fit. Another connection's approved edit to a different sentence, or the
+     * owner's, does not make it out of date (operator, 2026-10-14). A whole
+     * body holds every sentence, so any change does.
+     */
+    private function bodyUntouchedSince(string $read, string $now): bool
+    {
+        if ($this->type !== self::TYPE_EDIT || $this->proposedPatch === null) {
+            return false;
+        }
+        try {
+            NotePatch::apply($now, $this->proposedPatch);
+        } catch (\Throwable) {
+            return false;
+        }
+        foreach (\App\Service\SurgicalEdit::sentencesAt($read, \App\Service\SurgicalEdit::claims($read, $this->proposedPatch)) as $sentence) {
+            if ($sentence !== '' && !str_contains($now, $sentence)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function isStale(): bool
@@ -816,6 +877,41 @@ class EditProposal
     public function getProposedTags(): ?array
     {
         return $this->proposedTags;
+    }
+
+    /**
+     * The edit as its author filed it, when the owner amended it in this
+     * request; null otherwise.
+     *
+     * @return array{title: ?string, body: ?string, patch: ?array, tags: ?array, summary: ?string, owner: array{title: ?string, body_md: ?string, tags: ?array, summary: ?string}}|null
+     */
+    public function filedBeforeAmendment(): ?array
+    {
+        return $this->amended ? $this->filed : null;
+    }
+
+    /**
+     * The tags to give a note that now carries $current: what this edit added
+     * and removed since its author read the note, so two connections' waiting
+     * tag changes both land instead of the later list replacing the earlier
+     * (operator, 2026-10-14). A draft that recorded no base is the full list
+     * it always was.
+     *
+     * @param string[] $current
+     * @param string[]|null $proposed defaults to this edit's own list
+     * @return string[]|null
+     */
+    public function tagsAgainst(array $current, ?array $proposed = null): ?array
+    {
+        $proposed ??= $this->proposedTags;
+        $read = $this->base['tags'] ?? null;
+        if ($proposed === null || !is_array($read)) {
+            return $proposed;
+        }
+        $removed = array_diff($read, $proposed);
+        $added = array_diff($proposed, $read);
+
+        return array_values(array_unique([...array_diff($current, $removed), ...$added]));
     }
 
     public function getComment(): ?string

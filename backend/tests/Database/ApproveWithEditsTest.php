@@ -334,11 +334,11 @@ final class ApproveWithEditsTest extends ApiTestCase
         self::assertSame(['filed-right'], $tags);
     }
 
-    public function testAnAmendedProposalMarksTheRevisionAndSaysSoInTheJournal(): void
+    public function testAnAmendedProposalRecordsTheAuthorsChangeThenTheOwnersWords(): void
     {
-        // The other half of the same promise, on the path that already shipped:
-        // approving is a gate rather than authorship, so the proposer keeps the
-        // credit — which is exactly why the amendment needs a mark of its own.
+        // Approving is a gate rather than authorship, so the proposer keeps the
+        // credit for what it filed, and the owner's words are an entry of their
+        // own after it (operator, 2026-10-14): History says which were whose.
         $note = $this->kb->a->note('Standing note', 'The sentence as it stands.');
         $id = (int) $note->getId();
 
@@ -357,8 +357,9 @@ final class ApproveWithEditsTest extends ApiTestCase
         self::assertSame('The sentence as the operator would have it.', $this->noteRow($id)['body_md']);
 
         $revisions = $this->revisionsOf($id);
-        self::assertCount(1, $revisions);
-        self::assertTrue((bool) $revisions[0]['amended_by_operator'], 'The history has to say the text applied was not the text filed');
+        self::assertCount(2, $revisions);
+        self::assertSame(['The sentence as it stands.', 'agent', 'proposal'], [$revisions[0]['body_md'], $revisions[0]['replaced_by'], $revisions[0]['operation']]);
+        self::assertSame(['The sentence as the agent would have it.', 'human', 'amendment'], [$revisions[1]['body_md'], $revisions[1]['replaced_by'], $revisions[1]['operation']]);
 
         $descriptions = $this->journalDescriptions();
         self::assertCount(1, $descriptions, 'An amendment is worth a row even with nothing said');

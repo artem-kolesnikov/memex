@@ -1291,6 +1291,89 @@ await scenario('queue refresh uses the shared discard dialog and cancellation ke
 
 // A held draft written before somebody else changed what it changes
 // (operator, 2026-10-13). The card says which of three things that means.
+{
+  // Two connections' waiting changes to one note are one card (operator,
+  // 2026-10-14): who changed what, the document they make together with each
+  // changed line labelled, Apply all as one batch, and each change on its own.
+  const body = 'Status: on track.\nMail goes through Postmark.\n'
+  const designer = {
+    ...EDIT, id: 601, note: noteRef(21, 'MM3 record'), change_title: 'Postmark sender', proposed_by: 'Designer',
+    proposed_body_md: null, proposed_patch: [{ find: 'Mail goes through Postmark.', replace: 'Mail goes through Postmark, from hello@.' }],
+    comment: 'The sender is fixed.', created_at: '2026-10-13T22:11:21+00:00',
+  }
+  const orchestrator = {
+    ...EDIT, id: 602, note: noteRef(21, 'MM3 record'), change_title: 'Status', proposed_by: 'Orchestrator',
+    proposed_body_md: null, proposed_patch: [{ find: 'Status: on track.', replace: 'Status: blocked.' }],
+    comment: 'CI is red.', created_at: '2026-10-14T00:53:59+00:00',
+  }
+  const pair = (route, json) => {
+    const match = route.request().url().match(/\/api\/proposals\/(\d+)$/)
+    if (match === null) return json({ proposals: [designer, orchestrator] })
+    const one = [designer, orchestrator].find((p) => p.id === Number(match[1]))
+    return json({ ...one, note: { ...one.note, body_md: body, summary: null, tags: [], backlinks: [] }, base: { version: 5, title: 'MM3 record', body_md: body, tags: [], summary: null } })
+  }
+  const together = []
+  await scenario('two connections\' changes to one note are one card, labelled by author', {
+    '/api/proposals': pair,
+  }, async (page) => {
+    await page.route('**/api/proposals/approve-together', async (route) => {
+      together.push(JSON.parse(route.request().postData() || '{}'))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ note: null, suggested_tags: {} }) })
+    })
+    await page.waitForSelector('#review-group-21')
+    assert(await page.locator('.mm-review-card', { hasText: 'MM3 record' }).count() === 1, 'the two changes are not one card')
+    const head = await page.locator('.mm-review-card', { hasText: 'MM3 record' }).textContent()
+    assert(/2 changes/i.test(head), `the card does not say it holds two changes: ${head}`)
+    await page.click('#review-group-21')
+    await page.waitForSelector('.mm-group-change')
+    const authors = await page.$$eval('.mm-group-author', (els) => els.map((el) => el.textContent.trim()))
+    assert(JSON.stringify(authors) === JSON.stringify(['Designer', 'Orchestrator']), `wrong authors: ${JSON.stringify(authors)}`)
+    const labels = await page.$$eval('.mm-evidence .mm-diff-by', (els) => els.map((el) => el.textContent.trim()))
+    assert(labels.includes('Designer') && labels.includes('Orchestrator'), `each change is not labelled with its author: ${JSON.stringify(labels)}`)
+    const shown = await page.textContent('.mm-evidence .mm-doc-field .mm-diff-body')
+    assert(shown.includes('blocked') && shown.includes('hello@'), `the document does not combine both changes: ${shown}`)
+    await page.click('.mm-decision-actions .btn-primary')
+    await page.waitForFunction(() => document.querySelector('#review-group-21') === null)
+    assert(together.length === 1 && JSON.stringify(together[0].items.map((item) => item.id)) === '[601,602]', `Apply all did not approve both in one request: ${JSON.stringify(together)}`)
+  })
+
+  const stalePair = (route, json) => {
+    const match = route.request().url().match(/\/api\/proposals\/(\d+)$/)
+    const drifted = { ...designer, stale: ['body'] }
+    if (match === null) return json({ proposals: [drifted, orchestrator] })
+    const one = [drifted, orchestrator].find((p) => p.id === Number(match[1]))
+    // The owner rewrote the sentence the first change holds.
+    const now = body.replace('Mail goes through Postmark.', 'Mail goes through Resend.')
+    return json({ ...one, note: { ...one.note, body_md: now, summary: null, tags: [], backlinks: [] }, base: { version: 5, title: 'MM3 record', body_md: body, tags: [], summary: null } })
+  }
+  await scenario('a change that no longer fits gets a card of its own, to be rescued', { '/api/proposals': stalePair }, async (page) => {
+    await page.waitForSelector('#review-proposal-601')
+    assert(await page.locator('#review-group-21').count() === 0, 'the out-of-date change is still grouped')
+    const stale = page.locator('.mm-review-card', { has: page.locator('#review-proposal-601') })
+    assert(await stale.locator('.mm-signal.is-risk').count() === 1, 'the change that no longer fits is not marked')
+    await page.click('#review-proposal-602')
+    await page.waitForSelector('.mm-evidence .mm-doc-field .mm-diff-body')
+    const shown = await page.textContent('.mm-evidence .mm-doc-field .mm-diff-body')
+    assert(shown.includes('blocked'), `the change that still fits is hidden: ${shown}`)
+  })
+
+  const decided = []
+  await scenario('one author\'s change on a card of several is decided on its own', {
+    '/api/proposals': pair,
+  }, async (page) => {
+    await page.route('**/api/proposals/601/reject', async (route) => {
+      decided.push(601)
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ rejected: true }) })
+    })
+    await page.click('#review-group-21')
+    await page.waitForSelector('.mm-group-change')
+    await page.locator('.mm-group-change').first().locator('button', { hasText: 'Reject' }).click()
+    await page.waitForSelector('#review-proposal-602')
+    assert(JSON.stringify(decided) === '[601]', `the rejection did not go to the one change: ${JSON.stringify(decided)}`)
+    assert(await page.locator('#review-group-21').count() === 0, 'the card still claims several changes')
+  })
+}
+
 const writtenAgainst = (body) => ({ base: { version: 4, title: EDIT.note.title, body_md: body, tags: [], summary: null } })
 
 await scenario('a stale patch that still fits says what changed since and stays approvable', {

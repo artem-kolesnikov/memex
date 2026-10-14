@@ -102,6 +102,35 @@ final class ActorView
         return self::of($note->getLastActorToken(), $note->isLastWrittenByOwner() ? $owner : null, $note->getLastActor());
     }
 
+    /**
+     * The other connections whose waiting edits were approved together with
+     * the last write, so "last edited by" names every author of a combined
+     * approval rather than whichever was applied last (operator, 2026-10-14).
+     * Read from History, where each change is its own revision of one moment.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function editedWith(\Doctrine\ORM\EntityManagerInterface $em, Note $note): array
+    {
+        $ids = $em->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT replaced_by_token_id FROM note_revisions
+             WHERE note_id = :id AND replaced_by_token_id IS NOT NULL
+               AND replaced_at = (SELECT MAX(replaced_at) FROM note_revisions WHERE note_id = :id)
+             ORDER BY replaced_by_token_id',
+            ['id' => $note->getId()],
+        );
+        $last = $note->getLastActorToken()?->getId();
+        $writers = [];
+        foreach ($ids as $id) {
+            $token = (int) $id === $last ? null : $em->find(ApiToken::class, (int) $id);
+            if ($token !== null) {
+                $writers[] = self::of($token, null);
+            }
+        }
+
+        return $writers;
+    }
+
     /** Who replaced a revision's state. */
     public static function replacer(NoteRevision $revision, OwnerMark $owner): ?array
     {

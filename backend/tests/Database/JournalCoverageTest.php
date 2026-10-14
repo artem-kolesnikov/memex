@@ -157,7 +157,7 @@ final class JournalCoverageTest extends DatabaseTestCase
     {
         $note = $this->kb->note($this->writer, 'Reading list', 'Books.');
         $this->writer->update($note, null, 'More books.', null, null, actor: Note::ACTOR_HUMAN, operation: NoteRevision::OP_EDIT);
-        $this->writer->propose($note, $this->kb->agentToken, null, 'Fewer books.', null, applyTags: false);
+        $this->writer->propose($note, $this->kb->agentToken, 'Reading list, shorter', null, null, applyTags: false);
 
         $curated = fn (): int => (int) $this->em->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM curator_log cl WHERE cl.note_id = :id AND '.CuratorLogEntry::curationWorkOnly('cl'),

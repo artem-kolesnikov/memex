@@ -53,7 +53,7 @@ final class StaleHeldEditTest extends DatabaseTestCase
     {
         $note = $this->kb->note($this->writer, 'Factory record', "The first epic has not been filed yet.\n\nThe Designer is not on the squad.", []);
         $this->patch($note, $this->kb->agentToken, 'The first epic has not been filed yet.', 'The first epic, TROI-5, is filed.');
-        $this->patch($note, $this->kb->curatorToken, 'The first epic has not been filed yet.', 'The first epic, TROI-5, has its first stage merged.');
+        $this->writer->update($note, null, "The first epic, TROI-5, has its first stage merged.\n\nThe Designer is not on the squad.", null, null);
 
         [$draft] = $this->held((int) $note->getId());
         self::assertSame(['body'], $draft->staleFields());
@@ -91,11 +91,24 @@ final class StaleHeldEditTest extends DatabaseTestCase
 
     public function testAStalePatchThatStillFitsCanStillBeApproved(): void
     {
+        $note = $this->kb->note($this->writer, 'Record', "Apple is pending until the review closes on Friday.\n\nMicrosoft is pending.", []);
+        $draft = $this->patch($note, $this->kb->agentToken, 'Apple is pending until', 'Apple is live until');
+        $this->writer->update($note, null, "Apple is pending until the review closes on Monday.\n\nMicrosoft is pending.", null, null);
+
+        self::assertSame(['body'], $draft->staleFields(), 'The sentence it holds changed');
+        $this->verdicts->approveProposal($draft, self::VERDICT, $this->reviewSnapshot($draft));
+        self::assertSame("Apple is live until the review closes on Monday.\n\nMicrosoft is pending.", $note->getBodyMd());
+    }
+
+    /** Another connection's change to a different sentence leaves a waiting edit current (operator, 2026-10-14). */
+    public function testAChangeToAnotherSentenceDoesNotMakeAWaitingEditStale(): void
+    {
         $note = $this->kb->note($this->writer, 'Record', "Microsoft is pending.\n\nApple is pending.", []);
         $draft = $this->patch($note, $this->kb->agentToken, 'Apple is pending.', 'Apple is live.');
-        $this->patch($note, $this->kb->curatorToken, 'Microsoft is pending.', 'Microsoft is live.');
+        $curator = $this->patch($note, $this->kb->curatorToken, 'Microsoft is pending.', 'Microsoft is live.');
 
-        self::assertSame(['body'], $draft->staleFields());
+        self::assertSame([], $draft->staleFields());
+        self::assertSame([], $curator->getLeftStale());
         $this->verdicts->approveProposal($draft, self::VERDICT, $this->reviewSnapshot($draft));
         self::assertSame("Microsoft is live.\n\nApple is live.", $note->getBodyMd());
     }
@@ -113,28 +126,20 @@ final class StaleHeldEditTest extends DatabaseTestCase
     {
         $note = $this->kb->note($this->writer, 'Record', 'Version zero.', ['alpha']);
         $draft = $this->writer->propose($note, $this->kb->agentToken, null, 'Version one.', ['alpha', 'bravo'], applyTags: false);
-        $this->patch($note, $this->kb->curatorToken, 'Version zero.', 'Version zero, corrected.');
+        $this->writer->update($note, null, 'Version zero, corrected.', null, null);
 
         self::assertSame(['body'], $draft->staleFields());
         self::assertSame('Version zero.', $draft->getBase()['body_md']);
         self::assertSame(['alpha'], $draft->getBase()['tags']);
     }
 
-    public function testACuratorsWriteNamesTheOtherDraftItLeftStaleOnce(): void
+    public function testACuratorIsRefusedTheSentenceAWaitingDraftHolds(): void
     {
         $note = $this->kb->note($this->writer, 'Record', "Microsoft is pending.\n\nApple is pending.", []);
-        $draft = $this->patch($note, $this->kb->agentToken, 'Apple is pending.', 'Apple is live.');
+        $this->patch($note, $this->kb->agentToken, 'Apple is pending.', 'Apple is live.');
 
-        $first = $this->patch($note, $this->kb->curatorToken, 'Microsoft is pending.', 'Microsoft is live.');
-        self::assertSame([[
-            'proposal_id' => $draft->getId(),
-            'proposed_by' => $draft->authorName(),
-            'change_title' => null,
-            'stale' => ['body'],
-        ]], $first->getLeftStale());
-
-        $second = $this->patch($note, $this->kb->curatorToken, 'Microsoft is live.', 'Microsoft is live since 2026-09-30.');
-        self::assertSame([], $second->getLeftStale(), 'Already stale: nothing new to say');
+        $this->expectException(\App\Service\HeldElsewhereException::class);
+        $this->patch($note, $this->kb->curatorToken, 'Apple is pending.', 'Apple went live.');
     }
 
     public function testADraftWithNoRecordedBaseIsNeverCalledStale(): void
@@ -159,7 +164,7 @@ final class StaleHeldEditTest extends DatabaseTestCase
         $this->em->clear();
         $note = $this->em->find(\App\Entity\Note::class, $note->getId());
         $this->kb->refresh();
-        $this->patch($note, $this->kb->curatorToken, 'The first epic has not been filed yet.', 'The first epic, TROI-5, has its first stage merged.');
+        $this->writer->update($note, null, "The first epic, TROI-5, has its first stage merged.\n\nThe Designer is not on the squad.", null, null);
 
         $next = $this->patch($note, $this->kb->agentToken, 'The Designer is not on the squad.', 'The Designer joined the squad.');
 

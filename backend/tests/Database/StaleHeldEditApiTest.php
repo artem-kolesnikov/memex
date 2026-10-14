@@ -13,23 +13,22 @@ use App\Entity\Note;
  */
 final class StaleHeldEditApiTest extends ApiTestCase
 {
-    public function testAStaleDraftIsNamedToItsWriterShownOnItsCardSkippedByABatchAndApprovableAlone(): void
+    public function testAStaleDraftIsShownOnItsCardSkippedByABatchAndApprovableAlone(): void
     {
-        $note = $this->kb->b->note('Sign-in record', "Microsoft is pending.\n\nApple is pending.")->getId();
-        $this->request('PUT', '/api/notes/'.$note, $this->kb->b->agentBearer, ['patch' => [['find' => 'Apple is pending.', 'replace' => 'Apple is live.']]]);
+        $note = $this->kb->b->note('Sign-in record', "Apple is pending until the review closes on Friday.\n\nMicrosoft is pending.")->getId();
+        $this->request('PUT', '/api/notes/'.$note, $this->kb->b->agentBearer, ['patch' => [['find' => 'Apple is pending until', 'replace' => 'Apple is live until']]]);
         self::assertSame(202, $this->httpStatus(), $this->body());
         $proposal = $this->jsonResponse()['proposal']['id'];
 
-        $this->request('PUT', '/api/notes/'.$note, $this->kb->b->curatorBearer, ['patch' => [['find' => 'Microsoft is pending.', 'replace' => 'Microsoft is live.']]]);
-        self::assertSame(200, $this->httpStatus(), $this->body());
-        self::assertSame($proposal, $this->jsonResponse()['proposal']['left_stale'][0]['proposal_id']);
-        self::assertSame(['body'], $this->jsonResponse()['proposal']['left_stale'][0]['stale']);
-
+        // The owner changes another word of the sentence the draft holds.
         $this->loginAs($this->kb->b);
+        $this->sessionRequest('PUT', '/api/notes/'.$note, ['body_md' => "Apple is pending until the review closes on Monday.\n\nMicrosoft is pending."]);
+        self::assertSame(200, $this->httpStatus(), $this->body());
+
         $this->sessionRequest('GET', '/api/proposals/'.$proposal);
         $card = $this->jsonResponse();
         self::assertSame(['body'], $card['stale']);
-        self::assertSame("Microsoft is pending.\n\nApple is pending.", $card['base']['body_md']);
+        self::assertSame("Apple is pending until the review closes on Friday.\n\nMicrosoft is pending.", $card['base']['body_md']);
         $seen = ['expected_revision' => $card['revision'], 'expected_version' => $card['note']['version']];
 
         $this->sessionRequest('POST', '/api/inbox/batch', ['action' => 'approve', 'items' => [['kind' => 'proposal', 'id' => $proposal] + $seen]]);
@@ -39,19 +38,29 @@ final class StaleHeldEditApiTest extends ApiTestCase
 
         $this->sessionRequest('POST', '/api/proposals/'.$proposal.'/approve', $seen);
         self::assertSame(200, $this->httpStatus(), $this->body());
-        self::assertSame("Microsoft is live.\n\nApple is live.", $this->jsonResponse()['note']['body_md']);
+        self::assertSame("Apple is live until the review closes on Monday.\n\nMicrosoft is pending.", $this->jsonResponse()['note']['body_md']);
     }
 
-    /** Over MCP, where the agent of 2026-10-13 was stuck: each side is told what happened. */
-    public function testOverMcpTheCuratorHearsItLeftADraftStaleAndTheAuthorHearsItsDraftWasReplaced(): void
+    /**
+     * Over MCP, where the agent of 2026-10-13 was stuck. A curator can no longer
+     * rewrite the sentence an agent's draft holds (operator, 2026-10-14); the
+     * owner can, and the author's next edit then replaces its stale draft.
+     */
+    public function testOverMcpTheCuratorIsRefusedTheHeldSentenceAndTheAuthorHearsItsDraftWasReplaced(): void
     {
         $note = (int) $this->kb->b->note('Factory record', "The first epic has not been filed yet.\n\nThe Designer is not on the squad.")->getId();
         $this->propose($this->kb->b->agentBearer, $note, 'The first epic has not been filed yet.', 'The first epic, TROI-5, is filed.');
 
-        $curator = $this->propose($this->kb->b->curatorBearer, $note, 'The first epic has not been filed yet.', 'The first epic, TROI-5, has its first stage merged.');
-        self::assertTrue($curator['applied']);
-        self::assertStringContainsString('left_stale', $curator['review']);
-        self::assertSame(['body'], $curator['proposal']['left_stale'][0]['stale']);
+        $this->request('POST', '/mcp', $this->kb->b->curatorBearer, [
+            'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
+            'params' => ['name' => 'propose', 'arguments' => ['note_id' => $note, 'patch' => [['find' => 'The first epic has not been filed yet.', 'replace' => 'The first epic, TROI-5, has its first stage merged.']]]],
+        ]);
+        self::assertTrue($this->jsonResponse()['result']['isError'] ?? false, 'The curator is refused the sentence the agent holds');
+        self::assertStringContainsString('Held by', $this->jsonResponse()['result']['content'][0]['text']);
+
+        $this->loginAs($this->kb->b);
+        $this->sessionRequest('PUT', '/api/notes/'.$note, ['body_md' => "The first epic, TROI-5, has its first stage merged.\n\nThe Designer is not on the squad."]);
+        self::assertSame(200, $this->httpStatus(), $this->body());
 
         $agent = $this->propose($this->kb->b->agentBearer, $note, 'The Designer is not on the squad.', 'The Designer joined the squad.');
         self::assertStringContainsString('replaced it', $agent['review']);

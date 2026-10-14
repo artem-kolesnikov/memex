@@ -222,7 +222,9 @@ final class ConcurrentCuratorsTest extends ApiTestCase
         self::assertSame('Deploys go to the new box.', $this->noteBody((int) $note->getId()));
 
         // An agent token is held as it always was, and is told nothing about
-        // anchoring — the rule is about connections whose writes apply.
+        // anchoring — the rule is about connections whose writes apply. On a
+        // note of its own: the curator's held body holds every sentence of this one.
+        $note = $this->kb->a->note('Another runbook', 'Deploys go to the old box.');
         $this->request('PUT', '/api/notes/'.$note->getId(), $this->kb->a->agentBearer, [
             'body_md' => 'An agent rewrite.',
         ]);

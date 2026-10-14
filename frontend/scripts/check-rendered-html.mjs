@@ -17,6 +17,8 @@ const TAGS = new Set([
   'p', 'em', 'strong', 's', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'hr', 'br',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
   'div', 'ins', 'del',
+  // The author label on a line of a review of several connections' changes.
+  'span',
 ])
 const ATTRIBUTES = new Set(['href', 'src', 'alt', 'title', 'class', 'target', 'rel', 'start', 'style'])
 const TAG = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z-]+(?:="[^"<>]*")?)*)\s*\/?>/g
@@ -110,6 +112,7 @@ const RENDERERS = {
   trackedChangesHtml: (text) => trackedChangesHtml(text, `${text}\nchanged`),
   'trackedChangesHtml, removed': (text) => trackedChangesHtml(text, ''),
   'trackedChangesHtml, changed words': (text) => trackedChangesHtml(text, `${text} changed`),
+  'trackedChangesHtml, author labels': (text) => trackedChangesHtml(text, `${text} changed`, [{ from: 0, to: text.length + 1, name: text }]),
   diffHtml: (text) => diffHtml(text, `${text} changed`),
 }
 

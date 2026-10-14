@@ -630,6 +630,102 @@ class NoteWriter
     }
 
     /**
+     * The edits waiting for the owner on this note, as an assistant reading it
+     * needs them (operator, 2026-10-14): whose, what about, which sentences
+     * they hold, and what they would change. Another connection's held
+     * sentences are refused to $reader until the owner decides.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function waitingChanges(Note $note, ?ApiToken $reader): array
+    {
+        $body = $this->lockedBody($note);
+        $changes = [];
+        foreach ($this->em->getRepository(EditProposal::class)->findBy(
+            ['note' => $note, 'status' => EditProposal::STATUS_HELD, 'type' => EditProposal::TYPE_EDIT],
+            ['id' => 'ASC'],
+        ) as $proposal) {
+            $patch = $proposal->getProposedPatch();
+            $whole = $patch === null ? $proposal->getProposedBodyMd() : null;
+            $base = $proposal->getBase();
+            $change = [
+                'proposal_id' => $proposal->getId(),
+                'by' => $proposal->authorName(),
+                'yours' => $reader !== null && $proposal->getProposedByToken() === $reader,
+                'change_title' => $proposal->getChangeTitle(),
+                'comment' => $proposal->getComment(),
+                'held_sentences' => SurgicalEdit::sentencesAt($body, SurgicalEdit::claims($body, $patch, $whole)),
+            ];
+            if ($patch !== null) {
+                $change['patch'] = $patch;
+            } elseif ($whole !== null) {
+                $change['rewrites_body'] = true;
+            }
+            if ($proposal->getProposedTitle() !== null) {
+                $change['title'] = $proposal->getProposedTitle();
+            }
+            if ($proposal->getProposedSummary() !== null) {
+                $change['summary'] = $proposal->getProposedSummary();
+            }
+            $tags = $proposal->getProposedTags();
+            if ($tags !== null) {
+                $read = is_array($base['tags'] ?? null) ? $base['tags'] : array_map(static fn ($tag) => $tag->getName(), $note->getTags()->toArray());
+                $change['tags_added'] = array_values(array_diff($tags, $read));
+                $change['tags_removed'] = array_values(array_diff($read, $tags));
+            }
+            $changes[] = $change;
+        }
+
+        return $changes;
+    }
+
+    /**
+     * Refuse a write to a sentence, the title or the description that another
+     * connection's waiting edit on this note changes ({@see SurgicalEdit::claims()}).
+     *
+     * @param array<int, array{find: string, replace: string}>|null $operations what the author's edit will apply
+     * @param string|null $wholeBody a body that was not narrowed, which claims every sentence
+     * @throws HeldElsewhereException
+     */
+    private function assertUnheld(Note $note, ApiToken $token, ?array $operations, ?string $wholeBody, bool $title, bool $summary): void
+    {
+        $body = $this->lockedBody($note);
+        $mine = SurgicalEdit::claims($body, $operations, $wholeBody);
+        $others = $this->em->getRepository(EditProposal::class)->findBy(
+            ['note' => $note, 'status' => EditProposal::STATUS_HELD, 'type' => EditProposal::TYPE_EDIT],
+            ['id' => 'ASC'],
+        );
+        foreach ($others as $other) {
+            if ($other->getProposedByToken() === $token) {
+                continue;
+            }
+            $theirs = SurgicalEdit::claims($body, $other->getProposedPatch(), $other->getProposedPatch() === null ? $other->getProposedBodyMd() : null);
+            $held = SurgicalEdit::sentencesAt($body, array_values(array_intersect($mine, $theirs)));
+            if ($title && $other->getProposedTitle() !== null) {
+                $held[] = 'the title';
+            }
+            if ($summary && $other->getProposedSummary() !== null) {
+                $held[] = 'the description';
+            }
+            $held = array_values(array_filter($held, static fn (string $what): bool => $what !== ''));
+            if ($held === []) {
+                continue;
+            }
+            $quoted = implode('; ', array_map(
+                static fn (string $what): string => str_starts_with($what, 'the ') ? $what : '“'.(mb_strlen($what) > 80 ? mb_substr($what, 0, 80).'…' : $what).'”',
+                $held,
+            ));
+            $change = $other->getChangeTitle();
+            throw new HeldElsewhereException(
+                'Held by another connection\'s waiting edit: '.$quoted.' — changed by '.$other->authorName()
+                .($change !== null && $change !== '' ? ' in “'.$change.'”' : '')
+                .', which the owner has not decided yet. Change other sentences, or say what you would change as a comment '
+                .'(propose with only note_id and comment): the owner reads it on the same card.'
+            );
+        }
+    }
+
+    /**
      * Retire every row this write replaces, and unhook the log entries that
      * point at them.
      *
@@ -824,6 +920,21 @@ class NoteWriter
                 // then stands (operator, 2026-10-13). One that applies now has
                 // nothing to wait for.
                 $narrowed = $applies ? null : SurgicalEdit::narrow($liveBody, $nextBody);
+            }
+
+            // Nothing another connection's waiting edit already changes: every
+            // waiting edit on a note stays approvable on its own (operator,
+            // 2026-10-14). Curators included; memex's own pass is not an author
+            // that waits on others.
+            if ($token !== null) {
+                $this->assertUnheld(
+                    $note,
+                    $token,
+                    $narrowed ?? ($patch !== null ? self::composedPatch($foldInto, $patch) : ($bodyMd === null ? $foldInto?->getProposedPatch() : null)),
+                    $narrowed === null && $patch === null ? ($bodyMd ?? $foldInto?->getProposedBodyMd()) : null,
+                    $title !== null || $foldInto?->getProposedTitle() !== null,
+                    $summary !== null || $foldInto?->getProposedSummary() !== null,
+                );
             }
 
             // Everything this write supersedes: a different kind of decision from
@@ -1195,28 +1306,100 @@ class NoteWriter
     /** @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}} */
     private function applyEditProposal(EditProposal $proposal): array
     {
-        // The proposal's author is the contributor, not the operator who
-        // approved it — approval is a gate, not authorship.
-        $proposedSummary = $proposal->getProposedSummary();
-        // Resolved against the note as it stands at APPROVAL, so a patch filed
-        // before somebody else's edit lands on top of it — and if the text it
-        // named has moved, the exception stops the approval with the proposal
-        // still held, rather than reverting work nobody was asked about.
-        //
-        // Resolved ONCE, into a variable, because resolving APPLIES the patch:
-        // asking a second time to find out whether the body changed re-runs it
-        // against a body that has already changed, and the anchor is gone.
-        $body = $this->resolveBodyForApply($proposal);
-        $result = $this->update(
-            $proposal->getNote(),
-            $proposal->getProposedTitle(),
+        $note = $proposal->getNote();
+        $filed = $proposal->filedBeforeAmendment();
+        if ($filed === null) {
+            // Resolved against the note as it stands at APPROVAL, so a patch filed
+            // before somebody else's edit lands on top of it — and if the text it
+            // named has moved, the exception stops the approval with the proposal
+            // still held, rather than reverting work nobody was asked about.
+            //
+            // Resolved ONCE, into a variable, because resolving APPLIES the patch:
+            // asking a second time to find out whether the body changed re-runs it
+            // against a body that has already changed, and the anchor is gone.
+            $body = $this->resolveBodyForApply($proposal);
+            $result = $this->applyAsFiled($proposal, $proposal->getProposedTitle(), $body, $proposal->getProposedTags(), $proposal->getProposedSummary());
+        } else {
+            // Amended while being approved (operator, 2026-10-14): the author's
+            // change is recorded as it was filed, credited to its author, and the
+            // owner's words after it as an entry of their own, so History shows
+            // which words were whose. A filed body that no longer fits leaves
+            // its title, tags and description to apply, and the owner's text
+            // where it was, when the owner rewrote it.
+            try {
+                $body = $filed['patch'] !== null ? NotePatch::apply($this->lockedBody($note), $filed['patch']) : $filed['body'];
+            } catch (NotePatchException $e) {
+                if ($filed['owner']['body_md'] === null) {
+                    throw $e;
+                }
+                $body = null;
+            }
+            $result = $body === null && $filed['title'] === null && $filed['tags'] === null && $filed['summary'] === null
+                ? null
+                : $this->applyAsFiled($proposal, $filed['title'], $body, $filed['tags'], $filed['summary']);
+            $result = $this->amendAfterApproval($note, $filed['owner']) ?? $result
+                ?? ['note' => $note, 'suggestions' => ['tag_ids' => [], 'new_tags' => []]];
+        }
+        $this->deferredEnrichment[] = $note;
+        $this->em->remove($proposal);
+        $this->em->flush();
+
+        return $result;
+    }
+
+    /**
+     * The owner's own words, changed while approving, as an entry of their own
+     * after every author's change (operator, 2026-10-14). Only what differs
+     * from the note as it now stands; null when nothing does.
+     *
+     * @param array{title: ?string, body_md: ?string, tags: ?array, summary: ?string} $amendment
+     * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}|null
+     */
+    public function amendAfterApproval(Note $note, array $amendment): ?array
+    {
+        $current = array_map(static fn ($tag) => $tag->getName(), $note->getTags()->toArray());
+        $title = $amendment['title'] !== null && $amendment['title'] !== $note->getTitle() ? $amendment['title'] : null;
+        $body = $amendment['body_md'] !== null && $amendment['body_md'] !== $note->getBodyMd() ? $amendment['body_md'] : null;
+        $tags = $amendment['tags'] !== null && self::sortedNames(array_values(array_unique($amendment['tags']))) !== self::sortedNames($current) ? $amendment['tags'] : null;
+        $summary = $amendment['summary'] !== null && self::normaliseSummary($amendment['summary']) !== $note->getSummary() ? $amendment['summary'] : null;
+        if ($title === null && $body === null && $tags === null && $summary === null) {
+            return null;
+        }
+
+        return $this->update(
+            $note,
+            $title,
             $body,
-            $proposal->getProposedTags(),
+            $tags,
+            enrich: null,
+            summaryProvided: $summary !== null,
+            summary: $summary,
+            actor: Note::actorFor(null, null),
+            operation: NoteRevision::OP_AMENDMENT,
+        );
+    }
+
+    /**
+     * The proposal's change as its author wrote it, credited to the author:
+     * approval is a gate, not authorship.
+     *
+     * @param string[]|null $tags as filed, applied as what they add and remove
+     * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
+     */
+    private function applyAsFiled(EditProposal $proposal, ?string $title, ?string $body, ?array $tags, ?string $summary): array
+    {
+        $note = $proposal->getNote();
+
+        return $this->update(
+            $note,
+            $title,
+            $body,
+            $tags === null ? null : $proposal->tagsAgainst(array_map(static fn ($tag) => $tag->getName(), $note->getTags()->toArray()), $tags),
             // The proposer's description is part of the change, not a detail to
             // be regenerated after it: approving an enrichment that then bought
             // a fresh summary would discard exactly the work being approved.
-            summaryProvided: $proposedSummary !== null,
-            summary: $proposedSummary,
+            summaryProvided: $summary !== null,
+            summary: $summary,
             // Asked of the PROPOSAL rather than of its token, because since
             // 2026-08-23 a proposal may have no token: memex files its own.
             actor: $proposal->actor(),
@@ -1231,21 +1414,11 @@ class NoteWriter
             // an argument each of these three call sites has to remember.
             enrich: null,
             // The headline follows the change onto the revision. Copied rather
-            // than referenced: the proposal row is removed two lines below.
+            // than referenced: the proposal row is removed after this.
             changeTitle: $proposal->getChangeTitle(),
-            // The contributor, not the operator who approved: approval is a
-            // gate, not authorship — the same rule the actor line follows.
             actorToken: $proposal->getProposedByToken(),
             operation: NoteRevision::OP_PROPOSAL,
-            // The credit stays with the proposer; what the history gains is
-            // that the text applied was not the text they filed.
-            amendedByOperator: $proposal->isAmended(),
         );
-        $this->deferredEnrichment[] = $proposal->getNote();
-        $this->em->remove($proposal);
-        $this->em->flush();
-
-        return $result;
     }
 
     /**

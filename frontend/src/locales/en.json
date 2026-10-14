@@ -223,6 +223,7 @@
       "proposal": "Proposal applied",
       "merge": "Merged",
       "restore": "Restored",
+      "amendment": "Amended at approval",
       "replaced": "Replaced",
       "replaced_by": "replaced by {by}"
     },
@@ -454,12 +455,8 @@
       "overwrite": "Overwrite with my version"
     },
     "pending_drafts": {
-      "notice": "An assistant has an edit waiting for you on this note — {link}. Saving your own version here discards it. | An assistant has an edit waiting for you on this note — {link}. Saving your own version here discards it. | {count} assistants have edits waiting for you on this note — {link}. Saving your own version here discards them.",
-      "link": "read it in the inbox",
-      "dialog_title": "Discard the edit waiting for review?",
-      "dialog_body": "Waiting: {drafts}. Saving rejects it and your text becomes the note. | Waiting: {drafts}. Saving rejects it and your text becomes the note. | Waiting: {drafts}. Saving rejects them and your text becomes the note.",
-      "confirm": "Save mine, discard theirs",
-      "cancel": "Keep editing"
+      "notice": "An assistant has an edit waiting for you on this note — {link}. Saving keeps it waiting. | An assistant has an edit waiting for you on this note — {link}. Saving keeps it waiting. | {count} assistants have edits waiting for you on this note — {link}. Saving keeps them waiting.",
+      "link": "read it in the inbox"
     },
     "save_failed_toast": "Could not save note",
     "deleted": "Note deleted",
@@ -604,7 +601,8 @@
     "chip": {
       "merge": "Merge",
       "report": "Report",
-      "new": "New"
+      "new": "New",
+      "changes": "{count} changes | {count} change | {count} changes"
     },
     "verdict": {
       "delete_note": "Delete note",
@@ -613,6 +611,9 @@
       "reject": "Reject",
       "dismiss": "Dismiss",
       "reject_proposal": "Reject proposal",
+      "apply_all": "Apply all",
+      "reject_all": "Reject all",
+      "apply_this": "Apply",
       "approve_note": "Approve note",
       "reject_note": "Reject note",
       "merge_into_this": "Merge into this note"
@@ -650,6 +651,8 @@
       "notes_merged": "Notes merged",
       "proposal_applied": "Proposal applied",
       "proposal_rejected": "Proposal rejected",
+      "changes_applied": "{count} changes applied | {count} change applied | {count} changes applied",
+      "changes_rejected": "{count} changes rejected | {count} change rejected | {count} changes rejected",
       "note_approved": "Note approved",
       "note_approved_amended": "Note approved with your edits",
       "note_rejected": "Note rejected"
@@ -698,6 +701,9 @@
     },
     "verdict_failed": "The verdict was not recorded",
     "items_waiting": "{count} items waiting | {count} item waiting | {count} items waiting",
+    "group": {
+      "changes": "Changes on this note, by author"
+    },
     "stale": {
       "signal": "Written before the note changed",
       "changed_title": "The note changed after this edit was written",

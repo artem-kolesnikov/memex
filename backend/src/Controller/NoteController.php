@@ -288,6 +288,7 @@ class NoteController extends ApiController
         // gave it, with no mark either way. One producer now, so the two
         // cannot disagree again (App\Service\ActorView).
         $data['added_by'] = ActorView::added($note, $this->ownerMark());
+        $data['edited_with'] = ActorView::editedWith($this->em, $note);
         // The id behind that mark, so the page can offer "everything this
         // connection added" as a link. Beside `added_by` rather than inside it:
         // that shape is shared with `edited_by` and with every search row, and
@@ -439,9 +440,10 @@ class NoteController extends ApiController
                     summary: $proposedSummary,
                     patch: $patch,
                 );
-            } catch (\App\Service\NotePatchException $e) {
-                // The anchor did not fit the note as it stands. The caller's
-                // own text, quoted back, with what to do about it.
+            } catch (\App\Service\NotePatchException|\App\Service\HeldElsewhereException $e) {
+                // The anchor did not fit the note as it stands, or another
+                // connection's waiting edit holds that text. The caller's own
+                // text, quoted back, with what to do about it.
                 return $this->json($this->json400($e->getMessage()), Response::HTTP_CONFLICT);
             } catch (\InvalidArgumentException $e) {
                 return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
@@ -490,20 +492,11 @@ class NoteController extends ApiController
 
         $result = $this->limbo->whileHoldingNotes([$note], function () use ($note, $title, $bodyMd, $tags, $data, $request): array|JsonResponse {
             $this->verdicts->assertNoteVersion($note, $data['expected_version'] ?? $note->getVersion());
-            $held = $this->em->getRepository(EditProposal::class)->findBy(
-                ['note' => $note, 'status' => EditProposal::STATUS_HELD],
-                ['id' => 'ASC'],
-            );
-            if ($held !== [] && ($data['discard_proposals'] ?? null) !== true) {
-                return $this->json([
-                    'conflict' => 'pending_proposals',
-                    'error' => 'This note has work waiting in the review inbox.',
-                    'pending_proposals' => array_map($this->proposalToArray(...), $held),
-                ], Response::HTTP_CONFLICT);
-            }
-            foreach ($held as $proposal) {
-                $this->verdicts->rejectSuperseded($proposal);
-            }
+            // Work waiting on the note stays waiting (operator, 2026-10-14): an
+            // edit applies as the words it changes, on top of this save, and
+            // one whose sentence this save rewrote shows as written before the
+            // note changed. The owner never discards an assistant's work to
+            // fix a typo.
             return $this->noteWriter->update(
                 $note,
                 $title,

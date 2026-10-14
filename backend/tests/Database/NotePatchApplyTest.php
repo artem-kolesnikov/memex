@@ -105,18 +105,15 @@ final class NotePatchApplyTest extends DatabaseTestCase
     {
         $note = $this->kb->note($this->writer, 'Record', 'Microsoft is pending.', []);
 
-        $first = $this->writer->propose(
-            $note, $this->kb->agentToken, null, null, null,
-            applyTags: false,
-            patch: [['find' => 'Microsoft is pending.', 'replace' => 'Microsoft is live.']],
-        );
+        // Another connection can no longer change a sentence a waiting patch
+        // holds (operator, 2026-10-14), so the text moves under it by the
+        // owner's own save.
         $second = $this->writer->propose(
             $note, $this->kb->otherAgentToken, null, null, null,
             applyTags: false,
             patch: [['find' => 'Microsoft is pending.', 'replace' => 'Microsoft was deferred.']],
         );
-
-        $this->verdicts->approveProposal($first, self::VERDICT, $this->reviewSnapshot($first));
+        $this->writer->update($note, null, 'Microsoft is live.', null, null);
 
         try {
             $this->verdicts->approveProposal($second, self::VERDICT, $this->reviewSnapshot($second));

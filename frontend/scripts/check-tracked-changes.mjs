@@ -170,6 +170,22 @@ const note = `# Garden club\n\n## Decided\n\n${paragraph}\n- Meetings are on the
   check('a locked editor offers no accept or reject', tooltips(readOnly) === 0, '')
 }
 
+{
+  // A card of several authors' changes labels each changed line with whose it is.
+  const { changedRanges } = await import('../src/lib/diffs.ts')
+  const designer = note.replace('first Tuesday', 'first Thursday')
+  const orchestrator = note.replace('- Where the spring sale is held.', '- Where the spring sale is held: the library.')
+  const both = designer.replace('- Where the spring sale is held.', '- Where the spring sale is held: the library.')
+  const authors = [
+    ...changedRanges(note, designer).map((range) => ({ ...range, name: 'Designer' })),
+    ...changedRanges(note, orchestrator).map((range) => ({ ...range, name: 'Orchestrator' })),
+  ]
+  const html = trackedChangesHtml(note, both, authors)
+  check('each changed line is labelled with its author', html.includes('<span class="mm-diff-by">Designer</span>'), html)
+  check('the other author labels the other line', html.includes('<span class="mm-diff-by">Orchestrator</span>') && (html.match(/mm-diff-by/g) ?? []).length === 2, html)
+  check('a single author is not labelled', !trackedChangesHtml(note, designer).includes('mm-diff-by'), '')
+}
+
 const src = fileURLToPath(new URL('../src', import.meta.url))
 const files = (dir) => readdirSync(dir).flatMap((name) => {
   const path = join(dir, name)

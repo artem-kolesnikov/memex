@@ -160,10 +160,10 @@ final class HeldDraftCollapseTest extends DatabaseTestCase
 
     public function testASecondConnectionKeepsItsOwnDraft(): void
     {
-        $note = $this->kb->note($this->writer, 'Record', 'Version zero.', []);
+        $note = $this->kb->note($this->writer, 'Record', "Version zero.\n\nPart two.", []);
 
-        $this->writer->propose($note, $this->kb->agentToken, null, 'From the first agent.', null, applyTags: false);
-        $this->writer->propose($note, $this->kb->otherAgentToken, null, 'From the second agent.', null, applyTags: false);
+        $this->writer->propose($note, $this->kb->agentToken, null, "From the first agent.\n\nPart two.", null, applyTags: false);
+        $this->writer->propose($note, $this->kb->otherAgentToken, null, "Version zero.\n\nFrom the second agent.", null, applyTags: false);
 
         self::assertCount(2, $this->held((int) $note->getId()), 'Folding across authors would discard work its author cannot see');
     }

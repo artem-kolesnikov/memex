@@ -82,7 +82,7 @@ final class HistoryIntegrityTest extends ApiTestCase
         $conn->executeStatement("CREATE TRIGGER fail_owner BEFORE INSERT ON note_revisions BEGIN SELECT RAISE(ABORT, 'injected owner history failure'); END");
         $this->loginAs($this->kb->a);
         $this->sessionRequest('PUT', '/api/notes/'.$note->getId(), [
-            'body_md' => 'owner edited', 'discard_proposals' => true, 'expected_version' => $note->getVersion(),
+            'body_md' => 'owner edited', 'expected_version' => $note->getVersion(),
         ]);
         self::assertSame(500, $this->httpStatus());
         $this->in($this->kb->a);

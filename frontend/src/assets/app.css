@@ -4878,3 +4878,16 @@ h3, .h3, h4, .h4 { letter-spacing: -.018em; }
     .mm-search-help-list { grid-template-columns: minmax(0, 1fr); gap: 2px; }
     .mm-search-help-list dd { margin-bottom: 8px; }
 }
+
+/* A card of several connections' changes to one note: who changed what, each
+   decided on its own or all together, above the one document they make. */
+.mm-group-changes { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.mm-group-change { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--mm-line); border-radius: var(--mm-radius-sm); background: var(--mm-surface); }
+.mm-group-change-copy { min-width: 0; }
+.mm-group-change-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: .8rem; }
+.mm-group-title { color: var(--mm-ink-soft); }
+.mm-group-change-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.mm-diff-body .mm-diff-by { margin-left: .6em; padding: 0 .45em; border-radius: 999px; font: 600 .66rem/1.5 var(--bs-body-font-family); color: var(--mm-muted); background: var(--mm-surface); border: 1px solid var(--mm-line); white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .mm-group-change { flex-direction: column; }
+}

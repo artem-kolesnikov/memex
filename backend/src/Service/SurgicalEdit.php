@@ -169,6 +169,71 @@ final class SurgicalEdit
         }
     }
 
+    /**
+     * The sentences of $body a held edit claims: the ones it changes, the one
+     * it adds text after, and any its anchors quote (operator, 2026-10-14).
+     * While it waits, another connection's edit to one of them is refused, so
+     * every waiting edit on a note can be approved or rejected on its own.
+     *
+     * Operations that no longer fit claim nothing: they cannot be approved,
+     * and their author's next edit replaces them. A whole body that was not
+     * narrowed is a rewrite and claims every sentence.
+     *
+     * @param array<int, array{find: string, replace: string}>|null $operations
+     * @return array<int, int> sentence indices, ascending
+     */
+    public static function claims(string $body, ?array $operations, ?string $wholeBody = null): array
+    {
+        $sentences = self::split(self::SENTENCE, $body) ?? [$body];
+        if ($operations === null) {
+            return $wholeBody === null || $wholeBody === $body ? [] : array_keys($sentences);
+        }
+        try {
+            $after = NotePatch::apply($body, $operations);
+        } catch (NotePatchException) {
+            return [];
+        }
+        $claimed = [];
+        foreach (self::diff($sentences, self::split(self::SENTENCE, $after) ?? [$after]) ?? [[0, count($sentences), 0, 0]] as [$from, $to]) {
+            for ($i = $from; $i < $to; $i++) {
+                $claimed[$i] = true;
+            }
+            if ($from === $to) {
+                $claimed[max(0, min($from - 1, count($sentences) - 1))] = true;
+            }
+        }
+        $starts = [];
+        $offset = 0;
+        foreach ($sentences as $i => $sentence) {
+            $starts[$i] = $offset;
+            $offset += strlen($sentence);
+        }
+        foreach ($operations as $operation) {
+            if (substr_count($body, $operation['find']) !== 1) {
+                continue;
+            }
+            $from = strpos($body, $operation['find']);
+            $to = $from + strlen($operation['find']);
+            foreach ($starts as $i => $start) {
+                if ($start < $to && $start + strlen($sentences[$i]) > $from) {
+                    $claimed[$i] = true;
+                }
+            }
+        }
+        $indices = array_keys($claimed);
+        sort($indices);
+
+        return $indices;
+    }
+
+    /** The text of the sentences at $indices, for saying which ones are held. */
+    public static function sentencesAt(string $body, array $indices): array
+    {
+        $sentences = self::split(self::SENTENCE, $body) ?? [$body];
+
+        return array_values(array_map(static fn (int $i): string => trim($sentences[$i] ?? ''), $indices));
+    }
+
     /** @return string[]|null the pieces, which rebuild the text exactly */
     private static function split(string $pattern, string $text): ?array
     {

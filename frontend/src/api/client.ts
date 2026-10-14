@@ -102,6 +102,8 @@ export interface CurationFlag {
 export interface NoteDetail extends NoteListItem {
   added_by: Actor | null
   added_by_token_id: number | null
+  /** Other connections whose waiting edits were approved together with the last write. */
+  edited_with?: Actor[]
   described_at: string | null
   embedded: boolean
   body_md: string
@@ -1021,7 +1023,6 @@ export const api = {
       tags?: string[]
       summary?: string
       expected_version?: number
-      discard_proposals?: boolean
     },
   ) =>
     request<NoteWriteResponse>(`/api/notes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -1063,6 +1064,13 @@ export const api = {
     request<{ note: NoteWriteResponse['note'] | null; suggested_tags: SuggestedTags }>(
       `/api/proposals/${id}/approve`,
       verdictPost(verdict, { ...edits, ...snapshot }),
+    ),
+
+  /** Every change waiting on one note, approved together with the owner's amendment, in one transaction. */
+  approveTogether: (items: ({ id: number } & ProposalApprovalSnapshot)[], verdict?: OperatorVerdict, edits?: NoteApprovalEdits) =>
+    request<{ note: NoteWriteResponse['note'] | null; suggested_tags: SuggestedTags }>(
+      '/api/proposals/approve-together',
+      verdictPost(verdict, { ...edits, items }),
     ),
 
   rejectProposal: (id: number, verdict?: OperatorVerdict) =>

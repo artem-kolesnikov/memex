@@ -323,7 +323,7 @@ abstract class DesignSweepTestCase extends ApiTestCase
 
         return match ($route) {
             'POST /api/notes' => ['title' => 'Probe note', 'body_md' => 'Written by the sweep. See [[Alpha]].', 'tags' => ['probe']],
-            'PUT /api/notes/{id}' => ['title' => 'Delta, renamed by the sweep', 'discard_proposals' => true],
+            'PUT /api/notes/{id}' => ['title' => 'Delta, renamed by the sweep'],
             'DELETE /api/notes/{id}' => ['discard_proposals' => true],
             'POST /api/notes/{id}/approve' => ['expected_version' => $f['pending_version'], 'comment' => 'Approved by the sweep.'],
             'POST /api/notes/{id}/reject', 'POST /api/proposals/{id}/reject' => ['comment' => 'Rejected by the sweep.'],

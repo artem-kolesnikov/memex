@@ -95,7 +95,7 @@ const summaryChanged = computed(() => props.doc.summary.before !== props.doc.sum
     <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">
       <span class="mm-doc-label">{{ $t('inbox.doc.body') }}</span>
       <!-- eslint-disable-next-line vue/no-v-html — trackedChangesHtml escapes both sides -->
-      <div class="mm-diff mm-diff-body" v-if="bodyChanged" v-html="trackedChangesHtml(doc.body.before, doc.body.after)"></div>
+      <div class="mm-diff mm-diff-body" v-if="bodyChanged" v-html="trackedChangesHtml(doc.body.before, doc.body.after, doc.bodyAuthors)"></div>
       <div class="mm-diff mm-diff-body mm-diff-plain" v-else>{{ doc.body.after }}</div>
       <!-- The absorbed note's text belongs to the body it is being folded
            into, as the removal it is. Unlabelled on purpose: the row above the

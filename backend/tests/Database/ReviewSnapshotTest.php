@@ -174,22 +174,4 @@ final class ReviewSnapshotTest extends ApiTestCase
         self::assertSame(409, $this->httpStatus(), $this->body());
         self::assertGreaterThan($seen['expected_version'], $note->getVersion());
     }
-
-    public function testOwnerDraftDiscoveryHoldsTheTeamLockUntilTheSave(): void
-    {
-        $note = $this->kb->b->note('Locked discovery', 'Before');
-        $this->loginAs($this->kb->b);
-        $vault = static::getContainer()->get(DataDir::class)->vaultPath($this->kb->b->vault->key);
-        $reads = 0;
-        \App\Tests\Support\SqlObservation::during($this->em->getConnection(), function (string $sql) use ($vault, &$reads): void {
-            if (str_starts_with($sql, 'SELECT') && str_contains($sql, 'FROM edit_proposals')) {
-                ++$reads;
-                self::assertTrue(\App\Tests\Support\SqlObservation::isWriteLocked($vault));
-            }
-        }, function () use ($note): void {
-            $this->sessionRequest('PUT', '/api/notes/'.$note->getId(), ['body_md' => 'After', 'expected_version' => $note->getVersion()]);
-            self::assertSame(200, $this->httpStatus(), $this->body());
-        });
-        self::assertGreaterThan(0, $reads);
-    }
 }

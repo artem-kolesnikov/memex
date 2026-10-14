@@ -241,9 +241,70 @@ class ReviewVerdicts
         // OwnerInitiated: reaching this line means a person ruled on this item
         // in the review inbox. Both approve routes refuse a bearer token
         // outright, so no token can arrive here. {@see EmbeddingSpend}
-        $this->noteWriter->drainDeferredEnrichment(EmbeddingSpend::OwnerInitiated);
+        // Inside approveTogether()'s transaction this commit only released a
+        // savepoint; the outer one drains once it has really committed.
+        if ($conn->getTransactionNestingLevel() === 0) {
+            $this->drainApproved();
+        }
 
         return $result;
+    }
+
+    /**
+     * Every change waiting on one note, approved together, then the owner's
+     * own words as an entry of their own (operator, 2026-10-14). One
+     * transaction: if any change no longer fits or the note moved, nothing is
+     * applied and the card stays as the owner left it.
+     *
+     * @param array<int, array{0: EditProposal, 1: array<string, mixed>}> $items each change with the snapshot the owner saw
+     * @param array{comment: ?string, precedent: bool} $verdict
+     * @param array{title: ?string, body_md: ?string, tags: ?array, summary: ?string}|null $amendment
+     * @return array{note: ?Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
+     */
+    public function approveTogether(Note $note, array $items, array $verdict, ?array $amendment): array
+    {
+        $conn = $this->em->getConnection();
+        $conn->beginTransaction();
+        try {
+            $result = ['note' => $note, 'suggestions' => ['tag_ids' => [], 'new_tags' => []]];
+            // The owner decided on the note as one version; each change then
+            // applies on top of the one before it.
+            foreach ($items as [, $snapshot]) {
+                $this->assertNoteVersion($note, ReviewSnapshot::proposal($snapshot, false)['expected_version']);
+            }
+            foreach ($items as [$proposal, $snapshot]) {
+                $snapshot = ['expected_revision' => ReviewSnapshot::proposal($snapshot, false)['expected_revision'], 'expected_version' => $note->getVersion()];
+                if ($proposal->getNote() !== $note || !in_array($proposal->getType(), [EditProposal::TYPE_EDIT, EditProposal::TYPE_REPORT], true)) {
+                    throw new \InvalidArgumentException('Proposal '.$proposal->getId().' is not a waiting change to this note');
+                }
+                if ($proposal->isStale()) {
+                    throw new StaleProposalException('Change #'.$proposal->getId().' was written before the note changed. Decide it on its own, with what changed in front of you.');
+                }
+                $result = $this->approveProposal($proposal, $verdict, $snapshot);
+            }
+            if ($amendment !== null) {
+                $result = $this->noteWriter->amendAfterApproval($note, $amendment) ?? $result;
+            }
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            $this->noteWriter->discardDeferredEnrichment();
+            $this->em->clear();
+            throw $e;
+        }
+        $this->drainApproved();
+
+        return $result;
+    }
+
+    /**
+     * Enrichment an approval deferred. OwnerInitiated because only a person
+     * ruling in the review inbox reaches it: every approve route refuses a
+     * bearer token. One line, so the exemption is counted once.
+     */
+    private function drainApproved(): void
+    {
+        $this->noteWriter->drainDeferredEnrichment(EmbeddingSpend::OwnerInitiated);
     }
 
     /**

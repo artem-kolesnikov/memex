@@ -243,7 +243,8 @@ final class TagAdminTest extends DatabaseTestCase
      */
     public function testAHeldProposalNamingARetiredTagStillApplies(): void
     {
-        $note = $this->kb->note($this->writer, 'One', 'Body.', ['inbox']);
+        $this->kb->note($this->writer, 'Carrier', 'Body.', ['inbox']);
+        $note = $this->kb->note($this->writer, 'One', 'Body.', []);
         $proposal = $this->writer->propose(
             $note, $this->kb->agentToken, null, null, ['inbox', 'extra'], applyTags: false,
         );

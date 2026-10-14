@@ -161,21 +161,21 @@ final class UserProfileTest extends ApiTestCase
 
     public function testEveryConnectionsEditToTheProfileWaitsForTheOwner(): void
     {
-        $note = $this->kb->a->note('About me', 'I live in Lyon.', ['user-profile']);
+        $note = $this->kb->a->note('About me', 'I live in Lyon. I work from home.', ['user-profile']);
         $id = $note->getId();
 
         $this->call('propose', $this->kb->a->agentBearer, [
             'note_id' => $id, 'patch' => [['find' => 'Lyon', 'replace' => 'Nantes']], 'comment' => 'They said so.',
         ]);
-        self::assertSame('I live in Lyon.', $this->call('get', $this->kb->a->agentBearer, ['id' => $id])['body_md'],
+        self::assertSame('I live in Lyon. I work from home.', $this->call('get', $this->kb->a->agentBearer, ['id' => $id])['body_md'],
             'an agent-role edit waits in the inbox');
 
         $result = $this->call('propose', $this->kb->a->curatorBearer, [
-            'note_id' => $id, 'patch' => [['find' => 'Lyon', 'replace' => 'Nantes']], 'comment' => 'They said so.',
+            'note_id' => $id, 'patch' => [['find' => 'I work from home.', 'replace' => 'I work in an office.']], 'comment' => 'They said so.',
         ]);
         self::assertFalse($result['applied'], 'a profile binds every assistant, so no connection rewrites it unreviewed');
         self::assertSame(NoteWriter::INSTRUCTIONS_HELD, $result['review']);
-        self::assertSame('I live in Lyon.', $this->call('get', $this->kb->a->agentBearer, ['id' => $id])['body_md']);
+        self::assertSame('I live in Lyon. I work from home.', $this->call('get', $this->kb->a->agentBearer, ['id' => $id])['body_md']);
     }
 
     public function testACuratorCannotMakeANoteAProfileOrASkillUnreviewed(): void

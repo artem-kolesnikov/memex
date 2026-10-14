@@ -200,14 +200,14 @@ final class DraftRaceTest extends DatabaseTestCase
     {
         // The lock is on the note, so it serialises two authors as well —
         // what it must not do is collapse them into one item.
-        $note = $this->kb->note($this->writer, 'Two authors', 'Original body.');
+        $note = $this->kb->note($this->writer, 'Two authors', "Original body.\n\nSecond part.");
         $this->writer->propose(
             $note, $this->kb->agentToken,
-            null, 'Mine.', null, applyTags: false,
+            null, "Mine.\n\nSecond part.", null, applyTags: false,
         );
         $this->writer->propose(
             $note, $this->kb->otherAgentToken,
-            null, 'Also mine.', null, applyTags: false,
+            null, "Original body.\n\nAlso mine.", null, applyTags: false,
         );
 
         self::assertCount(

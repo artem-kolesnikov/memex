@@ -138,37 +138,70 @@ export function trackedChanges(oldText: string, newText: string): TrackedPiece[]
 }
 
 /** Tracked changes as HTML, one block per line; long unchanged stretches collapse to a count. */
-export function trackedChangesHtml(oldText: string, newText: string): string {
+/** Where one author's change sits in the old text, for labelling a combined review. */
+export interface AuthorRange {
+  from: number
+  to: number
+  name: string
+}
+
+/** The stretches of the old text a change removes, or the point it adds at. */
+export function changedRanges(oldText: string, newText: string): { from: number; to: number }[] {
+  const ranges: { from: number; to: number }[] = []
+  let at = 0
+  for (const piece of trackedChanges(oldText, newText)) {
+    if (piece.kind === 'added') ranges.push({ from: at, to: at })
+    if (piece.kind === 'removed') ranges.push({ from: at, to: at + piece.text.length })
+    if (piece.kind !== 'added') at += piece.text.length
+  }
+
+  return ranges
+}
+
+type Fragment = TrackedPiece & { at: number }
+
+export function trackedChangesHtml(oldText: string, newText: string, authors: AuthorRange[] = []): string {
   // A line remembers whether its own line break was kept, added or removed:
   // an added or removed blank line, or a paragraph split or joined, has no
   // words to mark, so it is marked with a paragraph sign, as a word processor
-  // shows one.
-  let line: { pieces: TrackedPiece[]; end: TrackedPiece['kind'] } = { pieces: [], end: 'same' }
+  // shows one. Each piece remembers where it stood in the old text, so a
+  // review of several authors' changes can say whose each line is.
+  let line: { pieces: Fragment[]; end: TrackedPiece['kind']; endAt: number } = { pieces: [], end: 'same', endAt: 0 }
   const breaks = [line]
+  let at = 0
   for (const piece of trackedChanges(oldText, newText)) {
     piece.text.split('\n').forEach((text, index) => {
       if (index > 0) {
         line.end = piece.kind
-        breaks.push(line = { pieces: [], end: 'same' })
+        line.endAt = at
+        if (piece.kind !== 'added') at += 1
+        breaks.push(line = { pieces: [], end: 'same', endAt: at })
       }
-      if (text !== '') line.pieces.push({ kind: piece.kind, text })
+      if (text !== '') line.pieces.push({ kind: piece.kind, text, at })
+      if (piece.kind !== 'added') at += text.length
     })
   }
   if (breaks.length > 1 && line.pieces.length === 0 && line.end === 'same') breaks.pop()
-  const lines = breaks.map(({ pieces, end }) => end !== 'same' && !(pieces.length > 0 && pieces.every((p) => p.kind === end))
-    ? [...pieces, { kind: end, text: '¶' }]
+  const lines = breaks.map(({ pieces, end, endAt }) => end !== 'same' && !(pieces.length > 0 && pieces.every((p) => p.kind === end))
+    ? [...pieces, { kind: end, text: '¶', at: endAt }]
     : pieces)
 
+  const authorAt = (at: number) => authors.find((range) => at >= range.from && at <= range.to)?.name
   const kindOf = (line: TrackedPiece[]) => line.length > 0 && line.every((p) => p.kind === 'removed') ? ' del'
     : line.length > 0 && line.every((p) => p.kind === 'added') ? ' ins'
     : line.some((p) => p.kind !== 'same') ? ' chg' : ''
-  const html = (line: TrackedPiece[]) => `<div class="mm-diff-line${kindOf(line)}">${line.map((p) => {
-    const text = escapeHtml(p.text)
-    return p.kind === 'added' ? `<ins>${text}</ins>` : p.kind === 'removed' ? `<del>${text}</del>` : text
-  }).join('')}</div>`
+  const html = (line: Fragment[]) => {
+    const names = [...new Set(line.filter((p) => p.kind !== 'same').map((p) => authorAt(p.at)).filter((name) => name !== undefined))]
+    const by = names.length ? `<span class="mm-diff-by">${escapeHtml(names.join(' · '))}</span>` : ''
+
+    return `<div class="mm-diff-line${kindOf(line)}">${line.map((p) => {
+      const text = escapeHtml(p.text)
+      return p.kind === 'added' ? `<ins>${text}</ins>` : p.kind === 'removed' ? `<del>${text}</del>` : text
+    }).join('')}${by}</div>`
+  }
 
   const out: string[] = []
-  let run: TrackedPiece[][] = []
+  let run: Fragment[][] = []
   const flush = (last: boolean) => {
     const head = out.length === 0 ? 0 : CONTEXT_LINES
     const tail = last ? 0 : CONTEXT_LINES

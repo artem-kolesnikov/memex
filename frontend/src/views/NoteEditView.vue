@@ -44,7 +44,6 @@ import { renderNote } from '@/lib/markdown'
 import { formatCount, noteStats } from '@/lib/noteStats'
 import { readIntake } from '@/lib/fileIntake'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
-import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import NoteDeleteDialog from '@/components/NoteDeleteDialog.vue'
 import { SUMMARY_SOFT_CAP } from '@/lib/summaryLength'
 import TagInput from '@/components/TagInput.vue'
@@ -94,14 +93,12 @@ const conflict = ref(false)
 /**
  * Work an assistant has waiting on this note.
  *
- * Loaded with the note so the notice is there BEFORE the save — the point is
- * that somebody can go and read the proposal rather than discover it as an
- * obstacle. `pendingDrafts` is the refused save's own list, which is the same
- * thing a moment later and is what the dialog names.
+ * Loaded with the note so the notice is there before the save: saving keeps
+ * it waiting, and deleting the note discards it, which the delete dialog names
+ * from `pendingDrafts`.
  */
 const pendingCount = ref(0)
 const pendingDrafts = ref<EditProposalItem[]>([])
-const discardDialogOpen = ref(false)
 /** The last refused save, kept on the page rather than only in a toast. */
 const saveError = ref<string | null>(null)
 
@@ -454,7 +451,7 @@ function savedWith(title: string, suggested?: { new_tags: string[] }): string {
   return t('editor.saved_with_suggestion', { title, tags: invented.join(', ') })
 }
 
-async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolean } = {}) {
+async function saveEntity(options: { overwrite?: boolean } = {}) {
   if (saving.value || outcomeUnknown.value) return
   // The request outlives a navigation, and its answer belongs to the note it
   // was made from: a 409 for A landing on B would offer to overwrite B without
@@ -521,7 +518,6 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
         tags: entity.value.tags,
         summary: entity.value.summary.trim(),
         ...(expected !== null ? { expected_version: expected } : {}),
-        ...(options.discardDrafts ? { discard_proposals: true } : {}),
       })
       if (!lifetime.current(mine)) return
       toastSuccess(t('editor.updated'), savedWith(result.note.title, result.suggested_tags))
@@ -538,13 +534,7 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
     // typed, somebody else simply got there first. Saying so, and leaving the
     // text in the editor where it can be copied, is the whole handling — an
     // automatic merge would be guessing at which version the user meant.
-    if (e instanceof ApiError && e.status === 409 && e.data.conflict === 'pending_proposals') {
-      // Not a failure and not a race: somebody's work is waiting, and saving
-      // over it is a choice to make once it has been named.
-      pendingDrafts.value = (e.data.pending_proposals as EditProposalItem[]) ?? []
-      pendingCount.value = pendingDrafts.value.length
-      discardDialogOpen.value = true
-    } else if (e instanceof ApiError && e.status === 409) {
+    if (e instanceof ApiError && e.status === 409) {
       conflict.value = true
       toastError(t('editor.conflict.toast_title'), t('editor.conflict.toast_body'))
     } else {
@@ -554,11 +544,6 @@ async function saveEntity(options: { overwrite?: boolean; discardDrafts?: boolea
   } finally {
     if (lifetime.current(mine)) saving.value = false
   }
-}
-
-function confirmDiscardDrafts() {
-  discardDialogOpen.value = false
-  saveEntity({ discardDrafts: true })
 }
 
 /** Who filed what, for the dialog: a name and the headline each one carries. */
@@ -646,7 +631,6 @@ async function load() {
   conflict.value = false
   pendingCount.value = 0
   pendingDrafts.value = []
-  discardDialogOpen.value = false
   saveError.value = null
   intakeError.value = null
   analysis.value = null
@@ -1096,20 +1080,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
           </button>
         </section>
       </form>
-
-      <ConfirmDialog v-if="discardDialogOpen"
-                     :title="$t('editor.pending_drafts.dialog_title')"
-                     :confirm-label="$t('editor.pending_drafts.confirm')"
-                     :cancel-label="$t('editor.pending_drafts.cancel')"
-                     danger
-                     :busy="saving"
-                     @confirm="confirmDiscardDrafts"
-                     @close="discardDialogOpen = false">
-        <i18n-t keypath="editor.pending_drafts.dialog_body" tag="span"
-                :plural="pendingDrafts.length" scope="global">
-          <template #drafts>{{ draftSummary }}</template>
-        </i18n-t>
-      </ConfirmDialog>
 
       <NoteDeleteDialog v-if="deleteDialogOpen"
                         :title="entity.title"

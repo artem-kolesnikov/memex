@@ -1,4 +1,4 @@
-import { resolvePatch } from '@/lib/diffs'
+import { resolvePatch, type AuthorRange } from '@/lib/diffs'
 
 /** One field of the resulting document, and what it replaces. */
 export interface DocField<T> {
@@ -13,6 +13,8 @@ export interface ProposedDoc {
   titleBefore: string | null
   noteId: number | null
   body: DocField<string>
+  /** Whose change each stretch of the body is, when several authors' changes are reviewed together. */
+  bodyAuthors?: AuthorRange[]
   tags: DocField<string[]>
   summary: DocField<string>
   /** A merge's absorbed note: named and readable, never editable. */
@@ -39,7 +41,26 @@ export interface DocSource {
   keeperTags?: string[]
   keeperSummary?: string | null
   /** The note as the author read it, for a held edit that recorded one. */
-  base?: { body_md: string } | null
+  base?: { body_md: string; tags?: string[] } | null
+  /** Whose change each stretch of the body is, for several authors' changes reviewed together. */
+  bodyAuthors?: AuthorRange[]
+}
+
+/**
+ * The tags an edit leaves: what it added and removed since its author read
+ * the note, applied to the tags as they are now, the way approval applies them.
+ * An edit that recorded no reading replaces the list.
+ */
+function editedTags(source: DocSource): string[] {
+  const current = source.currentTags ?? []
+  const proposed = source.proposed_tags
+  if (proposed === null) return current
+  const read = source.base?.tags
+  if (!read) return proposed
+  const removed = read.filter((tag) => !proposed.includes(tag))
+  const added = proposed.filter((tag) => !read.includes(tag) && !current.includes(tag))
+
+  return [...current.filter((tag) => !removed.includes(tag)), ...added]
 }
 
 /**
@@ -168,9 +189,10 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
     titleBefore: source.proposed_title === null ? null : currentTitle,
     noteId: source.note?.id ?? null,
     body: { before: source.currentBody ?? '', after: edited.body },
-    tags: { before: source.currentTags ?? [], after: source.proposed_tags ?? source.currentTags ?? [] },
+    tags: { before: source.currentTags ?? [], after: editedTags(source) },
     summary: { before: currentSummary, after: source.proposed_summary ?? currentSummary },
     destroyed: null,
     refusal: edited.refusal,
+    ...(source.bodyAuthors?.length ? { bodyAuthors: source.bodyAuthors } : {}),
   }
 }

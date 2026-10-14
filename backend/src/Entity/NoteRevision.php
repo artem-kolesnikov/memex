@@ -49,12 +49,15 @@ class NoteRevision
     public const OP_MERGE = 'merge';
     /** An older version put back from this very list. */
     public const OP_RESTORE = 'restore';
+    /** The owner's own words, changed in a proposal while approving it. */
+    public const OP_AMENDMENT = 'amendment';
 
     public const OPERATIONS = [
         self::OP_EDIT,
         self::OP_PROPOSAL,
         self::OP_MERGE,
         self::OP_RESTORE,
+        self::OP_AMENDMENT,
     ];
 
     #[ORM\Id]
