@@ -11,6 +11,7 @@ import { lineDiffCounts, trackedChangesHtml } from '@/lib/diffs'
 import { formatCount, noteStats } from '@/lib/noteStats'
 import { toastError, toastSuccess } from '@/components/toastService'
 import ActorMark from '@/components/ActorMark.vue'
+import SkillMark from '@/components/SkillMark.vue'
 import NoteMap from '@/components/NoteMap.vue'
 import PaneToggle from '@/components/PaneToggle.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -863,7 +864,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
             <ul class="mm-backlink-list">
               <li v-for="backlink in note.backlinks" :key="backlink.note_id">
                 <i class="fa-solid fa-link"></i>
-                <router-link :to="{ name: 'note', params: { id: backlink.note_id } }">{{ backlink.title }}</router-link>
+                <router-link :to="{ name: backlink.skill ? 'skill' : 'note', params: { id: backlink.note_id } }"><SkillMark v-if="backlink.skill" />{{ backlink.title }}</router-link>
               </li>
             </ul>
           </section>

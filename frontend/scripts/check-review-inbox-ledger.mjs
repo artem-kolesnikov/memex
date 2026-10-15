@@ -194,8 +194,8 @@ const contracts = [
     'production: rejection is styled the same for a pending note and a proposal',
   ],
   [
-    /approveLabel: row\.type === 'delete' \? t\('inbox\.verdict\.delete_note'\)/.test(src.view)
-      && locale.inbox.verdict.delete_note === 'Delete note',
+    /approveLabel: row\.type === 'delete' \? t\(row\.note\.skill \? 'inbox\.verdict\.delete_skill' : 'inbox\.verdict\.delete_note'\)/.test(src.view)
+      && locale.inbox.verdict.delete_note === 'Delete note' && locale.inbox.verdict.delete_skill === 'Delete skill',
     'production: destructive approval has lost its type-specific wording',
   ],
 

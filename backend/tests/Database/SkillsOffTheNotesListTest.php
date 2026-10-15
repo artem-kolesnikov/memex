@@ -78,6 +78,38 @@ final class SkillsOffTheNotesListTest extends ApiTestCase
         self::assertStringContainsString('Release skill', $this->jsonResponse()['result']['content'][0]['text']);
     }
 
+    public function testThePendingSkillWaitsInTheInboxItsBadgeCounts(): void
+    {
+        $this->propose('Draft checklist', ['ops']);
+        $this->propose('Draft skill', ['skill']);
+        $this->loginAs($this->kb->a);
+
+        $this->sessionRequest('GET', '/api/inbox/count');
+        $badge = $this->jsonResponse()['pending_notes'];
+
+        $this->sessionRequest('GET', '/api/inbox/notes');
+        self::assertSame(200, $this->httpStatus(), $this->body());
+        $inbox = $this->jsonResponse();
+        $titles = array_column($inbox['items'], 'title');
+        sort($titles);
+        self::assertSame(['Draft checklist', 'Draft skill'], $titles, 'a pending skill was left out of the inbox');
+        self::assertSame($badge, $inbox['total'], 'the badge counted a note the inbox does not list');
+
+        $this->sessionRequest('GET', '/api/notes?status=pending');
+        self::assertSame(['Draft checklist'], array_column($this->jsonResponse()['items'], 'title'));
+    }
+
+    /** @param string[] $tags */
+    private function propose(string $title, array $tags): void
+    {
+        $this->request('POST', '/mcp', $this->kb->a->agentBearer, [
+            'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
+            'params' => ['name' => 'propose', 'arguments' => ['title' => $title, 'body_md' => 'Steps.', 'tags' => $tags]],
+        ]);
+        self::assertSame(200, $this->httpStatus(), $this->body());
+        self::assertArrayNotHasKey('error', $this->jsonResponse(), $this->body());
+    }
+
     private function tagId(string $name): int
     {
         $this->sessionRequest('GET', '/api/tags');

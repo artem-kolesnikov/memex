@@ -53,6 +53,7 @@ import { useLayoutStore } from '@/stores/layout'
 import { useAuthStore } from '@/stores/auth'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
+import SkillMark from '@/components/SkillMark.vue'
 import { carriesSkill, SKILL_TAG } from '@/lib/systemTags'
 
 const route = usePageRoute()
@@ -761,7 +762,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
         <header class="mm-note-heading">
           <div class="mm-note-identity">
             <h1 class="app-eyebrow mm-note-eyebrow">
-              {{ isAddForm ? newLabel : $t('editor.editing_note', { id: noteId }) }}
+              {{ isAddForm ? newLabel : asSkill ? $t('editor.editing_skill') : $t('editor.editing_note', { id: noteId }) }}
             </h1>
             <label for="title" class="visually-hidden">{{ $t('editor.title_label') }}</label>
             <!-- A textarea rather than an input, because Note View's title
@@ -997,8 +998,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
                       : $t('editor.assistant.possible_duplicate') }}
                   </p>
                   <div class="mm-finding-row" v-for="d in analysis.hints.duplicates" :key="d.note_id">
-                    <router-link :to="{ name: 'note', params: { id: d.note_id } }" target="_blank">
-                      {{ d.title }}
+                    <router-link :to="{ name: d.skill ? 'skill' : 'note', params: { id: d.note_id } }" target="_blank">
+                      <SkillMark v-if="d.skill" />{{ d.title }}
                     </router-link>
                     <span class="mm-similarity">{{ Math.round(d.similarity * 100) }}%</span>
                     <p>{{ d.reading }}</p>
@@ -1011,7 +1012,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
                     <button type="button" class="btn btn-sm btn-outline-primary"
                             v-for="l in openLinks" :key="l.find"
                             @click="takeLink(l.find, l.replace)">
-                      <i class="fa-solid fa-plus"></i>{{ l.title }}
+                      <i class="fa-solid fa-plus"></i><SkillMark v-if="l.skill" />{{ l.title }}
                     </button>
                   </div>
                 </div>

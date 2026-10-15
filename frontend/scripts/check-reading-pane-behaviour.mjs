@@ -194,6 +194,7 @@ async function apiStub(route) {
     return json({ items, total: MANY.length, semantic_unavailable: false })
   }
   if (url.pathname === '/api/notes') return json({ items: LIST, total: LIST.length, semantic_unavailable: false })
+  if (url.pathname === '/api/inbox/notes') return json({ items: LIST, total: LIST.length, semantic_unavailable: false })
   if (url.pathname === '/api/proposals') return json({ proposals: [] })
   if (url.pathname === '/api/curator-log') {
     return json({ entries: [ENTRY], filters: { actions: [], writers: [] }, run: null, total: 1, page: 1, pages: 1, per_page: 50 })

@@ -25,6 +25,7 @@ import type { CurationRun, CurationRunAction, CurationRunNote } from '@/api/clie
 import { formatDateTime } from '@/lib/datetime'
 import { reasonWords } from '@/lib/curationReasons'
 import { renderLogEntry } from '@/lib/markdown'
+import SkillMark from '@/components/SkillMark.vue'
 import { actionBadge } from '@/lib/actionBadge'
 import ClampedMarkdown from '@/components/ClampedMarkdown.vue'
 
@@ -216,7 +217,7 @@ function scope(run: number, action: string) {
             <ul class="mm-run-items" v-if="run.notes.length">
               <li v-for="n in run.notes" :key="n.note_id ?? n.title">
                 <div class="mm-run-item-head">
-                  <router-link v-if="n.note_id !== null" :to="{ name: 'note', params: { id: n.note_id } }">{{ n.title }}</router-link>
+                  <router-link v-if="n.note_id !== null" :to="{ name: n.skill ? 'skill' : 'note', params: { id: n.note_id } }"><SkillMark v-if="n.skill" />{{ n.title }}</router-link>
                   <template v-else>{{ n.title }}</template>
                   <span class="mm-run-id" v-if="n.note_id !== null">#{{ n.note_id }}</span>
                   <span class="mm-run-id" v-else>{{ $t('activity.runs.since_deleted') }}</span>

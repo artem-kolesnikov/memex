@@ -109,7 +109,7 @@ export interface NoteDetail extends NoteListItem {
   body_md: string
   pending_proposals: number
   links: { target: string; note_id: number | null; title: string | null }[]
-  backlinks: { note_id: number; title: string }[]
+  backlinks: { note_id: number; title: string; skill: boolean }[]
   curation_flag: CurationFlag | null
 }
 
@@ -117,8 +117,8 @@ export interface EditProposalItem {
   id: number
   revision: number
   type: 'edit' | 'delete' | 'merge' | 'report'
-  note: { id: number; title: string; status: string; version: number }
-  merge_into: { id: number; title: string; version: number } | null
+  note: { id: number; title: string; status: string; version: number; skill: boolean }
+  merge_into: { id: number; title: string; version: number; skill: boolean } | null
   change_title: string | null
   proposed_title: string | null
   proposed_body_md: string | null
@@ -162,6 +162,7 @@ export interface HintedNote {
   title: string
   summary: string | null
   status: string
+  skill: boolean
   distance: number
   similarity: number
   reading: string
@@ -172,6 +173,7 @@ export interface HintedLink {
   title: string
   find: string
   replace: string
+  skill: boolean
 }
 
 export interface WriteHints {
@@ -743,9 +745,9 @@ export interface CuratorLogRow {
   description: string
   operator_comment: string | null
   is_precedent: boolean
-  note: { id: number; title: string } | null
+  note: { id: number; title: string; skill: boolean } | null
   note_title: string | null
-  affected: { id: number; title: string }[]
+  affected: { id: number; title: string; skill: boolean }[]
   affected_total: number
   curation_run: number | null
   diff: {
@@ -820,6 +822,7 @@ export type CurationRunAction =
 export interface CurationRunNote {
   note_id: number | null
   title: string
+  skill: boolean
   outcome: CurationRunAction[]
   waiting: boolean
   /** Checks the note still fails after the pass; `operator_flag` is a flag left open. */
@@ -1006,9 +1009,15 @@ export const api = {
   matchingNoteIds: (params: SearchCriteria) =>
     request<MatchingNotes>(`/api/notes/ids?${searchQuery(params)}`),
   getNote: (id: number) => request<NoteDetail>(`/api/notes/${id}`),
-  noteTitles: () => request<{ titles: { id: number; title: string }[] }>('/api/notes/titles'),
+  noteTitles: () => request<{ titles: { id: number; title: string; skill: boolean }[] }>('/api/notes/titles'),
   linkTargets: (ids: number[]) =>
     request<{ targets: LinkTarget[] }>(`/api/notes/link-targets?ids=${ids.join(',')}`),
+  inboxNotes: (params: { page?: number; per_page?: number }) => {
+    const query = new URLSearchParams()
+    if (params.page) query.set('page', String(params.page))
+    if (params.per_page) query.set('per_page', String(params.per_page))
+    return request<SearchResult>(`/api/inbox/notes?${query}`)
+  },
   inboxCount: () =>
     request<{ pending_notes: number; edit_proposals: number; total: number }>(
       '/api/inbox/count',
@@ -1050,12 +1059,13 @@ export const api = {
           title: string
           status: string
           version: number
+          skill: boolean
           body_md: string
           summary: string | null
           tags: string[]
           backlinks?: { id: number; title: string }[]
         }
-        merge_into: { id: number; title: string; version: number; body_md?: string; tags?: string[]; summary?: string | null } | null
+        merge_into: { id: number; title: string; version: number; skill: boolean; body_md?: string; tags?: string[]; summary?: string | null } | null
         base?: ProposalBase
       }
     >(`/api/proposals/${id}`),

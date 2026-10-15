@@ -18,6 +18,8 @@ import {
   type ProposalBase,
 } from '@/api/client'
 import ActorMark from '@/components/ActorMark.vue'
+import SkillMark from '@/components/SkillMark.vue'
+import { carriesSkill } from '@/lib/systemTags'
 import InboxBatchDialog from '@/components/InboxBatchDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
@@ -280,13 +282,14 @@ interface Card {
   /** The note the decision is ABOUT, once the proposal has been applied. */
   title: string
   noteId: number | null
+  skill: boolean
   identity: string
   /** The note this card is titled by, referenced beside its title. Distinct
    *  from `identity`, which numbers the REVIEW ITEM — two numbering spaces
    *  that read as one when both wear a bare `#`. */
   noteRef: string | null
   /** The second note a merge consumes: named once, here. */
-  relation: { title: string; noteRef: string } | null
+  relation: { title: string; noteRef: string; skill: boolean } | null
   /** The proposer's own words, in full and never clamped (operator,
    *  2026-09-07): a reason worth writing is worth reading before deciding, and
    *  it was previously said twice — once truncated on the row and once again
@@ -331,6 +334,10 @@ function cardOf(entry: FeedEntry): Card {
   return { ...card, reasonHtml: html, reasonBlock: block }
 }
 
+function itemRef(item: { id: number; skill: boolean }): string {
+  return t(item.skill ? 'inbox.skill_ref' : 'inbox.note_ref', { id: item.id })
+}
+
 function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
 
   if (entry.kind === 'proposal' && entry.proposal.members) {
@@ -345,8 +352,9 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
       chipClass: 'is-edit',
       title: row.note.title,
       noteId: row.note.id,
+      skill: row.note.skill,
       identity: members.map((member) => t('inbox.proposal_identity', { id: member.id })).join(' + '),
-      noteRef: t('inbox.note_ref', { id: row.note.id }),
+      noteRef: itemRef(row.note),
       relation: null,
       reason: row.comment ?? '',
       preview: '',
@@ -379,15 +387,16 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
         : row.type === 'report' ? 'is-report' : 'is-edit',
       title: keeper?.title ?? row.note.title,
       noteId: keeper?.id ?? row.note.id,
+      skill: (keeper ?? row.note).skill,
       identity: t('inbox.proposal_identity', { id: row.id }),
-      noteRef: t('inbox.note_ref', { id: keeper?.id ?? row.note.id }),
+      noteRef: itemRef(keeper ?? row.note),
       relation: keeper !== null
-        ? { title: row.note.title, noteRef: t('inbox.note_ref', { id: row.note.id }) }
+        ? { title: row.note.title, noteRef: itemRef(row.note), skill: row.note.skill }
         // A delete consumes no second note, so its relation line carries the
         // consequence instead. That sentence is the only thing standing in
         // front of a one-press destructive apply (operator, 2026-09-01), and
         // the notice block it used to live in was withdrawn on 2026-09-07.
-        : row.type === 'delete' ? { title: t('inbox.relation.deleting'), noteRef: '' } : null,
+        : row.type === 'delete' ? { title: t('inbox.relation.deleting'), noteRef: '', skill: false } : null,
       // A report proposes no change, so it has no change_title: what it has to
       // say IS the comment, and there is nothing else to fall back to.
       reason: row.comment ?? row.change_title ?? '',
@@ -396,8 +405,8 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
       destructive: row.type === 'delete' || row.type === 'merge',
       // Acknowledged, not applied: the note is untouched either way, so a
       // verdict that said "Apply" would promise something it cannot do.
-      approveLabel: row.type === 'delete' ? t('inbox.verdict.delete_note')
-        : row.type === 'merge' ? t('inbox.verdict.merge_into_this')
+      approveLabel: row.type === 'delete' ? t(row.note.skill ? 'inbox.verdict.delete_skill' : 'inbox.verdict.delete_note')
+        : row.type === 'merge' ? t(keeper?.skill ? 'inbox.verdict.merge_into_this_skill' : 'inbox.verdict.merge_into_this')
         : row.type === 'report' ? t('inbox.verdict.acknowledge') : t('inbox.verdict.apply_edit'),
       approveDanger: row.type === 'delete' || row.type === 'merge',
       // Rejecting a proposal discards the proposal and leaves a verified note
@@ -408,6 +417,7 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
   }
 
   const note = entry.note
+  const skill = carriesSkill(note.tags.map((tag) => tag.name))
   return {
     key: entry.key,
     kind: 'note',
@@ -416,10 +426,11 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
     chipClass: 'is-new',
     title: note.title,
     noteId: note.id,
+    skill,
     // A pending note has no proposal row: the review item IS the note, so the
     // leading slot says "note 4" rather than "#4", which is a proposal number
     // on every other card and would collide with one here.
-    identity: t('inbox.note_ref', { id: note.id }),
+    identity: itemRef({ id: note.id, skill }),
     noteRef: null,
     relation: null,
     // A note an agent wrote carries no rationale of its own — the note IS the
@@ -430,10 +441,10 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
     preview: '',
     signals: [],
     destructive: false,
-    approveLabel: t('inbox.verdict.approve_note'),
+    approveLabel: t(skill ? 'inbox.verdict.approve_skill' : 'inbox.verdict.approve_note'),
     approveDanger: false,
     // Rejecting a pending note DOES delete it, so this one is the danger.
-    rejectLabel: t('inbox.verdict.reject_note'),
+    rejectLabel: t(skill ? 'inbox.verdict.reject_skill' : 'inbox.verdict.reject_note'),
     rejectDanger: true,
   }
 }
@@ -966,7 +977,7 @@ async function load() {
   loadError.value = null
   try {
     const [search, proposalList] = await Promise.all([
-      api.searchNotes({ status: 'pending', per_page: 100 }),
+      api.inboxNotes({ per_page: 100 }),
       api.proposals(),
     ])
     if (!current()) return
@@ -996,7 +1007,7 @@ async function loadMore() {
   moreError.value = null
   try {
     const page = pendingPage + 1
-    const result = await api.searchNotes({ status: 'pending', per_page: 100, page })
+    const result = await api.inboxNotes({ per_page: 100, page })
     if (!current()) return
     const existing = new Set(items.value.map(row => row.id))
     items.value.push(...result.items.filter(row => !existing.has(row.id)).map(row => ({ ...row, detailLoaded: false, detailError: null, detailRequest: 0 })))
@@ -1245,7 +1256,7 @@ async function decide(entry: FeedEntry, approve: boolean) {
         await api.approveProposal(row.id, proposalApprovalSnapshot(row), v, amendment(entry))
         if (!lifetime.current(mine)) return
         toastSuccess(
-          row.type === 'delete' ? t('inbox.toast.note_deleted') : row.type === 'merge' ? t('inbox.toast.notes_merged') : t('inbox.toast.proposal_applied'),
+          row.type === 'delete' ? t(row.note.skill ? 'inbox.toast.skill_deleted' : 'inbox.toast.note_deleted') : row.type === 'merge' ? t('inbox.toast.notes_merged') : t('inbox.toast.proposal_applied'),
           row.note.title,
         )
       } else {
@@ -1260,11 +1271,14 @@ async function decide(entry: FeedEntry, approve: boolean) {
         const edits = noteEdits()
         await api.approveNote(row.id, noteApprovalSnapshot(row.version), v, edits)
         if (!lifetime.current(mine)) return
-        toastSuccess(edits ? t('inbox.toast.note_approved_amended') : t('inbox.toast.note_approved'))
+        const skill = carriesSkill(row.tags.map((tag) => tag.name))
+        toastSuccess(t(skill
+          ? (edits ? 'inbox.toast.skill_approved_amended' : 'inbox.toast.skill_approved')
+          : (edits ? 'inbox.toast.note_approved_amended' : 'inbox.toast.note_approved')))
       } else {
         await api.rejectNote(row.id, v)
         if (!lifetime.current(mine)) return
-        toastSuccess(t('inbox.toast.note_rejected'))
+        toastSuccess(t(carriesSkill(row.tags.map((tag) => tag.name)) ? 'inbox.toast.skill_rejected' : 'inbox.toast.note_rejected'))
       }
       pendingTotal.value = Math.max(0, pendingTotal.value - 1)
       pendingPage = 0
@@ -1478,7 +1492,7 @@ useFrameNavigation(() => openKey.value, () => {
               :aria-controls="panelId(entry.key)"
               @click="toggleCard(entry)"
             >
-              <span class="app-note-title">{{ card.title }}</span>
+              <span class="app-note-title"><SkillMark v-if="card.skill" />{{ card.title }}</span>
             </button>
             <div class="app-note-meta">
               <span class="app-note-date" :title="formatDateTime(entry.at)">{{ age(entry.at) }}</span>
@@ -1511,7 +1525,7 @@ useFrameNavigation(() => openKey.value, () => {
                      reference goes nowhere. -->
                 <span class="mm-review-id">{{ card.identity }}</span>
                 <span class="mm-review-kind" :class="card.chipClass">{{ card.chip }}</span>
-                <span class="mm-review-title">{{ card.title }}</span>
+                <span class="mm-review-title"><SkillMark v-if="card.skill" />{{ card.title }}</span>
                 <span class="mm-review-noteref" v-if="card.noteRef">{{ card.noteRef }}</span>
               </div>
               <div class="mm-review-meta">
@@ -1529,7 +1543,7 @@ useFrameNavigation(() => openKey.value, () => {
               <p class="mm-review-relation" v-if="card.relation">
                 <i class="fa-solid fa-code-merge mm-relation-merge" v-if="card.chipClass === 'is-merge'" aria-hidden="true"></i>
                 <i class="fa-solid fa-trash-can mm-relation-delete" aria-hidden="true"></i>
-                <span>{{ card.relation.title }}</span>
+                <span><SkillMark v-if="card.relation.skill" />{{ card.relation.title }}</span>
                 <span class="mm-review-noteref" v-if="card.relation.noteRef">{{ card.relation.noteRef }}</span>
               </p>
               <div class="mm-review-reason" v-if="card.reason">
@@ -1576,7 +1590,7 @@ useFrameNavigation(() => openKey.value, () => {
                 <span class="mm-review-id">{{ card.identity }}</span>
                 <span class="mm-review-kind" :class="card.chipClass">{{ card.chip }}</span>
               </div>
-              <h2 class="mm-review-frame-title">{{ card.title }}</h2>
+              <h2 class="mm-review-frame-title"><SkillMark v-if="card.skill" />{{ card.title }}</h2>
               <button type="button" class="btn btn-sm btn-outline-secondary mm-pane-close" :title="$t('note.pane.close')"
                       :aria-label="$t('note.pane.close')" @click="toggleCard(entry)">
                 <i class="fa-solid fa-xmark"></i>
@@ -1595,7 +1609,7 @@ useFrameNavigation(() => openKey.value, () => {
                 <p class="mm-review-relation" v-if="card.relation">
                   <i class="fa-solid fa-code-merge mm-relation-merge" v-if="card.chipClass === 'is-merge'" aria-hidden="true"></i>
                   <i class="fa-solid fa-trash-can mm-relation-delete" aria-hidden="true"></i>
-                  <span>{{ card.relation.title }}</span>
+                  <span><SkillMark v-if="card.relation.skill" />{{ card.relation.title }}</span>
                   <span class="mm-review-noteref" v-if="card.relation.noteRef">{{ card.relation.noteRef }}</span>
                 </p>
                 <div class="mm-review-reason" v-if="card.reason">

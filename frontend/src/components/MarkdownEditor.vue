@@ -95,7 +95,7 @@ const canRedo = ref(false)
 
 // Note titles for [[wiki-link]] completion. Fetched once; the completion source
 // closes over this ref, so it starts working the moment the request lands.
-const titles = ref<string[]>([])
+const titles = ref<{ title: string; skill: boolean }[]>([])
 
 // --- Styling: what the text LOOKS like -------------------------------------
 // Colors come from CSS custom properties so the dark theme needs no second
@@ -209,16 +209,16 @@ function wikiLinkSource(context: CompletionContext) {
   const query = before.text.slice(2).trim().toLowerCase()
 
   const options = titles.value
-    .filter((t) => t.toLowerCase().includes(query))
+    .filter((t) => t.title.toLowerCase().includes(query))
     .sort((a, b) => {
-      const aStarts = a.toLowerCase().startsWith(query) ? 0 : 1
-      const bStarts = b.toLowerCase().startsWith(query) ? 0 : 1
-      return aStarts - bStarts || a.localeCompare(b)
+      const aStarts = a.title.toLowerCase().startsWith(query) ? 0 : 1
+      const bStarts = b.title.toLowerCase().startsWith(query) ? 0 : 1
+      return aStarts - bStarts || a.title.localeCompare(b.title)
     })
     .slice(0, 8)
-    .map((title) => ({
+    .map(({ title, skill }) => ({
       label: title,
-      type: 'text',
+      type: skill ? 'skill' : 'text',
       apply: (target: EditorView, _completion: Completion, from: number, to: number) => {
         // Don't double the closing brackets when completing inside [[…]].
         const closing = target.state.doc.sliceString(to, to + 2) === ']]' ? '' : ']]'
@@ -232,6 +232,20 @@ function wikiLinkSource(context: CompletionContext) {
 
   if (options.length === 0) return null
   return { from: before.from + 2, options, validFor: /^[^\]\n|]*$/ }
+}
+
+function skillMark(completion: Completion): Node | null {
+  if (completion.type !== 'skill') return null
+  const mark = document.createElement('span')
+  mark.className = 'app-skill-mark'
+  const icon = document.createElement('i')
+  icon.className = 'fa-solid fa-graduation-cap'
+  icon.setAttribute('aria-hidden', 'true')
+  const name = document.createElement('span')
+  name.className = 'visually-hidden'
+  name.textContent = `${t('skills.mark')} `
+  mark.append(icon, name)
+  return mark
 }
 
 function extensions(): Extension[] {
@@ -249,7 +263,7 @@ function extensions(): Extension[] {
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(markdownHighlight),
     livePreview,
-    autocompletion({ override: [wikiLinkSource], icons: false }),
+    autocompletion({ override: [wikiLinkSource], icons: false, addToOptions: [{ render: skillMark, position: 40 }] }),
     cmPlaceholder(props.placeholder),
     // CodeMirror gives the editable surface `role="textbox"` and nothing to
     // call it by, so the field's name and its validity live here.
@@ -294,7 +308,7 @@ onMounted(async () => {
     parent: host.value!,
   })
   try {
-    titles.value = (await api.noteTitles()).titles.map((t) => t.title)
+    titles.value = (await api.noteTitles()).titles.map(({ title, skill }) => ({ title, skill }))
   } catch {
     titles.value = [] // completion silently unavailable
   }

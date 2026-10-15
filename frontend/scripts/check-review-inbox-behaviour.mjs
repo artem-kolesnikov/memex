@@ -243,7 +243,7 @@ function apiStub(overrides = {}) {
     if (url.includes('/api/proposals')) return json({ proposals: [EDIT, DELETE_PROPOSAL, EMPTYING_PATCH, BODYLESS_MERGE, BODIED_MERGE] })
     if (url.includes('/api/tags')) return json({ tags: [{ id: 1, name: 'house' }, { id: 2, name: 'decision' }] })
     if (url.includes('/api/notes/13')) return json({ ...PENDING_NOTE, body_md: 'The whole note.', added_by: null, added_by_token_id: null, described_at: null, embedded: false, pending_proposals: 0, links: [], backlinks: [], curation_flag: null })
-    if (url.includes('/api/notes?')) return json({ items: [PENDING_NOTE], total: 1, semantic_unavailable: false })
+    if (url.includes('/api/inbox/notes')) return json({ items: [PENDING_NOTE], total: 1, semantic_unavailable: false })
     return json({})
   }
 }
@@ -350,7 +350,7 @@ await scenario('changing the filter drops the selection', {}, async (page) => {
 
 // Each of the two sources in turn: swallowing one of them as an empty result
 // is a refactor that a single-endpoint check cannot see.
-for (const endpoint of ['/api/proposals', '/api/notes?']) {
+for (const endpoint of ['/api/proposals', '/api/inbox/notes']) {
   await scenario(`a failed ${endpoint} is not Inbox zero`, {
     [endpoint]: (route, json) => json({ error: 'boom' }, 500),
   }, async (page) => {
@@ -361,6 +361,24 @@ for (const endpoint of ['/api/proposals', '/api/notes?']) {
     assert(await page.isVisible('.app-state-error button'), 'no Retry was offered')
   })
 }
+
+await scenario('a pending skill reads as a skill beside notes', {
+  '/api/notes/13': (route, json) => json({ ...PENDING_NOTE, tags: [{ id: 9, name: 'skill' }], body_md: 'Steps.', added_by: null, added_by_token_id: null, described_at: null, embedded: false, pending_proposals: 0, links: [], backlinks: [], curation_flag: null }),
+  '/api/inbox/notes': (route, json) => json({ items: [{ ...PENDING_NOTE, tags: [{ id: 9, name: 'skill' }] }], total: 1, semantic_unavailable: false }),
+}, async (page) => {
+  await page.waitForSelector('#review-note-13')
+  const rows = await page.evaluate(() => Object.fromEntries(['#review-note-13', '#review-proposal-501'].map((id) => {
+    const card = document.querySelector(id).closest('.mm-review-card')
+    return [id, { marked: card.querySelector('.mm-review-title .app-skill-mark') !== null, text: card.querySelector('.mm-review-title-line').textContent }]
+  })))
+  assert(rows['#review-note-13'].marked && /skill 13/.test(rows['#review-note-13'].text), `the pending skill is not marked as one: ${JSON.stringify(rows)}`)
+  assert(!rows['#review-proposal-501'].marked && /note \d+/.test(rows['#review-proposal-501'].text), `a note was marked as a skill: ${JSON.stringify(rows)}`)
+
+  await page.click('#review-note-13')
+  await page.waitForFunction(() => [...document.querySelectorAll('.mm-decision-actions .btn')].some((b) => b.textContent.includes('Approve skill')))
+  const verdicts = await page.evaluate(() => [...document.querySelectorAll('.mm-decision-actions .btn')].map((b) => b.textContent.trim()))
+  assert(verdicts.includes('Reject skill'), `the verdicts still say note: ${JSON.stringify(verdicts)}`)
+})
 
 await scenario('a deletion names its consequence on the row, before anything is opened', {
   '/api/proposals/502': async (route, json) => {

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Entity\Note;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Connection;
+
 /**
  * The three tags memex itself reads.
  *
@@ -163,8 +167,47 @@ final class SystemTags
      */
     public static function notSkillSql(string $note): string
     {
-        return 'NOT EXISTS (SELECT 1 FROM note_tag skill_nt JOIN tags skill_t ON skill_t.id = skill_nt.tag_id '
+        return 'NOT '.self::skillSql($note);
+    }
+
+    /** A condition true of a skill. $note is a SQL alias the CALLER writes, never user input. */
+    public static function skillSql(string $note): string
+    {
+        return 'EXISTS (SELECT 1 FROM note_tag skill_nt JOIN tags skill_t ON skill_t.id = skill_nt.tag_id '
             ."WHERE skill_nt.note_id = {$note}.id AND skill_t.name = '".self::SKILL."')";
+    }
+
+    /**
+     * Which of these notes are skills, in one query: what a list that mixes
+     * notes and skills marks.
+     *
+     * @param int[] $noteIds
+     *
+     * @return array<int, true>
+     */
+    public static function skillsAmong(Connection $conn, array $noteIds): array
+    {
+        if ($noteIds === []) {
+            return [];
+        }
+        $ids = $conn->fetchFirstColumn(
+            'SELECT n.id FROM notes n WHERE n.id IN (:ids) AND '.self::skillSql('n'),
+            ['ids' => array_values($noteIds)],
+            ['ids' => ArrayParameterType::INTEGER],
+        );
+
+        return array_fill_keys(array_map('intval', $ids), true);
+    }
+
+    public static function isSkill(Note $note): bool
+    {
+        foreach ($note->getTags() as $tag) {
+            if ($tag->getName() === self::SKILL) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Tag names are stored lowercased (NoteWriter::resolveTags); match that. */

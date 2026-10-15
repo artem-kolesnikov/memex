@@ -215,7 +215,7 @@ class WriteHints
         }
 
         return $this->shape($this->em->getConnection()->fetchAllAssociative(
-            'SELECT n.id, n.title, n.status, n.summary, knn.distance AS dist
+            'SELECT n.id, n.title, n.status, n.summary, '.SystemTags::skillSql('n').' AS skill, knn.distance AS dist
              FROM (SELECT rowid, distance FROM note_embedding_vectors WHERE embedding MATCH :vector AND k = :k) knn
              JOIN notes n ON n.id = knn.rowid
              WHERE knn.distance < '.$this->space->model()->hintDistance().$exclude.'
@@ -249,6 +249,7 @@ class WriteHints
                 'title' => (string) $r['title'],
                 'status' => (string) $r['status'],
                 'summary' => $r['summary'] !== null ? (string) $r['summary'] : null,
+                'skill' => (bool) $r['skill'],
                 'distance' => round($distance, 3),
                 'similarity' => round(1 - $distance, 3),
                 // Said in words, because a caller that has to interpret 0.14
@@ -276,7 +277,7 @@ class WriteHints
      * title in mind while reading one note, so it links what it happens to
      * remember. The server compares every title against the text for nothing.
      *
-     * @return array<int, array{note_id: int|null, title: string, find: string, replace: string}>
+     * @return array<int, array{note_id: int|null, title: string, find: string, replace: string, skill: bool}>
      */
     private function linkCandidates(string $title, string $bodyMd): array
     {
@@ -309,6 +310,10 @@ class WriteHints
                 'find' => $op['find'],
                 'replace' => $op['replace'],
             ];
+        }
+        $skills = SystemTags::skillsAmong($this->em->getConnection(), array_filter(array_column($out, 'note_id'), static fn ($id) => $id !== null));
+        foreach ($out as $i => $candidate) {
+            $out[$i]['skill'] = isset($skills[$candidate['note_id']]);
         }
 
         return $out;

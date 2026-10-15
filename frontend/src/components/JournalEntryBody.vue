@@ -8,6 +8,7 @@
 // inside is how the phone copy comes to lag the desktop one.
 import type { CuratorLogRow } from '@/api/client'
 import ClampedMarkdown from '@/components/ClampedMarkdown.vue'
+import SkillMark from '@/components/SkillMark.vue'
 
 defineProps<{ row: CuratorLogRow; expanded: boolean }>()
 defineEmits<{ (e: 'toggle'): void }>()
@@ -26,7 +27,7 @@ const gone = (row: CuratorLogRow) => Math.max(0, row.affected_total - row.affect
     <div v-if="row.affected_total" class="small mt-1">
       <span class="text-muted me-1">{{ $t('activity.entry.notes', row.affected_total) }}</span>
       <template v-for="(note, i) in row.affected" :key="note.id">
-        <router-link :to="{ name: 'note', params: { id: note.id } }">{{ note.title }}</router-link>
+        <router-link :to="{ name: note.skill ? 'skill' : 'note', params: { id: note.id } }"><SkillMark v-if="note.skill" />{{ note.title }}</router-link>
         <span v-if="i < row.affected.length - 1">, </span>
       </template>
       <span v-if="gone(row)" class="text-muted">

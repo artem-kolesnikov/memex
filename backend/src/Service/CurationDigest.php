@@ -187,6 +187,7 @@ class CurationDigest
         // 1,800 round trips done the obvious way.
         $defects = $this->queue->defectsAmong(array_keys($allIds));
         $openFlags = $this->openFlagsAmong(array_keys($allIds));
+        $skills = SystemTags::skillsAmong($this->em->getConnection(), array_keys($allIds));
 
         $out = [];
         foreach ($runs as $run) {
@@ -197,6 +198,7 @@ class CurationDigest
             $failedTotal = 0;
             foreach ($items[$runId] as $item) {
                 $item['failed'] = self::failed($item, $defects, $openFlags);
+                $item['skill'] = isset($skills[$item['note_id']]);
                 $waitingTotal += $item['waiting'] ? 1 : 0;
                 $failedTotal += $item['failed'] !== [] ? 1 : 0;
                 $runItems[] = $item;

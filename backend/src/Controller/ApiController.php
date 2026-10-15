@@ -12,6 +12,7 @@ use App\Security\ApiTokenAuthenticator;
 use App\Service\NoteJson;
 use App\Service\Owner;
 use App\Service\OwnerMark;
+use App\Service\SystemTags;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -155,7 +156,14 @@ abstract class ApiController extends AbstractController
     /** @return array<string, mixed> */
     protected function proposalToArray(EditProposal $proposal): array
     {
-        return NoteJson::proposal($proposal);
+        $data = NoteJson::proposal($proposal);
+        $data['note']['skill'] = SystemTags::isSkill($proposal->getNote());
+        $keeper = $proposal->getMergeIntoNote();
+        if ($keeper !== null) {
+            $data['merge_into']['skill'] = SystemTags::isSkill($keeper);
+        }
+
+        return $data;
     }
 
     /**

@@ -11,6 +11,8 @@ import { toastError, toastSuccess } from '@/components/toastService'
 import { formatDateTime } from '@/lib/datetime'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import SkillMark from '@/components/SkillMark.vue'
+import { carriesSkill } from '@/lib/systemTags'
 
 const emit = defineEmits<{ changed: []; close: [] }>()
 
@@ -179,7 +181,7 @@ function close() {
               <ul class="mm-deleted-list mm-deleted-scroll" v-if="notes.length">
                 <li v-for="note in notes" :key="note.note_id" :class="{ 'is-tombstone': !note.restorable }">
                   <div class="mm-deleted-copy">
-                    <span class="mm-deleted-title">{{ note.title }}</span>
+                    <span class="mm-deleted-title"><SkillMark v-if="carriesSkill(note.tags)" />{{ note.title }}</span>
                     <span class="mm-deleted-meta">
                       {{ formatDateTime(note.deleted_at) }} · {{ note.deleted_by }}
                     </span>

@@ -960,6 +960,8 @@
 
 /* ── status marks ─────────────────────────────────────────────────────── */
 
+.app-skill-mark { margin-right: .4em; color: var(--mm-muted); font-size: .85em; }
+
 .app-status {
     display: inline-flex;
     align-items: center;

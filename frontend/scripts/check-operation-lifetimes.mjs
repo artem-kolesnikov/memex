@@ -58,6 +58,7 @@ async function scenario(name, body) {
     if (key === 'GET /api/tags') return json({ tags: [], retired: [] })
     if (key === 'GET /api/proposals') return json({ proposals: [] })
     if (key === 'GET /api/notes') return json({ items: state.notes, total: state.total, semantic_unavailable: false })
+    if (key === 'GET /api/inbox/notes') return json({ items: state.notes, total: state.total, semantic_unavailable: false })
     const match = /^GET \/api\/notes\/(\d+)(\/revisions)?$/.exec(key)
     if (match) return json(match[2] ? { revisions: [], note_id: Number(match[1]) } : note(Number(match[1])))
     if (key === 'GET /api/deleted') return json({ notes: [], total: 0, page: 1, pages: 1, per_page: 20, limbo_days: 30 })
@@ -169,7 +170,7 @@ await scenario('account rename response cannot revive the previous user', async 
 
 await scenario('inbox distinguishes loaded notes from global waiting and reaches next page', async (page, state) => {
   state.notes = Array.from({ length: 100 }, (_, i) => note(i + 1, { status: 'pending' })); state.total = 101
-  state.on['GET /api/notes'] = (json, _, url) => json({ items: Number(url.searchParams.get('page') ?? '1') === 1 ? state.notes : [note(101, { status: 'pending' })], total: 101 })
+  state.on['GET /api/inbox/notes'] = (json, _, url) => json({ items: Number(url.searchParams.get('page') ?? '1') === 1 ? state.notes : [note(101, { status: 'pending' })], total: 101 })
   await opened(page, 'inbox')
   await page.locator('#review-note-100').waitFor()
   assert((await page.locator('.mm-inbox-head').textContent()).includes('101 waiting'))
@@ -184,7 +185,7 @@ await scenario('inbox distinguishes loaded notes from global waiting and reaches
 await scenario('inbox continuation survives inserted head rows and reaches both ends', async (page, state) => {
   state.notes = Array.from({ length: 200 }, (_, i) => note(i + 1, { status: 'pending' }))
   const pages = []
-  state.on['GET /api/notes'] = (json, _, url) => {
+  state.on['GET /api/inbox/notes'] = (json, _, url) => {
     const page = Number(url.searchParams.get('page') ?? '1')
     pages.push(page)
     return json({ items: state.notes.slice((page - 1) * 100, page * 100), total: state.notes.length })
@@ -193,7 +194,7 @@ await scenario('inbox continuation survives inserted head rows and reaches both 
   await page.locator('#review-note-100').waitFor()
   state.notes.unshift(note(201, { status: 'pending' }))
   for (let i = 0; i < 3; i++) {
-    const response = page.waitForResponse(res => new URL(res.url()).pathname === '/api/notes')
+    const response = page.waitForResponse(res => new URL(res.url()).pathname === '/api/inbox/notes')
     await page.locator('.mm-inbox-more').click(); await response
     await page.evaluate(() => new Promise(requestAnimationFrame))
   }
@@ -208,7 +209,7 @@ await scenario('inbox continuation survives inserted head rows and reaches both 
 for (const batch of [false, true]) await scenario(`inbox continuation restarts after ${batch ? 'partial batch' : 'single'} removal`, async (page, state) => {
   state.notes = Array.from({ length: 201 }, (_, i) => note(i + 1, { status: 'pending' }))
   const pages = []
-  state.on['GET /api/notes'] = (json, _, url) => {
+  state.on['GET /api/inbox/notes'] = (json, _, url) => {
     const page = Number(url.searchParams.get('page') ?? '1'); pages.push(page)
     return json({ items: state.notes.slice((page - 1) * 100, page * 100), total: state.notes.length })
   }
@@ -232,7 +233,7 @@ for (const batch of [false, true]) await scenario(`inbox continuation restarts a
   }
   await page.locator('#review-note-1').waitFor({ state: 'hidden' })
   for (let i = 0; i < 2; i++) {
-    const response = page.waitForResponse(res => new URL(res.url()).pathname === '/api/notes')
+    const response = page.waitForResponse(res => new URL(res.url()).pathname === '/api/inbox/notes')
     await page.locator('.mm-inbox-more').click(); await response
     await page.evaluate(() => new Promise(requestAnimationFrame))
   }
@@ -364,7 +365,7 @@ await scenario('account menu opened before the first page lands stays open', asy
 
 for (const path of ['notes/1', 'notes/1/edit', 'inbox']) await scenario(`failed logout leaves interrupted ${path} load retryable`, async (page, state) => {
   const gate = deferred(), started = deferred()
-  const endpoint = path === 'inbox' ? 'GET /api/notes' : 'GET /api/notes/1'
+  const endpoint = path === 'inbox' ? 'GET /api/inbox/notes' : 'GET /api/notes/1'
   state.on[endpoint] = async json => { started.resolve(); await gate.promise; return json(path === 'inbox' ? { items: [], total: 0 } : note(1)) }
   state.on['POST /api/logout'] = json => json({ error: 'Logout unavailable' }, 500)
   await opened(page, path); await waitForStart(started.promise)

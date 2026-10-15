@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, type NoteListItem, type RetiredTag, type TagVocabularyEntry } from '@/api/client'
 import { toastError } from '@/components/toastService'
+import SkillMark from '@/components/SkillMark.vue'
+import { carriesSkill } from '@/lib/systemTags'
 import TagRemovalDialog from '@/components/settings/TagRemovalDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ExportBlock from '@/components/settings/ExportBlock.vue'
@@ -352,7 +354,8 @@ onMounted(loadTags)
               </span>
               <span class="mm-import-state is-good" v-else-if="entry.uploaded?.length">
                 <router-link v-for="n in entry.uploaded" :key="n.id"
-                             :to="{ name: 'note', params: { id: n.id } }">{{ n.title }}</router-link>
+                             :to="{ name: carriesSkill(n.tags.map((tag) => tag.name)) ? 'skill' : 'note', params: { id: n.id } }"><SkillMark
+                               v-if="carriesSkill(n.tags.map((tag) => tag.name))" />{{ n.title }}</router-link>
               </span>
               <span class="mm-import-state" v-else-if="entry.analysis">
                 {{ $t('content.import.notes_ready', { n: entry.analysis.importable }) }}<template

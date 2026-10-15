@@ -474,6 +474,7 @@
     "note_fallback": "Note",
     "new_note": "New note",
     "editing_note": "Editing note {id}",
+    "editing_skill": "Editing skill",
     "title_label": "Title",
     "title_placeholder": "Name this note",
     "nothing_to_save": "Nothing to save yet.",
@@ -606,6 +607,7 @@
     },
     "verdict": {
       "delete_note": "Delete note",
+      "delete_skill": "Delete skill",
       "acknowledge": "Acknowledge",
       "apply_edit": "Apply edit",
       "reject": "Reject",
@@ -615,8 +617,11 @@
       "reject_all": "Reject all",
       "apply_this": "Apply",
       "approve_note": "Approve note",
+      "approve_skill": "Approve skill",
       "reject_note": "Reject note",
-      "merge_into_this": "Merge into this note"
+      "reject_skill": "Reject skill",
+      "merge_into_this": "Merge into this note",
+      "merge_into_this_skill": "Merge into this skill"
     },
     "tags_count": "{count} tags | {count} tag | {count} tags",
     "backlinks_count": "{count} backlinks | {count} backlink | {count} backlinks",
@@ -648,6 +653,7 @@
     },
     "toast": {
       "note_deleted": "Note deleted",
+      "skill_deleted": "Skill deleted",
       "notes_merged": "Notes merged",
       "proposal_applied": "Proposal applied",
       "proposal_rejected": "Proposal rejected",
@@ -655,7 +661,10 @@
       "changes_rejected": "{count} changes rejected | {count} change rejected | {count} changes rejected",
       "note_approved": "Note approved",
       "note_approved_amended": "Note approved with your edits",
-      "note_rejected": "Note rejected"
+      "skill_approved": "Skill approved",
+      "skill_approved_amended": "Skill approved with your edits",
+      "note_rejected": "Note rejected",
+      "skill_rejected": "Skill rejected"
     },
     "breadcrumb": "Breadcrumb",
     "notes": "Notes",
@@ -738,6 +747,7 @@
     },
     "proposal_identity": "#{id}",
     "note_ref": "note {id}",
+    "skill_ref": "skill {id}",
     "relation": {
       "deleting": "To be deleted — restorable from Deleted for 30 days"
     },
@@ -1655,6 +1665,7 @@
   },
   "skills": {
     "title": "Skills",
+    "mark": "Skill",
     "intro": "Instructions you keep in Memex and reuse with your assistants.",
     "new": "New skill",
     "export_all": "Export all",

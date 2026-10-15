@@ -9,6 +9,7 @@ use App\Entity\CuratorLogEntry;
 use App\Entity\EditProposal;
 use App\Entity\Note;
 use App\Service\CurationDigest;
+use App\Service\SystemTags;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\HeaderUtils;
@@ -452,7 +453,7 @@ class CuratorLogController extends ApiController
      *
      * @param CuratorLogEntry[] $rows
      *
-     * @return array<int, string> note id => title, for the notes that still exist
+     * @return array<int, array{id: int, title: string, skill: bool}> by note id, for the notes that still exist
      */
     private function affectedTitles(array $rows): array
     {
@@ -473,14 +474,14 @@ class CuratorLogController extends ApiController
         }
 
         $found = $this->em->getConnection()->fetchAllAssociative(
-            'SELECT id, title FROM notes WHERE id IN (:ids)',
+            'SELECT n.id, n.title, '.SystemTags::skillSql('n').' AS skill FROM notes n WHERE n.id IN (:ids)',
             ['ids' => array_keys($ids)],
             ['ids' => ArrayParameterType::INTEGER],
         );
 
         $out = [];
         foreach ($found as $row) {
-            $out[(int) $row['id']] = (string) $row['title'];
+            $out[(int) $row['id']] = ['id' => (int) $row['id'], 'title' => (string) $row['title'], 'skill' => (bool) $row['skill']];
         }
 
         return $out;
@@ -588,7 +589,7 @@ class CuratorLogController extends ApiController
     }
 
     /**
-     * @param array<int, string> $titles
+     * @param array<int, array{id: int, title: string, skill: bool}> $titles
      *
      * @return array<string, mixed>
      */
@@ -605,7 +606,7 @@ class CuratorLogController extends ApiController
         $affected = [];
         foreach ($touched as $id) {
             if (isset($titles[$id])) {
-                $affected[] = ['id' => $id, 'title' => $titles[$id]];
+                $affected[] = $titles[$id];
             }
         }
 
@@ -626,7 +627,7 @@ class CuratorLogController extends ApiController
             'is_precedent' => $entry->isPrecedent(),
             'note' => $noteId === null || !isset($titles[$noteId])
                 ? null
-                : ['id' => $noteId, 'title' => $titles[$noteId]],
+                : $titles[$noteId],
             'note_title' => $entry->getNoteTitle(),
             // Every note this row touched, as links. One-note rows carry their
             // own; a tag merge or a merge verdict carries the list

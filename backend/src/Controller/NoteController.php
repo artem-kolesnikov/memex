@@ -161,11 +161,11 @@ class NoteController extends ApiController
     public function titles(): JsonResponse
     {
         $titles = $this->em->getConnection()->executeQuery(
-            'SELECT id, title FROM notes ORDER BY LOWER(title) ASC'
+            'SELECT n.id, n.title, '.SystemTags::skillSql('n').' AS skill FROM notes n ORDER BY LOWER(n.title) ASC'
         )->fetchAllAssociative();
 
         return $this->json(['titles' => array_map(
-            static fn (array $r) => ['id' => (int) $r['id'], 'title' => $r['title']],
+            static fn (array $r) => ['id' => (int) $r['id'], 'title' => $r['title'], 'skill' => (bool) $r['skill']],
             $titles
         )]);
     }
@@ -222,6 +222,20 @@ class NoteController extends ApiController
         return $this->json($workPending->inbox());
     }
 
+    /** The pending notes the inbox lists: every one its badge counts, skills included. */
+    #[Route('/api/inbox/notes', methods: ['GET'])]
+    public function inboxNotes(Request $request): JsonResponse
+    {
+        return $this->json($this->hybridSearch->search(
+            null,
+            [],
+            null,
+            Note::STATUS_PENDING,
+            max(1, $request->query->getInt('page', 1)),
+            min(100, max(1, $request->query->getInt('per_page', 25))),
+        ));
+    }
+
     #[ReleasesSession]
     #[Route('/api/notes', methods: ['POST'])]
     public function create(Request $request): JsonResponse
@@ -275,7 +289,7 @@ class NoteController extends ApiController
             ['id' => $note->getId()]
         )->fetchAllAssociative();
         $backlinks = $conn->executeQuery(
-            'SELECT n.id, n.title FROM note_links nl JOIN notes n ON n.id = nl.from_note_id
+            'SELECT n.id, n.title, '.SystemTags::skillSql('n').' AS skill FROM note_links nl JOIN notes n ON n.id = nl.from_note_id
              WHERE nl.to_note_id = :id ORDER BY lower(n.title)',
             ['id' => $note->getId()]
         )->fetchAllAssociative();
@@ -318,6 +332,7 @@ class NoteController extends ApiController
         $data['backlinks'] = array_map(static fn (array $b) => [
             'note_id' => (int) $b['id'],
             'title' => $b['title'],
+            'skill' => (bool) $b['skill'],
         ], $backlinks);
         // Null when nobody has flagged it — the same shape MCP's `get` returns,
         // so the page and the agent are reading one field.
