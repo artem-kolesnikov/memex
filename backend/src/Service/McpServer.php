@@ -55,6 +55,37 @@ final class McpServer
 
     private const OPEN_CURATION_TOOLS = ['curation_candidates', 'last_curated', 'blast_radius'];
 
+    /** A note's long enough past this that its reply lists its headings, to read one section of. */
+    private const OUTLINE_FROM_CHARS = 10000;
+
+    /** The most neighbours one `get` lists; `neighbours_total` says how many there are. */
+    private const NEIGHBOURS_MAX = 50;
+
+    /** How far back `recent_changes` reaches when no `since` is given. */
+    private const RECENT_DAYS = 7;
+
+    /** The most note ids one change lists, an import's say. */
+    private const CHANGE_NOTES_MAX = 25;
+
+    /**
+     * The journal rows that are a change to notes. Not the ones still waiting
+     * (the inbox lists those), a rejection, which changed nothing, or the
+     * curation record and settings, which are not about notes.
+     */
+    private const CHANGE_ACTIONS = [
+        CuratorLogEntry::ACTION_CREATE,
+        CuratorLogEntry::ACTION_CREATE_PROPOSED,
+        CuratorLogEntry::ACTION_EDIT,
+        CuratorLogEntry::ACTION_APPROVED,
+        CuratorLogEntry::ACTION_DELETE,
+        CuratorLogEntry::ACTION_RESTORE,
+        CuratorLogEntry::ACTION_PURGE,
+        CuratorLogEntry::ACTION_IMPORT,
+        CuratorLogEntry::ACTION_HISTORY_FORGOTTEN,
+        CuratorLogEntry::ACTION_TAG_REMOVED,
+        CuratorLogEntry::ACTION_TAG_MERGED,
+    ];
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly HybridSearch $hybridSearch,
@@ -74,6 +105,9 @@ final class McpServer
         private readonly ReleaseVersion $release,
         private readonly Owner $owner,
         private readonly EmbeddingSpace $space,
+        private readonly NoteEnricher $enricher,
+        private readonly NoteGraph $graph,
+        private readonly FormerTitles $formerTitles,
     ) {
     }
 
@@ -457,6 +491,7 @@ final class McpServer
                 'propose_merge' => $this->toolProposeMerge($args),
                 'log' => $this->toolLog($args),
                 'log_recent' => $this->toolLogRecent($args),
+                'recent_changes' => $this->toolRecentChanges($args),
                 'last_curated' => $this->toolLastCurated($args),
                 'needs_enrichment' => $this->curationQueue->needsEnrichment(
                     min(100, max(1, (int) ($args['limit'] ?? 25))),
@@ -513,6 +548,7 @@ final class McpServer
             throw new \InvalidArgumentException('status must be verified or pending');
         }
         $order = isset($args['order']) ? (string) $args['order'] : null;
+        $dates = DateWindow::from($args);
 
         $tagIds = [];
         $unknownTags = [];
@@ -539,6 +575,8 @@ final class McpServer
             $limit,
             $order,
             $offset,
+            dates: $dates,
+            excerpts: true,
         );
 
         return [
@@ -562,13 +600,25 @@ final class McpServer
                 'tags' => array_column($row['tags'], 'name'),
                 'updated_at' => $row['updated_at'],
                 ...(is_string($row['matched_section'] ?? null) && $row['matched_section'] !== '' ? ['matched_section' => $row['matched_section']] : []),
+                ...(isset($row['matched_text']) ? ['matched_text' => $row['matched_text']] : []),
             ], $result['items']),
         ];
     }
 
     private function toolGet(array $args): array
     {
-        $note = $this->requireNote($args, 'id');
+        $byTitle = isset($args['title']) && trim((string) $args['title']) !== '';
+        if ($byTitle && isset($args['id'])) {
+            throw new \InvalidArgumentException('Send the note\'s `id` or its `title`, not both.');
+        }
+        if (!$byTitle && !isset($args['id'])) {
+            throw new \InvalidArgumentException('Send the note\'s `id`, or its `title`.');
+        }
+        $depth = (int) ($args['depth'] ?? 0);
+        if (!in_array($depth, [0, 1, 2], true)) {
+            throw new \InvalidArgumentException('depth must be 1 or 2: how many links away the neighbours may be.');
+        }
+        $note = $byTitle ? $this->noteTitled(trim((string) $args['title'])) : $this->requireNote($args, 'id');
 
         $conn = $this->em->getConnection();
         $links = $conn->fetchAllAssociative(
@@ -596,14 +646,42 @@ final class McpServer
             $data['curation_flag'] = $flag->toArray();
         }
 
+        $former = $this->formerTitles->of((int) $note->getId());
+        if ($former !== []) {
+            $data['former_titles'] = $former;
+        }
+        if ($byTitle) {
+            $same = $conn->fetchAllAssociative(
+                'SELECT id, title FROM notes WHERE LOWER(title) = LOWER(:title) AND id != :id ORDER BY id',
+                ['title' => $note->getTitle(), 'id' => $note->getId()]
+            );
+            if ($same !== []) {
+                $data['same_title'] = array_map(static fn (array $r): array => ['id' => (int) $r['id'], 'title' => $r['title']], $same);
+            }
+        }
+
         $data = self::retrievalNotice($data);
 
         $body = $data['body_md'] ?? '';
-        $total = mb_strlen($body);
         $offset = max(0, (int) ($args['offset'] ?? 0));
         $maxChars = isset($args['max_chars']) ? max(1, (int) $args['max_chars']) : null;
+        $section = trim((string) ($args['section'] ?? ''));
 
-        $data['body_chars'] = $total;
+        $data['body_chars'] = mb_strlen($body);
+        if ($section !== '' || $maxChars !== null || $offset > 0 || $data['body_chars'] > self::OUTLINE_FROM_CHARS) {
+            $outline = NoteSections::outline($body);
+            if ($outline !== []) {
+                $data['outline'] = $outline;
+            }
+        }
+        if ($section !== '') {
+            $found = NoteSections::locate($body, $section);
+            $body = substr($body, $found['start'], $found['end'] - $found['start']);
+            $data['section'] = $found['heading'];
+            $data['section_chars'] = mb_strlen($body);
+            $data['body_md'] = $body;
+        }
+        $total = mb_strlen($body);
         if ($maxChars !== null || $offset > 0) {
             $slice = mb_substr($body, $offset, $maxChars);
             $data['body_md'] = $slice;
@@ -612,8 +690,56 @@ final class McpServer
             $data['body_truncated'] = $end < $total;
             $data['body_next_offset'] = $end < $total ? $end : null;
         }
+        if ($depth > 0) {
+            $data += $this->neighbours($note, $depth);
+        }
 
         return $data;
+    }
+
+    /** The note a link written as `[[$title]]` reaches, the same resolution every link gets. */
+    private function noteTitled(string $title): Note
+    {
+        $id = $this->enricher->resolveTitle($title);
+        $note = $id === null ? null : $this->em->find(Note::class, $id);
+        if ($note === null) {
+            throw new \InvalidArgumentException('No note answers to the title “'.$title.'”. Titles are matched whole, ignoring case; `search` finds a note by part of its title or by what it says.');
+        }
+
+        return $note;
+    }
+
+    /**
+     * The notes linked to or from this one, up to `$depth` links away, nearest
+     * first, each with what a reader needs to decide whether to open it.
+     *
+     * @return array{neighbours: list<array<string, mixed>>, neighbours_total: int}
+     */
+    private function neighbours(Note $note, int $depth): array
+    {
+        $hops = $this->graph->linkedWithin((int) $note->getId(), $depth);
+        unset($hops[(int) $note->getId()]);
+        if ($hops === []) {
+            return ['neighbours' => [], 'neighbours_total' => 0];
+        }
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT id, title, summary, status FROM notes WHERE id IN (:ids)',
+            ['ids' => array_keys($hops)],
+            ['ids' => \Doctrine\DBAL\ArrayParameterType::INTEGER]
+        );
+        usort($rows, static fn (array $a, array $b): int => [$hops[(int) $a['id']], mb_strtolower($a['title']), (int) $a['id']]
+            <=> [$hops[(int) $b['id']], mb_strtolower($b['title']), (int) $b['id']]);
+
+        return [
+            'neighbours' => array_map(static fn (array $r): array => [
+                'id' => (int) $r['id'],
+                'title' => $r['title'],
+                'summary' => $r['summary'],
+                'status' => $r['status'],
+                'links_away' => $hops[(int) $r['id']],
+            ], array_slice($rows, 0, self::NEIGHBOURS_MAX)),
+            'neighbours_total' => count($rows),
+        ];
     }
 
     private function toolInbox(array $args): array
@@ -1207,6 +1333,72 @@ final class McpServer
         ];
     }
 
+    /**
+     * The journal's changes to notes, for every role: what a connection asks
+     * when it comes back ("what changed since yesterday, and who changed
+     * it"), which `search` by date answers only with notes, not with what
+     * happened to them or whose hand it was.
+     */
+    private function toolRecentChanges(array $args): array
+    {
+        $since = IsoInstant::parse(isset($args['since']) ? trim((string) $args['since']) : null, 'since', allowDate: true)
+            ?? new \DateTimeImmutable('-'.self::RECENT_DAYS.' days', new \DateTimeZone('UTC'));
+        $until = IsoInstant::parse(isset($args['until']) ? trim((string) $args['until']) : null, 'until', allowDate: true);
+        if ($until !== null && $since >= $until) {
+            throw new \InvalidArgumentException('since must be earlier than until');
+        }
+        $limit = min(100, max(1, (int) ($args['limit'] ?? 50)));
+        $offset = max(0, (int) ($args['offset'] ?? 0));
+
+        $qb = $this->em->createQueryBuilder()->select('e')->from(CuratorLogEntry::class, 'e')
+            ->andWhere('e.action IN (:actions)')->setParameter('actions', self::CHANGE_ACTIONS)
+            ->andWhere('e.createdAt >= :since')->setParameter('since', $since);
+        if ($until !== null) {
+            $qb->andWhere('e.createdAt < :until')->setParameter('until', $until);
+        }
+        if (isset($args['note_id'])) {
+            // Every row about the note: its own, those written while it sat in
+            // Deleted notes, and batch rows naming it among others, an import's
+            // say. A deleted note's history is asked for as much as a live one's.
+            $noteId = (int) $args['note_id'];
+            $about = array_map('intval', $this->em->getConnection()->fetchFirstColumn(
+                'SELECT id FROM curator_log WHERE note_id = :note OR retired_note_id = :note
+                    OR EXISTS (SELECT 1 FROM json_each(curator_log.affected_note_ids) a WHERE a.value = :note)',
+                ['note' => $noteId],
+                ['note' => \Doctrine\DBAL\ParameterType::INTEGER]
+            ));
+            $qb->andWhere('e.id IN (:about)')->setParameter('about', $about === [] ? [0] : $about);
+        }
+
+        $total = (int) (clone $qb)->select('COUNT(e.id)')->getQuery()->getSingleScalarResult();
+        /** @var CuratorLogEntry[] $rows */
+        $rows = $qb->orderBy('e.createdAt', 'DESC')->addOrderBy('e.id', 'DESC')
+            ->setFirstResult($offset)->setMaxResults($limit)
+            ->getQuery()->getResult();
+
+        return [
+            'since' => $since->format(DATE_ATOM),
+            ...($until === null ? [] : ['until' => $until->format(DATE_ATOM)]),
+            'total' => $total,
+            'offset' => $offset,
+            'returned' => count($rows),
+            'changes' => array_map(static function (CuratorLogEntry $e): array {
+                $notes = $e->getAffectedNoteIds() ?? [];
+
+                return [
+                    'at' => $e->getCreatedAt()->format(DATE_ATOM),
+                    'action' => $e->getAction(),
+                    'description' => $e->getDescription(),
+                    'by' => $e->getTokenName(),
+                    'actor' => $e->getActor(),
+                    'note_id' => $e->getNote()?->getId(),
+                    'note_title' => $e->getNoteTitle(),
+                    ...($notes === [] ? [] : ['note_ids' => array_slice(array_map('intval', $notes), 0, self::CHANGE_NOTES_MAX)]),
+                ];
+            }, $rows),
+        ];
+    }
+
     private function toolLastCurated(array $args): array
     {
         $curator = $this->mcpToken?->isCurator() === true;
@@ -1537,7 +1729,7 @@ final class McpServer
                     if (!is_array($op)) {
                         continue;
                     }
-                    foreach (['find', 'replace'] as $field) {
+                    foreach (['find', 'replace', 'append', 'prepend', 'before', 'section'] as $field) {
                         if (isset($op[$field])) {
                             $patch[$i][$field] = $decode($op[$field], "patch[$i].$field");
                         }
@@ -1554,6 +1746,7 @@ final class McpServer
         'search' => 'read',
         'get' => 'read',
         'inbox' => 'read',
+        'recent_changes' => 'read',
         'log_recent' => 'read',
         'curation_candidates' => 'read',
         'duplicate_candidates' => 'read',
@@ -1586,13 +1779,13 @@ final class McpServer
         $vectors = $this->space->model();
         $tags = ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Tag names; unknown names are created. On edits this is the FULL replacement tag list (omit to keep current tags)'];
 
-        $bodyEncoding = ['type' => 'string', 'enum' => ['text', 'base64'], 'default' => 'text', 'description' => 'Send "base64" ONLY as a retry: if a call fails with a raw Cloudflare HTML block page ("Sorry, you have been blocked"), a security filter on the connector path rejected your text for looking like shell commands. Re-send the SAME call with every free-text field (title, body_md, merged_body_md, comment, reason, description, query — and `find`/`replace` inside patch[]) base64-encoded and this flag set. Never encode ids, tags, or booleans. Content round-trips exactly, so runbooks keep their literal commands.'];
+        $bodyEncoding = ['type' => 'string', 'enum' => ['text', 'base64'], 'default' => 'text', 'description' => 'Send "base64" ONLY as a retry: if a call fails with a raw Cloudflare HTML block page ("Sorry, you have been blocked"), a security filter on the connector path rejected your text for looking like shell commands. Re-send the SAME call with every free-text field (title, body_md, merged_body_md, comment, reason, description, query — and the text fields inside patch[]: `find`, `replace`, `append`, `prepend`, `before`, `section`) base64-encoded and this flag set. Never encode ids, tags, or booleans. Content round-trips exactly, so runbooks keep their literal commands.'];
 
         $tools = [
             [
                 'name' => 'search',
                 'title' => 'Search notes',
-                'description' => 'Search or browse the knowledge base. With `query`: hybrid semantic+keyword ranking. WITHOUT `query`: lists notes, filtered by tags/status — use this to browse a tag or list all notes (do NOT pass a filler query with a tag filter; query and tags are ANDed and a non-matching query hides tagged notes). `order` + `offset` walk a result set page by page: `total` tells you how far it goes, and the sort is stable, so successive offsets neither skip nor repeat a note. Returns summaries; use `get` for full content.',
+                'description' => 'Search or browse the knowledge base. With `query`: hybrid semantic+keyword ranking. WITHOUT `query`: lists notes, filtered by tags/status — use this to browse a tag or list all notes (do NOT pass a filler query with a tag filter; query and tags are ANDed and a non-matching query hides tagged notes). `order` + `offset` walk a result set page by page: `total` tells you how far it goes, and the sort is stable, so successive offsets neither skip nor repeat a note. `updated_after` / `updated_before` and `created_after` / `created_before` narrow by when a note last changed or was added: what changed since Monday is `updated_after` with no query. Returns summaries; a keyword match also carries `matched_text`, the passage of the body around the words it matched, which often answers the question without opening the note. Use `get` for full content.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1602,6 +1795,10 @@ final class McpServer
                         'order' => ['type' => 'string', 'enum' => HybridSearch::ORDERS, 'description' => 'Result order. Default: relevance with a query, updated_desc without one. relevance = best match first (needs a query; ignored without). updated_asc = least-recently-changed first, the enumeration order for sweeps. created_asc/desc = by age in the KB, unaffected by later edits. An explicit order still applies the query filter, so "oldest notes matching X" works'],
                         'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0, 'description' => 'Skip this many rows — pair with `order` and `limit` to page through everything; the response echoes `offset` and `returned` alongside `total`'],
                         'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 25, 'default' => 10],
+                        'updated_after' => ['type' => 'string', 'description' => 'Only notes last changed at or after this moment: an ISO-8601 instant ("2026-10-17T09:00:00Z") or a date ("2026-10-17", meaning its start in UTC)'],
+                        'updated_before' => ['type' => 'string', 'description' => 'Only notes last changed before this moment, written as for `updated_after`'],
+                        'created_after' => ['type' => 'string', 'description' => 'Only notes added at or after this moment, written as for `updated_after`'],
+                        'created_before' => ['type' => 'string', 'description' => 'Only notes added before this moment, written as for `updated_after`'],
                         'body_encoding' => $bodyEncoding,
                     ],
                 ],
@@ -1609,15 +1806,17 @@ final class McpServer
             [
                 'name' => 'get',
                 'title' => 'Read a note',
-                'description' => 'Fetch a note by id: full markdown body, tags, wiki-links and backlinks, review status. A `curation_flag` in the response is the OPERATOR speaking about this note — what they say is wrong with it and what to pay attention to; weigh it above your own reading of the text, whatever you are here to do (a curator fixes it and resolves the flag, anyone else at least knows not to cite the note as settled). A `live_state_notice` means this note describes a system that CHANGES, and it is addressed to you whatever you are here to do: if your task changed anything the note describes, file the edit before you finish — the notice names the exact call. A `profile_notice` means this note is the owner\'s own profile: read it before answering about them, treat an unwritten section as unknown, and propose a patch only when the conversation shows a line has changed. `added_by` says which connection (or person) put the note here, `edited_by` who touched it last and `edited_with` any others approved together with it — provenance, never token material, so cite a note knowing where it came from. `waiting_changes` lists the edits waiting for the owner on this note, yours included: a sentence in another connection\'s `held_sentences`, and a title or summary it changes, is refused to you until the owner decides, so change other sentences or say what you would change as a comment. A body ending in a `## Sources` section names what to reread BEFORE acting on the note — documentation, a standard, a page — with what each is for; the note is the summary and the link is the authority. `body_chars` always reports the note\'s TRUE length, so you never have to count it yourself. Large notes: some agent runtimes refuse a tool result over a size cap, and you will see an error about exceeding maximum allowed tokens rather than the note — that is your runtime, not this server, and the note is still readable. Re-call with `max_chars` (10000 is a safe slice) and walk the note using `body_next_offset` until it comes back null. Do NOT give up on a note for being large, and do not judge or summarise one from a partial read without saying which part you read.',
+                'description' => 'Fetch a note by `id`, or by its exact `title` (matched as a [[wiki-link]] is: whole, ignoring case, and a title the note had before a rename still finds it; `same_title` lists other notes with the same title): full markdown body, tags, wiki-links and backlinks, review status. `former_titles` lists the titles the note had before; links written under them still reach it. `section` returns one section instead of the whole body, its heading and everything under it, and a long note\'s reply carries `outline`, its headings, to choose one from. `depth` 1 or 2 adds `neighbours`: the notes linked to or from this one, up to that many links away, each with its summary. A `curation_flag` in the response is the OPERATOR speaking about this note — what they say is wrong with it and what to pay attention to; weigh it above your own reading of the text, whatever you are here to do (a curator fixes it and resolves the flag, anyone else at least knows not to cite the note as settled). A `live_state_notice` means this note describes a system that CHANGES, and it is addressed to you whatever you are here to do: if your task changed anything the note describes, file the edit before you finish — the notice names the exact call. A `profile_notice` means this note is the owner\'s own profile: read it before answering about them, treat an unwritten section as unknown, and propose a patch only when the conversation shows a line has changed. `added_by` says which connection (or person) put the note here, `edited_by` who touched it last and `edited_with` any others approved together with it — provenance, never token material, so cite a note knowing where it came from. `waiting_changes` lists the edits waiting for the owner on this note, yours included: a sentence in another connection\'s `held_sentences`, and a title or summary it changes, is refused to you until the owner decides, so change other sentences or say what you would change as a comment. A body ending in a `## Sources` section names what to reread BEFORE acting on the note — documentation, a standard, a page — with what each is for; the note is the summary and the link is the authority. `body_chars` always reports the note\'s TRUE length, so you never have to count it yourself. Large notes: some agent runtimes refuse a tool result over a size cap, and you will see an error about exceeding maximum allowed tokens rather than the note — that is your runtime, not this server, and the note is still readable. Re-call with `max_chars` (10000 is a safe slice) and walk the note using `body_next_offset` until it comes back null. Do NOT give up on a note for being large, and do not judge or summarise one from a partial read without saying which part you read.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
-                        'id' => ['type' => 'integer', 'description' => 'Note id (from search results)'],
-                        'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0, 'description' => 'Start the body at this character. Pass back the `body_next_offset` from the previous call to continue'],
-                        'max_chars' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Return at most this many characters of the body. Omit for the whole note. The response then carries `body_offset`, `body_truncated` and `body_next_offset` (null when you have reached the end)'],
+                        'id' => ['type' => 'integer', 'description' => 'Note id (from search results). Send this or `title`'],
+                        'title' => ['type' => 'string', 'description' => 'The note\'s exact title, as you would write it in a [[wiki-link]]. Send this or `id`'],
+                        'section' => ['type' => 'string', 'description' => 'A heading from the note, "Sources" or "## Sources": return that section alone. An unknown heading is refused with the note\'s headings listed'],
+                        'depth' => ['type' => 'integer', 'enum' => [1, 2], 'description' => 'Add `neighbours`, the notes linked to or from this one up to this many links away, nearest first, with their summaries'],
+                        'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0, 'description' => 'Start the body (or the `section`) at this character. Pass back the `body_next_offset` from the previous call to continue'],
+                        'max_chars' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Return at most this many characters of the body (or the `section`). Omit for the whole note. The response then carries `body_offset`, `body_truncated` and `body_next_offset` (null when you have reached the end)'],
                     ],
-                    'required' => ['id'],
                 ],
             ],
             [
@@ -1629,6 +1828,21 @@ final class McpServer
                     'properties' => [
                         'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 50, 'default' => 25, 'description' => 'Most items of EACH kind to return (oldest first, as the inbox lists them)'],
                         'max_chars' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Include each proposed body, cut to this many characters (`proposed_body_truncated` says when one was cut). Omit to get lengths only — an inbox holding an edit to a 95,000-character note is unreadable otherwise'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'recent_changes',
+                'title' => 'What changed recently',
+                'description' => 'What changed in the knowledge base since a moment, newest first: each change with its note, what kind it was and who made it. A note added or filed for review, edited, deleted, restored or deleted for good, a waiting change the owner approved (or a report they acknowledged), an import, a tag removed or merged. Read-only, for every role. Without `since` it covers the last seven days. Changes still waiting for the owner are in `inbox`, not here. `note_id` narrows it to one note.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'since' => ['type' => 'string', 'description' => 'Changes at or after this moment: an ISO-8601 instant ("2026-10-17T09:00:00Z") or a date ("2026-10-17", meaning its start in UTC). Default: seven days ago'],
+                        'until' => ['type' => 'string', 'description' => 'Changes before this moment, written as for `since`'],
+                        'note_id' => ['type' => 'integer', 'description' => 'Only changes to this note'],
+                        'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 50],
+                        'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0, 'description' => 'Skip this many changes, to page further back; the response carries the matching `total`'],
                     ],
                 ],
             ],
@@ -1645,14 +1859,18 @@ final class McpServer
                         'patch' => [
                             'type' => 'array',
                             'maxItems' => 50,
-                            'description' => 'Change PART of a note instead of resending all of it: ordered {find, replace} operations, applied in order. Prefer this to `body_md` on any note long enough that resending it is a transcription risk — a correction to three sentences should not regenerate forty thousand characters. `find` is matched LITERALLY (no regex) and must appear EXACTLY ONCE: zero matches means the note is not what you think and the call is refused; more than one means you have not said which, so quote more of the surrounding text. `replace` may be "" to delete. Mutually exclusive with `body_md`. Held patches are applied to the note AS IT THEN STANDS at approval, so two patches to different parts of one note both land instead of overwriting each other.',
+                            'description' => 'Change PART of a note instead of resending all of it: ordered operations, applied in order. Prefer this to `body_md` on any note long enough that resending it is a transcription risk — a correction to three sentences should not regenerate forty thousand characters. Each operation is ONE of these. `{find, replace}`: `find` is matched LITERALLY (no regex) and must appear EXACTLY ONCE: zero matches means the note is not what you think and the call is refused; more than one means you have not said which, so quote more of the surrounding text. `replace` may be "" to delete. Add `count` to replace every one of that many occurrences, or `section` to look for `find` in that section alone. `{append}` or `{prepend}`: text added at the end or the start of the note. `{section, append}` or `{section, prepend}`: at the end of the section under that heading, its subsections included, or straight under the heading. `{section, replace}`: the section\'s text under its heading ("" empties it). `{section, before}`: text placed above that heading, such as a new section before "Sources". `section` is the heading\'s text, "Sources" or "## Sources"; a heading that appears twice is refused, so use `find` there. Mutually exclusive with `body_md`. Held patches are applied to the note AS IT THEN STANDS at approval, so two patches to different parts of one note both land instead of overwriting each other.',
                             'items' => [
                                 'type' => 'object',
                                 'properties' => [
-                                    'find' => ['type' => 'string', 'description' => 'The exact text to replace, copied from the note. Must occur exactly once'],
-                                    'replace' => ['type' => 'string', 'description' => 'What it becomes. Empty string deletes the text'],
+                                    'find' => ['type' => 'string', 'description' => 'The exact text to replace, copied from the note. Must occur exactly once, or `count` times'],
+                                    'replace' => ['type' => 'string', 'description' => 'What `find`, or the `section`\'s text, becomes. Empty string deletes the text'],
+                                    'count' => ['type' => 'integer', 'minimum' => 1, 'description' => 'With `find`: how many times it occurs. Every one is replaced, and any other number is refused'],
+                                    'append' => ['type' => 'string', 'description' => 'Text to add at the end of the note, or of `section`'],
+                                    'prepend' => ['type' => 'string', 'description' => 'Text to add at the start of the note, or straight under the heading of `section`'],
+                                    'section' => ['type' => 'string', 'description' => 'A heading from the note, naming the section `append`, `prepend`, `replace`, `before` or `find` works in'],
+                                    'before' => ['type' => 'string', 'description' => 'With `section`: text to place above that heading'],
                                 ],
-                                'required' => ['find', 'replace'],
                             ],
                         ],
 

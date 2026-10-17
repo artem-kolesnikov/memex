@@ -67,6 +67,7 @@ class NoteWriter
         private readonly StorageLimits $storageLimits,
         private readonly GrowthLimits $growth,
         private readonly Journal $journal,
+        private readonly FormerTitles $formerTitles,
     ) {
     }
 
@@ -206,6 +207,8 @@ class NoteWriter
      * @param string[] $tagNames
      * @param string|null $summary operator-provided summary — authoritative when
      *                             non-empty (enrichment won't overwrite it)
+     * @param list<string> $formerTitles titles the note also answers to, from an
+     *                                   export's `aliases` ({@see FormerTitles})
      * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
      */
     public function create(
@@ -222,6 +225,7 @@ class NoteWriter
         ?string $summaryBy = null,
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $updatedAt = null,
+        array $formerTitles = [],
     ): array {
         $this->storageLimits->assertBody($bodyMd);
         $this->growth->assertNoteRoom();
@@ -246,7 +250,7 @@ class NoteWriter
         // One transaction from tag resolution to the row: a note in force
         // un-retires its tags with a raw delete, and a refusal at the row must
         // take that back with it.
-        $this->limbo->whileHoldingNotes([], function () use ($note, $token, $title, $bodyMd, $tagNames, $status, $createdAt, $updatedAt): void {
+        $this->limbo->whileHoldingNotes([], function () use ($note, $token, $title, $bodyMd, $tagNames, $status, $createdAt, $updatedAt, $formerTitles): void {
             foreach ($this->resolveTags($tagNames) as $tag) {
                 $note->addTag($tag);
             }
@@ -255,6 +259,9 @@ class NoteWriter
 
             $this->em->persist($note);
             $this->em->flush();
+            if ($formerTitles !== []) {
+                $this->formerTitles->add($note, $formerTitles);
+            }
 
             if ($token === null) {
                 $this->journal->record(
@@ -282,6 +289,11 @@ class NoteWriter
         // resolves earlier notes' links when their target arrives). Enrichment
         // is skipped for bulk import: the embed sweep is the backfill.
         $this->enricher->syncLinks($note);
+        // A title some note once had now answers here, because a note's
+        // current title outranks a former one: the links naming it move over.
+        if ($this->formerTitles->anyNamed($note->getTitle())) {
+            $this->enricher->relinkReferrers($note);
+        }
         $suggestions = $enrich !== null
             ? $this->enricher->enrich(
                 $note,
@@ -391,6 +403,9 @@ class NoteWriter
                 $this->em->flush();
             }
 
+            if ($titleBefore !== $note->getTitle()) {
+                $this->formerTitles->renamed($note, $titleBefore);
+            }
             $this->enricher->syncLinks($note);
             if ($titleBefore !== $note->getTitle()) {
                 $this->enricher->relinkReferrers($note, $titleBefore);
@@ -900,6 +915,35 @@ class NoteWriter
             $replaced = $stale === null ? null : NoteJson::proposal($stale);
             if ($broken) {
                 $replaced['stale'] = ['body'];
+            }
+
+            // A patch that fits a draft held as a whole body revises that
+            // body, its author's working copy: resolved against the note
+            // instead, an append to a section threw the rewrite away (Codex,
+            // 2026-10-17). Anchors only the note holds were written against
+            // the note, and replace the draft as before (Codex, 2026-10-14);
+            // a section or an end named for a draft that lacks it is refused
+            // rather than quietly laid on the note.
+            if ($patch !== null && $foldInto?->getProposedBodyMd() !== null) {
+                try {
+                    $bodyMd = NotePatch::apply($foldInto->getProposedBodyMd(), $patch);
+                    $patch = null;
+                } catch (NotePatchException $e) {
+                    if (NotePatch::placesByShape($patch)) {
+                        throw new NotePatchException('Your held edit of this note is a whole new body, and the patch was laid on it: '.$e->getMessage(), previous: $e);
+                    }
+                }
+            }
+            // Operations that name their place by the note's shape become
+            // plain anchors here, against the text they will run on, so what
+            // is held, checked and approved is the same kind of edit as one
+            // written by hand.
+            if ($patch !== null && NotePatch::placesByShape($patch)) {
+                $liveBody = $this->lockedBody($note);
+                $patch = NotePatch::resolve(
+                    $foldInto?->getProposedPatch() !== null ? NotePatch::apply($liveBody, $foldInto->getProposedPatch()) : $liveBody,
+                    $patch,
+                );
             }
 
             // Checked NOW, against the note as it stands, so a mistyped anchor is a
@@ -1555,6 +1599,11 @@ class NoteWriter
             'UPDATE note_links SET to_note_id = NULL WHERE to_note_id = :absorb AND from_note_id = :keeper',
             ['absorb' => $absorb->getId(), 'keeper' => $keeper->getId()]
         );
+
+        // The keeper answers to the absorbed note's names from now on, so a
+        // link naming it keeps the keeper when its own note is next edited and
+        // its links are rebuilt from the text.
+        $this->formerTitles->add($keeper, [$absorb->getTitle(), ...$this->formerTitles->of((int) $absorb->getId())]);
 
         // The absorbed note is retired, not destroyed: a merge is a judgment
         // call about two notes being the same thing, and it is the judgment

@@ -30,11 +30,12 @@ class FrontmatterParser
 {
     public const MAX_METADATA_BYTES = 65536;
 
-    /** @return array{title: string, body: string, tags: string[], summary: ?string, summary_by: ?string, created: ?\DateTimeImmutable, updated: ?\DateTimeImmutable} */
+    /** @return array{title: string, body: string, tags: string[], aliases: list<string>, summary: ?string, summary_by: ?string, created: ?\DateTimeImmutable, updated: ?\DateTimeImmutable} */
     public function parse(string $content, string $fallbackTitle): array
     {
         $title = $fallbackTitle;
         $tags = [];
+        $aliases = [];
         $summary = null;
         $summaryBy = null;
         $created = null;
@@ -59,6 +60,17 @@ class FrontmatterParser
                         $tags = array_values(array_filter($meta['tags'], 'is_string'));
                     } elseif (is_string($meta['tags'] ?? null)) {
                         $tags = array_values(array_filter(array_map('trim', explode(',', $meta['tags']))));
+                    }
+                    // Obsidian's other names for a note, and the titles a memex
+                    // export says the note used to have: links naming them
+                    // reach it ({@see FormerTitles}).
+                    if (is_array($meta['aliases'] ?? null)) {
+                        $aliases = array_values(array_filter(array_map(
+                            static fn (mixed $alias): string => is_string($alias) ? trim($alias) : '',
+                            $meta['aliases'],
+                        ), static fn (string $alias): bool => $alias !== ''));
+                    } elseif (is_string($meta['aliases'] ?? null) && trim($meta['aliases']) !== '') {
+                        $aliases = [trim($meta['aliases'])];
                     }
                     if (is_string($meta['summary'] ?? null) && trim($meta['summary']) !== '') {
                         $summary = trim($meta['summary']);
@@ -85,6 +97,7 @@ class FrontmatterParser
             'title' => $title,
             'body' => $body,
             'tags' => $tags,
+            'aliases' => $aliases,
             'summary' => $summary,
             'summary_by' => $summaryBy,
             'created' => $created,

@@ -427,7 +427,7 @@ class NoteEnricher
      * [[dir/name]] targets — a bare-basename match let [[projects/README]]
      * land on any path ending in README) → title = basename (guarded nonempty: [[dir/]] has
      * an empty basename and must resolve to nothing, not to whatever compares
-     * equal to '').
+     * equal to '') → a title the note used to have ({@see FormerTitles}).
      *
      * The target is tried EXACTLY first and only then with runs of space, tab
      * and newline collapsed. That order is the whole point: a target broken
@@ -467,16 +467,86 @@ class NoteEnricher
      */
     private static function bestMatchSql(string $target, string $alias, string $scope): string
     {
-        return 'COALESCE('.implode(', ', array_map(
+        $current = array_map(
             static fn (string $tier): string => "(SELECT min($alias.id) FROM notes $alias WHERE $scope AND $tier)",
             self::tiers($target, $alias),
-        )).')';
+        );
+        // After every name a note answers to now, the names notes used to
+        // have ({@see FormerTitles}), the most recent rename first. max(id)
+        // rather than ORDER BY for the reason above.
+        $former = array_map(
+            static fn (string $candidate): string => '(SELECT ft.note_id FROM note_former_titles ft WHERE ft.id = '
+                ."(SELECT max(f2.id) FROM note_former_titles f2 JOIN notes $alias ON $alias.id = f2.note_id "
+                ."WHERE $scope AND LOWER(f2.title) = LOWER($candidate)))",
+            [$target, self::unwrapSql($target)],
+        );
+
+        return 'COALESCE('.implode(', ', [...$current, ...$former]).')';
     }
 
     /** Whether any tier matches: {@see self::bestMatchSql()} without the ranking. */
     private static function anyTierSql(string $target, string $alias): string
     {
-        return '('.implode(' OR ', self::tiers($target, $alias)).')';
+        $former = array_map(
+            static fn (string $candidate): string => "EXISTS (SELECT 1 FROM note_former_titles ft WHERE ft.note_id = $alias.id AND LOWER(ft.title) = LOWER($candidate))",
+            [$target, self::unwrapSql($target)],
+        );
+
+        return '('.implode(' OR ', [...self::tiers($target, $alias), ...$former]).')';
+    }
+
+    /**
+     * Re-resolves the links that reached a note by titles it no longer
+     * answers to, once those are forgotten, so none keeps a destination its
+     * text does not name.
+     *
+     * @param list<string> $titles
+     */
+    public function relinkFormerTitles(int $noteId, array $titles): void
+    {
+        $names = [];
+        foreach ($titles as $title) {
+            $names[mb_strtolower($title)] = true;
+        }
+        if ($names === []) {
+            return;
+        }
+        $conn = $this->em->getConnection();
+        $rows = $conn->fetchAllAssociative(
+            'SELECT from_note_id, raw_target FROM note_links WHERE to_note_id = :id',
+            ['id' => $noteId]
+        );
+        foreach ($rows as $row) {
+            $raw = (string) $row['raw_target'];
+            $repaired = trim((string) preg_replace('/[ \t\r\n]+/', ' ', $raw));
+            if (!isset($names[mb_strtolower($raw)]) && !isset($names[mb_strtolower($repaired)])) {
+                continue;
+            }
+            $toId = $conn->fetchOne(
+                'SELECT '.self::bestMatchSql(':target', 'n', 'n.id != :self'),
+                ['target' => $raw, 'self' => (int) $row['from_note_id']],
+                ['self' => ParameterType::INTEGER]
+            );
+            $conn->executeStatement(
+                'UPDATE note_links SET to_note_id = :to WHERE from_note_id = :from AND raw_target = :raw',
+                ['to' => $toId === false ? null : $toId, 'from' => (int) $row['from_note_id'], 'raw' => $raw]
+            );
+        }
+    }
+
+    /**
+     * The note a link written as `[[$target]]` would reach, or null — the
+     * same answer every link gets, for a caller holding a title rather than a
+     * link (`get` by title).
+     */
+    public function resolveTitle(string $target): ?int
+    {
+        $toId = $this->em->getConnection()->fetchOne(
+            'SELECT '.self::bestMatchSql(':target', 'n', '1'),
+            ['target' => $target],
+        );
+
+        return $toId === false || $toId === null ? null : (int) $toId;
     }
 
     /** @return list<string> */

@@ -38,6 +38,7 @@ class NoteRevisions
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly NoteEnricher $enricher,
     ) {
     }
 
@@ -264,6 +265,13 @@ class NoteRevisions
             $forgotten = $conn->executeStatement(
                 'DELETE FROM note_revisions WHERE note_id = :note', $params,
             );
+            // The titles it had are earlier versions too ({@see FormerTitles}),
+            // and a link that reached it only by one of them stops doing so.
+            $former = $conn->fetchFirstColumn('SELECT title FROM note_former_titles WHERE note_id = :note', $params);
+            $conn->executeStatement(
+                'DELETE FROM note_former_titles WHERE note_id = :note', $params,
+            );
+            $this->enricher->relinkFormerTitles($noteId, array_map('strval', $former));
             $conn->executeStatement(
                 "WITH related AS (
                     SELECT id, run_id, curation_run_id FROM curator_log WHERE

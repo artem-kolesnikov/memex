@@ -304,8 +304,26 @@ class CuratorLogController extends ApiController
         $writer = trim((string) $request->query->get('writer', ''));
         $query = trim((string) $request->query->get('q', ''));
         $run = (int) $request->query->get('run', 0);
-        $from = self::parseInstant($request->query->get('from'), 'from');
-        $to = self::parseInstant($request->query->get('to'), 'to');
+        // A range boundary, as an instant.
+        //
+        // INSTANTS RATHER THAN CALENDAR DAYS, and the reason is the only reason
+        // that matters here: `created_at` is UTC and the journal renders in the
+        // reader's own zone, so "to 26 August" resolved server-side cut the range
+        // at 26 August 00:00 UTC — which in New York is the evening of the 25th,
+        // hiding rows the screen was showing as the 26th, and moving again across
+        // a DST boundary (Codex, 2026-08-27). The browser knows the zone and the
+        // server does not, so the browser turns the two days it was given into the
+        // two instants that bound them. `from` is inclusive, `to` is exclusive —
+        // the dialog sends the start of the day AFTER the one chosen, so the
+        // "whole of the closing day" question is answered once, where the calendar
+        // is.
+        //
+        // Strict, and refused rather than ignored: `new DateTimeImmutable()` also
+        // accepts "yesterday" and "+3 hours" — the same laxity Codex found in
+        // `started_at` — and a filter that silently does nothing is how somebody
+        // downloads the wrong range and never finds out.
+        $from = \App\Service\IsoInstant::parse($request->query->get('from'), 'from');
+        $to = \App\Service\IsoInstant::parse($request->query->get('to'), 'to');
         if ($from !== null && $to !== null && $from > $to) {
             // Refused rather than answered with nothing. An inverted range is
             // a mistake somebody made, and a table that silently says "no
@@ -532,54 +550,6 @@ class CuratorLogController extends ApiController
             ),
             'writers' => array_values($writers),
         ];
-    }
-
-    /**
-     * A range boundary, as an instant.
-     *
-     * INSTANTS RATHER THAN CALENDAR DAYS, and the reason is the only reason
-     * that matters here: `created_at` is UTC and the journal renders in the
-     * reader's own zone, so "to 26 August" resolved server-side cut the range
-     * at 26 August 00:00 UTC — which in New York is the evening of the 25th,
-     * hiding rows the screen was showing as the 26th, and moving again across
-     * a DST boundary (Codex, 2026-08-27). The browser knows the zone and the
-     * server does not, so the browser turns the two days it was given into the
-     * two instants that bound them. `from` is inclusive, `to` is exclusive —
-     * the dialog sends the start of the day AFTER the one chosen, so the
-     * "whole of the closing day" question is answered once, where the calendar
-     * is.
-     *
-     * Strict, and refused rather than ignored: `new DateTimeImmutable()` also
-     * accepts "yesterday" and "+3 hours" — the same laxity Codex found in
-     * `started_at` — and a filter that silently does nothing is how somebody
-     * downloads the wrong range and never finds out.
-     */
-    private static function parseInstant(?string $raw, string $field): ?\DateTimeImmutable
-    {
-        if ($raw === null || $raw === '') {
-            return null;
-        }
-        // The shape is checked before the parse, not by it: `createFromFormat`
-        // accepts `2026-8-27` for `Y-m-d` and would let a half-padded date
-        // through a contract that says it is strict.
-        $iso = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/';
-        if (preg_match($iso, $raw) !== 1) {
-            throw new \InvalidArgumentException($field.' must be an ISO-8601 instant, e.g. "2026-08-26T00:00:00Z"');
-        }
-        try {
-            $at = new \DateTimeImmutable($raw);
-        } catch (\Exception) {
-            throw new \InvalidArgumentException($field.' is not a real date and time');
-        }
-        // Month 13 throws; the 31st of February does NOT — PHP rolls it into
-        // March and hands back a date nobody asked for. Compared before the
-        // zone is applied, so an offset does not move the day out from under
-        // the check.
-        if ($at->format('Y-m-d\TH:i:s') !== substr($raw, 0, 19)) {
-            throw new \InvalidArgumentException($field.' is not a real date and time');
-        }
-
-        return $at->setTimezone(new \DateTimeZone('UTC'));
     }
 
     /** LIKE wildcards in a user's search text are text, not syntax. */

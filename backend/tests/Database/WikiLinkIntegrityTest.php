@@ -176,9 +176,9 @@ final class WikiLinkIntegrityTest extends ApiTestCase
         $this->in($this->kb->a);
 
         self::assertSame(
-            ['projects/mm2/_index' => null],
+            ['projects/mm2/_index' => $mm2->getId()],
             $this->linksOf($index->getId()),
-            'the link still points at a note that no longer answers to the name it uses'
+            'a rename broke the link written under the old title'
         );
     }
 
@@ -276,9 +276,10 @@ final class WikiLinkIntegrityTest extends ApiTestCase
         );
         $after = $this->linksOf($referrer->getId());
         self::assertArrayHasKey('Bramble Lane', $after);
-        self::assertNull(
+        self::assertSame(
+            $hub->getId(),
             $after['Bramble Lane'],
-            'the rename itself was not applied to the link that names the old title'
+            'the rename broke the link that names the old title'
         );
     }
 

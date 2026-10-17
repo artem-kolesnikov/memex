@@ -18,6 +18,10 @@
  * who asks after it opened, has to be offered sign-up rather than told they
  * are on a waitlist that holds nothing of theirs.
  *
+ * Ask your AI: Copy prompt has to put the prompt on the clipboard before it
+ * says Copied, and the menu has to close on Escape, or a visitor pastes
+ * nothing into the assistant they meant to ask.
+ *
  * Builds landing/ itself and serves it with the API stubbed. Needs no backend.
  */
 import { spawnSync } from 'node:child_process'
@@ -115,6 +119,20 @@ try {
   if (await page.locator('#invite-done').isVisible()) failures.push('waitlist: told the visitor they are on a waitlist that kept nothing')
   if (await page.evaluate(() => localStorage.getItem('memex-invite-asked')) !== null) failures.push('waitlist: remembered an ask the server did not keep')
 
+  const prompt = JSON.parse(readFileSync(join(landing, 'locales', 'en.json'), 'utf8')).index.hero.ask.prompt
+  const asking = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] })
+  const askPage = await asking.newPage()
+  await askPage.goto(`${origin}/`)
+  await askPage.click('.ask-ai summary')
+  await askPage.click('[data-ask-copy]')
+  await askPage.locator('[data-ask-copy] span', { hasText: 'Copied' }).waitFor({ timeout: 3000 }).catch(() => {})
+  const pasted = await askPage.evaluate(() => navigator.clipboard.readText())
+  if (pasted !== prompt) failures.push(`ask your AI: Copy prompt put ${JSON.stringify(pasted)} on the clipboard`)
+  if ((await askPage.locator('[data-ask-copy] span').innerText()) !== 'Copied') failures.push('ask your AI: Copy prompt did not say Copied')
+  await askPage.keyboard.press('Escape')
+  if (await askPage.locator('.ask-ai').evaluate((menu) => menu.open)) failures.push('ask your AI: Escape left the menu open')
+  await asking.close()
+
   await page.goto(`${origin}/docs/connect-claude`)
   await page.fill('#docs-q', 'claude')
   const first = page.locator('.docs-sidebar .docs-results')
@@ -136,4 +154,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`  ${failure}`)
   process.exit(1)
 }
-console.log('Public pages behaviour: a quick Send waits out the bot check; a late waitlist ask is offered sign-up; a failed docs index retries on the next search.')
+console.log('Public pages behaviour: a quick Send waits out the bot check; a late waitlist ask is offered sign-up; Copy prompt copies the prompt and Escape closes the menu; a failed docs index retries on the next search.')

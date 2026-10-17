@@ -31,8 +31,9 @@ function htmlFiles(path) {
 }
 
 // An opening <script> tag carrying no src=. `type="module"`, `crossorigin`
-// and friends are all fine as long as the body comes from a file.
-const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc\s*=)[^>]*>/gi
+// and friends are all fine as long as the body comes from a file. A JSON-LD
+// block is data the browser never runs, so script-src does not apply to it.
+const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc\s*=)(?![^>]*\btype\s*=\s*["']?application\/ld\+json["'\s>])[^>]*>/gi
 // on*= as an ATTRIBUTE, i.e. preceded by whitespace inside a tag. Written
 // narrowly so that prose containing the word "online" is not a violation.
 const INLINE_HANDLER = /\son(?:click|load|error|submit|change|input|focus|blur|mouse\w+|key\w+)\s*=/gi

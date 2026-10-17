@@ -40,30 +40,7 @@ class NoteGraph
     public function neighbourhood(int $centerId, int $depth): array
     {
         $depth = max(1, min(self::MAX_DEPTH, $depth));
-        $conn = $this->em->getConnection();
-
-        $hops = [$centerId => 0];
-        $frontier = [$centerId];
-        for ($hop = 1; $hop <= $depth && $frontier !== []; ++$hop) {
-            $rows = $conn->fetchFirstColumn(
-                'SELECT DISTINCT n.id
-                 FROM note_links l
-                 JOIN notes n ON n.id = CASE WHEN l.from_note_id IN (:ids) THEN l.to_note_id ELSE l.from_note_id END
-                 WHERE (l.from_note_id IN (:ids) OR l.to_note_id IN (:ids))
-                   AND l.to_note_id IS NOT NULL',
-                ['ids' => $frontier],
-                ['ids' => ArrayParameterType::INTEGER],
-            );
-
-            $frontier = [];
-            foreach ($rows as $id) {
-                $id = (int) $id;
-                if (!isset($hops[$id])) {
-                    $hops[$id] = $hop;
-                    $frontier[] = $id;
-                }
-            }
-        }
+        $hops = $this->linkedWithin($centerId, $depth);
 
         $semantic = $this->semanticNeighbours($centerId, array_keys($hops));
         foreach ($semantic as $row) {
@@ -91,6 +68,43 @@ class NoteGraph
             'truncated' => false,
             'total_notes' => count($ids),
         ]);
+    }
+
+    /**
+     * The notes a link joins to this one, in either direction, up to `$depth`
+     * links away, each with how many links away it is; the note itself is 0.
+     *
+     * @return array<int, int>
+     */
+    public function linkedWithin(int $centerId, int $depth): array
+    {
+        $depth = max(1, min(self::MAX_DEPTH, $depth));
+        $conn = $this->em->getConnection();
+
+        $hops = [$centerId => 0];
+        $frontier = [$centerId];
+        for ($hop = 1; $hop <= $depth && $frontier !== []; ++$hop) {
+            $rows = $conn->fetchFirstColumn(
+                'SELECT DISTINCT n.id
+                 FROM note_links l
+                 JOIN notes n ON n.id = CASE WHEN l.from_note_id IN (:ids) THEN l.to_note_id ELSE l.from_note_id END
+                 WHERE (l.from_note_id IN (:ids) OR l.to_note_id IN (:ids))
+                   AND l.to_note_id IS NOT NULL',
+                ['ids' => $frontier],
+                ['ids' => ArrayParameterType::INTEGER],
+            );
+
+            $frontier = [];
+            foreach ($rows as $id) {
+                $id = (int) $id;
+                if (!isset($hops[$id])) {
+                    $hops[$id] = $hop;
+                    $frontier[] = $id;
+                }
+            }
+        }
+
+        return $hops;
     }
 
     /**

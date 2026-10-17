@@ -68,6 +68,22 @@ check(
 )
 
 check(
+  'a link under a title its note gave up names the note it reaches',
+  'See [[Garden plan]].',
+  [{ target: 'Garden plan', note_id: 41, title: 'Garden plan "2027"' }],
+  (html) => RESOLVED.test(html),
+  ['<a class="wiki-link" href="/notes/41" title="Garden plan &quot;2027&quot;">Garden plan</a>'],
+)
+
+check(
+  'a link naming its note as it is titled has no hover',
+  'See [[garden plan]].',
+  [{ target: 'garden plan', note_id: 41, title: 'Garden plan' }],
+  (html) => RESOLVED.test(html),
+  ['<a class="wiki-link" href="/notes/41">garden plan</a>'],
+)
+
+check(
   'an unresolved target is still a dotted anchor, not a link',
   'See [[Nothing here]].',
   [{ target: 'Nothing here', note_id: null }],

@@ -62,6 +62,7 @@ class NoteController extends ApiController
             $criteria['undescribed'],
             $criteria['added_by'],
             withSkills: false,
+            dates: $criteria['dates'],
         ));
     }
 
@@ -87,13 +88,14 @@ class NoteController extends ApiController
             $criteria['undescribed'],
             $criteria['added_by'],
             withSkills: false,
+            dates: $criteria['dates'],
         ));
     }
 
     /**
      * The search a notes request asks for, or the 400 that refuses it.
      *
-     * @return JsonResponse|array{q: ?string, tags: int[], source: ?string, status: ?string, flagged: bool, undescribed: bool, added_by: ?int}
+     * @return JsonResponse|array{q: ?string, tags: int[], source: ?string, status: ?string, flagged: bool, undescribed: bool, added_by: ?int, dates: ?\App\Service\DateWindow}
      */
     private function searchCriteria(Request $request): JsonResponse|array
     {
@@ -144,6 +146,11 @@ class NoteController extends ApiController
                 return $this->json($this->json400('Invalid added_by'), Response::HTTP_BAD_REQUEST);
             }
         }
+        try {
+            $dates = \App\Service\DateWindow::from(array_intersect_key($request->query->all(), array_flip(\App\Service\DateWindow::FIELDS)));
+        } catch (\InvalidArgumentException $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
+        }
 
         return [
             'q' => $request->query->get('q'),
@@ -153,6 +160,7 @@ class NoteController extends ApiController
             'flagged' => $request->query->getBoolean('flagged'),
             'undescribed' => $request->query->getBoolean('undescribed'),
             'added_by' => $addedBy,
+            'dates' => $dates,
         ];
     }
 

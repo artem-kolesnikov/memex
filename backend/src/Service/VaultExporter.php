@@ -143,6 +143,16 @@ class VaultExporter
         if ($tags !== []) {
             $frontmatter .= 'tags: '.json_encode($tags, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
         }
+        // The titles the note used to have, under Obsidian's name for a note's
+        // other names, so links written under them still reach it after an
+        // import ({@see FormerTitles}).
+        $aliases = $note->getId() === null ? [] : array_column($this->em->getConnection()->fetchAllAssociative(
+            'SELECT title FROM note_former_titles WHERE note_id = :id ORDER BY id DESC',
+            ['id' => $note->getId()]
+        ), 'title');
+        if ($aliases !== []) {
+            $frontmatter .= 'aliases: '.json_encode($aliases, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
+        }
         // The description and WHO wrote it. Both were missing until 2026-08-21,
         // so the artifact PRODUCT.md calls the no-lock-in promise — and the
         // nightly markdown backup, which is this same method — silently dropped

@@ -558,6 +558,11 @@ class NoteLimbo
                 ['ids' => $ids],
                 ['ids' => ArrayParameterType::INTEGER]
             );
+            $conn->executeStatement(
+                'DELETE FROM note_former_titles WHERE note_id IN (:ids)',
+                ['ids' => $ids],
+                ['ids' => ArrayParameterType::INTEGER]
+            );
 
             return count($ids);
         });

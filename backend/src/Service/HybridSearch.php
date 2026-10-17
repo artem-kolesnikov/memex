@@ -34,6 +34,8 @@ class HybridSearch
      * the nearest chunk of each note is what the distance cutoff then judges.
      */
     private const SEMANTIC_CHUNK_CANDIDATES = 600;
+    /** How many words of a body a passage around a keyword match shows, at most. */
+    private const PASSAGE_TOKENS = 32;
     /**
      * Result orderings a caller may ask for. `relevance` is the ranking this
      * class exists for; the rest are plain column orders, needed because
@@ -109,12 +111,14 @@ class HybridSearch
         ?int $addedByTokenId = null,
         bool $keywordOnly = false,
         bool $withSkills = true,
+        ?DateWindow $dates = null,
+        bool $excerpts = false,
     ): array {
         if ($order !== null && !in_array($order, self::ORDERS, true)) {
             throw new \InvalidArgumentException('order must be one of: '.implode(', ', self::ORDERS));
         }
 
-        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, $keywordOnly, $withSkills);
+        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, $keywordOnly, $withSkills, $dates);
         if ($scope['empty']) {
             return ['items' => [], 'total' => 0, 'semantic_unavailable' => false, 'keyword_only' => $scope['exact']];
         }
@@ -196,6 +200,15 @@ class HybridSearch
                 );
             }
             unset($row);
+            if ($excerpts && $scope['matched'] !== null) {
+                $passages = $this->passages($conn, $scope['matched'], $ids);
+                foreach ($rows as &$row) {
+                    if (isset($passages[$row['id']])) {
+                        $row['matched_text'] = $passages[$row['id']];
+                    }
+                }
+                unset($row);
+            }
         }
 
         return ['items' => $rows, 'total' => $total, 'semantic_unavailable' => $semanticUnavailable, 'keyword_only' => $exact];
@@ -218,8 +231,9 @@ class HybridSearch
         bool $undescribedOnly = false,
         ?int $addedByTokenId = null,
         bool $withSkills = true,
+        ?DateWindow $dates = null,
     ): array {
-        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, false, $withSkills);
+        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, false, $withSkills, $dates);
         if ($scope['empty']) {
             return ['ids' => [], 'semantic_unavailable' => false, 'keyword_only' => $scope['exact']];
         }
@@ -260,6 +274,7 @@ class HybridSearch
         ?int $addedByTokenId,
         bool $keywordOnly,
         bool $withSkills,
+        ?DateWindow $dates = null,
     ): array {
         // A query with no letters/digits ("*", "?", punctuation) can't match
         // anything meaningfully — but it WOULD get embedded, and its vector is
@@ -315,6 +330,11 @@ class HybridSearch
         if (!$withSkills) {
             $where[] = SystemTags::notSkillSql('n');
         }
+        if ($dates !== null) {
+            ['conditions' => $conditions, 'params' => $dateParams] = $dates->sql();
+            $where = [...$where, ...$conditions];
+            $params = [...$params, ...$dateParams];
+        }
         foreach (array_values($tagIds) as $i => $tagId) {
             // One EXISTS per tag: notes must carry ALL requested tags.
             $where[] = "EXISTS (SELECT 1 FROM note_tag nt{$i} WHERE nt{$i}.note_id = n.id AND nt{$i}.tag_id = :tag{$i})";
@@ -340,6 +360,9 @@ class HybridSearch
         // expression over the literal text and has no meaning to embed, so a
         // miss is the whole answer rather than a reason to search by meaning.
         $exact = false;
+        // The expression a keyword hit matched, for the passage that shows it.
+        // Null when no keyword tier answered, or when it matched by absence.
+        $matched = null;
         if ($query !== null && trim($query) !== '') {
             [
                 'match' => $keywordQuery, 'negated' => $negated, 'exact' => $exact, 'words' => $words,
@@ -374,6 +397,7 @@ class HybridSearch
                 $join = $keywordJoin;
                 $where = [...$where, ...$keywordWhere];
                 $params['keyword_query'] = $keywordQuery;
+                $matched = $negated ? null : $keywordQuery;
                 // Every row matches the expression; BM25 separates the note
                 // the query is *about* from the one that mentions it once. A
                 // negated expression matches by what a note lacks, and has
@@ -450,6 +474,7 @@ class HybridSearch
             'relevance' => $relevance,
             'semantic_unavailable' => $semanticUnavailable,
             'exact' => $exact,
+            'matched' => $matched,
         ];
     }
 
@@ -483,6 +508,37 @@ class HybridSearch
             self::ORDER_CREATED_ASC => 'ORDER BY n.created_at ASC, n.id ASC',
             default => 'ORDER BY n.updated_at DESC, n.id DESC',
         };
+    }
+
+    /**
+     * The passage of each note's body around the words a keyword search
+     * matched, so a reader can often answer from the result alone. A note
+     * whose body has no match, because only its title did, gets none.
+     *
+     * @param list<int> $ids
+     * @return array<int, string>
+     */
+    private function passages(Connection $conn, string $keywordQuery, array $ids): array
+    {
+        // Control characters as the marks, because no note holds them, so a
+        // passage carrying one is a passage FTS5 found a match in.
+        $rows = $conn->executeQuery(
+            "SELECT rowid AS id, snippet(notes_fts, 1, char(2), char(3), '…', ".self::PASSAGE_TOKENS.") AS passage
+             FROM notes_fts WHERE notes_fts MATCH :keyword_query AND rowid IN (:ids)",
+            ['keyword_query' => $keywordQuery, 'ids' => $ids],
+            ['ids' => ArrayParameterType::INTEGER],
+        )->fetchAllAssociative();
+
+        $passages = [];
+        foreach ($rows as $row) {
+            $passage = (string) $row['passage'];
+            if (!str_contains($passage, "\x02")) {
+                continue;
+            }
+            $passages[(int) $row['id']] = trim(str_replace(["\x02", "\x03"], '', $passage));
+        }
+
+        return $passages;
     }
 
     /** @param list<string> $conditions */

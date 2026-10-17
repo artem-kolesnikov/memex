@@ -23,7 +23,7 @@ const linkText = (t: string) => t.replace(/[ \t\r\n]+/g, ' ').trim()
 
 export function renderNote(
   bodyMd: string,
-  links: { target: string; note_id: number | null }[],
+  links: { target: string; note_id: number | null; title?: string | null }[],
   /**
    * The reader's own knowledge base, so a wiki-link renders as the address a
    * note actually has. These anchors are raw HTML rather than RouterLink, so
@@ -35,13 +35,21 @@ export function renderNote(
    */
   handle?: string | null,
 ): string {
-  const byTarget = new Map(links.map((l) => [l.target.toLowerCase(), l.note_id]))
+  const byTarget = new Map(links.map((l) => [l.target.toLowerCase(), l]))
   const withLinks = bodyMd.replace(
     /\[\[([^[\]|]+)(?:\|([^[\]]*))?\]\]/g,
     (_match, target: string, label?: string) => {
       const text = (linkText(label ?? '') || linkText(target)).replace(/([\\`*_[\]])/g, '\\$1')
-      const noteId = byTarget.get(target.trim().toLowerCase())
-      return `[${text}](wikilink:${noteId ?? 'x'})`
+      const link = byTarget.get(target.trim().toLowerCase())
+      const noteId = link?.note_id ?? null
+      // A link that names its note by another name, a title it has since
+      // given up or the path it was imported from, still reaches it, and the
+      // hover names the note it reaches.
+      const now = noteId !== null && link?.title ? link.title : null
+      const hover = now !== null && now.toLowerCase() !== linkText(target).toLowerCase()
+        ? ` "${now.replace(/["\\]/g, '\\$&')}"`
+        : ''
+      return `[${text}](wikilink:${noteId ?? 'x'}${hover})`
     },
   )
 

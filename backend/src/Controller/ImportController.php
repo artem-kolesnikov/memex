@@ -266,6 +266,7 @@ class ImportController extends ApiController
                         summaryBy: $parsed['summary_by'],
                         createdAt: $parsed['created'],
                         updatedAt: $parsed['updated'],
+                        formerTitles: $parsed['aliases'],
                     );
                 } catch (\Throwable $error) {
                     $limit = StorageLimitExceeded::fromThrowable($error);
