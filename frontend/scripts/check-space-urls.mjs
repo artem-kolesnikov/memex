@@ -175,7 +175,7 @@ function apiStub(signedIn) {
     if (url.pathname === '/api/tags') return json({ tags: [], retired: [] })
     if (url.pathname === '/api/me/identities') return json({ identities: [], available: [] })
     if (url.pathname === '/api/me/welcome') return json({ facts: { connected: false, profiles: [] } })
-    if (url.pathname === '/api/tokens') return json({ tokens: [], icons: [], logos: [] })
+    if (url.pathname === '/api/tokens') return json({ tokens: [], icons: [], logos: [], usage_days: 14 })
     if (url.pathname === '/api/curation/wiring') return json({ connections: [], other_count: 0 })
     if (url.pathname === '/api/curation/instructions') return json({ presets: [] })
     if (url.pathname === '/api/settings/ai') return json({ keys: [], providers: [], limits: null, enabled: false })

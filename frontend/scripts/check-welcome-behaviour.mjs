@@ -133,7 +133,7 @@ const shot = async (page, name) => {
 }
 const profileTitle = (page) => page.locator('#welcome-title')
 
-const TOKENS = { 'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }) }
+const TOKENS = { 'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }) }
 
 // ── scenarios ────────────────────────────────────────────────────────────
 
@@ -184,7 +184,7 @@ await scenario('a token minted from Settings by one account is not shown to the 
   await page.waitForSelector('.mm-connect-guide')
   await page.waitForTimeout(1800)
   assert(await page.locator('#new-token-title').count() === 0, 'B was shown A\'s token in Settings')
-}, { on: { 'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }) } })
+}, { on: { 'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }) } })
 
 
 // ── Settings › Assistants ─────────────────────────────────────────────────
@@ -232,7 +232,7 @@ await scenario('a curator connection gets the review sentence that is true of it
   await page.waitForSelector('.mm-connect-steps')
   await page.waitForFunction(() => document.querySelector('.mm-connect-guide')?.textContent.includes('curator connection'), null, { timeout: 3000 })
 }, { on: {
-  'GET /api/tokens': (route, json) => json({ tokens: [{ id: 9, name: 'Claude', display_name: null, label: 'Claude', role: 'curator', revoked: false, created_at: '2026-09-01', last_used_at: null }], icons: [], logos: [] }),
+  'GET /api/tokens': (route, json) => json({ tokens: [{ id: 9, name: 'Claude', display_name: null, label: 'Claude', role: 'curator', revoked: false, created_at: '2026-09-01', last_used_at: null, usage: { sessions: 0, calls: 0, refused: 0, failed: 0 } }], icons: [], logos: [], usage_days: 14 }),
   'GET /api/curation/wiring': (route, json) => json({ connections: [], other_count: 0 }),
   'GET /api/curation/instructions': (route, json) => json({ presets: [], field_options: {} }),
 } })
@@ -451,7 +451,7 @@ await scenario('Settings opens the profile screens, and Cancel returns there', a
   await page.getByRole('button', { name: 'Cancel' }).click()
   await page.waitForFunction(() => location.pathname.endsWith('/settings/personalization'), null, { timeout: 3000 })
 }, { on: {
-  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }),
+  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }),
   'GET /api/me/sessions': (route, json) => json({ sessions: [] }),
   'GET /api/me/identities': (route, json) => json({ identities: [], available: [] }),
   'GET /api/stats': (route, json) => json({ total: 0 }),
@@ -474,7 +474,7 @@ await scenario('Settings distinguishes a failed profile lookup from no profile a
   await block.getByRole('link', { name: 'Open profile', exact: true }).waitFor()
   assert((await block.textContent()).includes('waiting for your review, so it is not in force'), 'retry lost the pending status')
 }, { on: {
-  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }),
+  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }),
   'GET /api/me/sessions': (route, json) => json({ sessions: [] }),
   'GET /api/me/identities': (route, json) => json({ identities: [], available: [] }),
   'GET /api/stats': (route, json) => json({ total: 0 }),
@@ -496,7 +496,7 @@ await scenario('Settings profile cards and the optional message fit a phone', as
   await ask.click()
   assert(await block.locator('.mm-profile-prompt-text').count() === 0, 'the message cannot be collapsed')
 }, { viewport: { width: 390, height: 844 }, on: {
-  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }),
+  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }),
   'GET /api/me/sessions': (route, json) => json({ sessions: [] }),
   'GET /api/me/identities': (route, json) => json({ identities: [], available: [] }),
   'GET /api/stats': (route, json) => json({ total: 0 }),
@@ -517,7 +517,7 @@ await scenario('Settings names the one profile and lists several without choosin
   assert(await page.locator('[data-profile-note] li').count() === 2, 'several profiles are not all listed')
   assert(await page.locator('[data-profile-note]').getByRole('link', { name: 'Open profile' }).count() === 0, 'one of several was chosen')
 }, { on: {
-  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }),
+  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }),
   'GET /api/me/sessions': (route, json) => json({ sessions: [] }),
   'GET /api/me/identities': (route, json) => json({ identities: [], available: [] }),
   'GET /api/stats': (route, json) => json({ total: 0 }),
@@ -587,7 +587,7 @@ await scenario('Settings offers no setup guide, and export reaches its home', as
   assert(await page.getByRole('heading', { name: 'Space name' }).count() === 0, 'space name control remains')
 }, { on: {
   'GET /api/tags': (route, json) => json({ tags: [], retired: [] }),
-  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [] }),
+  'GET /api/tokens': (route, json) => json({ tokens: [], icons: [], logos: [], usage_days: 14 }),
   'GET /api/me/sessions': (route, json) => json({ sessions: [] }),
   'GET /api/me/identities': (route, json) => json({ identities: [], available: [] }),
 } })
@@ -595,7 +595,7 @@ await scenario('Settings offers no setup guide, and export reaches its home', as
 await scenario('Settings curator assignment is explicit and removing the role keeps the connection', async (page, state) => {
   let role = 'agent'
   const changed = []
-  await page.route('**/api/tokens', route => route.fulfill({ json: { tokens: [{ id: 9, name: 'Claude', display_name: 'Claude', label: 'Claude', role, revoked: false, created_at: '2026-09-01', last_used_at: null }], icons: [], logos: [] } }))
+  await page.route('**/api/tokens', route => route.fulfill({ json: { tokens: [{ id: 9, name: 'Claude', display_name: 'Claude', label: 'Claude', role, revoked: false, created_at: '2026-09-01', last_used_at: null, usage: { sessions: 0, calls: 0, refused: 0, failed: 0 } }], icons: [], logos: [], usage_days: 14 } }))
   await page.route('**/api/tokens/9/role', async route => {
     role = route.request().postDataJSON().role
     changed.push(role)

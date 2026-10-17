@@ -9,6 +9,7 @@ use App\Entity\CuratorLogEntry;
 use App\Service\AgentIcons;
 use App\Service\BearerTokens;
 use App\Service\ConnectionSecrets;
+use App\Service\ConnectionUsage;
 use App\Service\Journal;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -51,6 +52,7 @@ class TokenController extends ApiController
         private readonly BearerTokens $tokens,
         private readonly ConnectionSecrets $secrets,
         private readonly Journal $journal,
+        private readonly ConnectionUsage $usage,
     ) {
     }
 
@@ -59,6 +61,7 @@ class TokenController extends ApiController
     {
         $this->assertSessionAuth($request, 'Token management');
         $tokens = $this->em->getRepository(ApiToken::class)->findBy([], ['id' => 'ASC']);
+        $usage = $this->usage->byConnection();
 
         // How a token came to exist, and what to call it on screen. Both are
         // derived from the name because that is where the information is: an
@@ -95,6 +98,14 @@ class TokenController extends ApiController
                 'role' => $t->getRole(),
                 'created_at' => $t->getCreatedAt()->format(DATE_ATOM),
                 'last_used_at' => $t->getLastUsedAt()?->format(DATE_ATOM),
+                // Over the days ConnectionUsage keeps: how often the assistant
+                // opened memex, and how many tools it called.
+                'usage' => [
+                    'sessions' => $usage[$t->getId()]['sessions'] ?? 0,
+                    'calls' => $usage[$t->getId()]['calls'] ?? 0,
+                    'refused' => $usage[$t->getId()]['refused'] ?? 0,
+                    'failed' => $usage[$t->getId()]['failed'] ?? 0,
+                ],
                 'revoked' => $t->isRevoked(),
                 // Readable, not merely stored: a vault restored without its
                 // secret.env holds tokens nobody can decrypt, and those get
@@ -109,6 +120,7 @@ class TokenController extends ApiController
             // the first: they are chosen from a tab of their own and they are
             // a pair of image URLs where a glyph is a class name.
             'logos' => AgentIcons::logos(),
+            'usage_days' => ConnectionUsage::KEEP_DAYS,
         ]);
     }
 

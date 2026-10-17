@@ -36,6 +36,7 @@ const loaded = ref(false)
 const connectionsRevision = ref(0)
 const loadFailed = ref(false)
 const tokens = ref<TokenInfo[]>([])
+const usageDays = ref(14)
 /** The shipped marks, as the server sent them beside the list. */
 const icons = ref<IconChoice[]>([])
 const logos = ref<LogoChoice[]>([])
@@ -64,6 +65,14 @@ const hasCurator = computed(() => liveTokens.value.some((t) => t.role === 'curat
 
 const dirty = computed(() => revokeDraft.value.size > 0)
 
+function callTrouble(token: TokenInfo): string {
+  const parts = [
+    token.usage.refused ? t('connections.table.refused', { count: token.usage.refused }) : '',
+    token.usage.failed ? t('connections.table.failed', { count: token.usage.failed }) : '',
+  ].filter(Boolean)
+  return `(${parts.join(', ')})`
+}
+
 let tokenRequest = 0
 
 async function load() {
@@ -74,6 +83,7 @@ async function load() {
     loaded.value = true
     if (!answer.tokens.some((token) => !token.revoked)) showConnect.value = true
     tokens.value = answer.tokens
+    usageDays.value = answer.usage_days
     connectionsRevision.value++
     icons.value = answer.icons
     logos.value = answer.logos
@@ -190,6 +200,8 @@ async function save() {
               <th>{{ $t('connections.table.auth') }}</th>
               <th>{{ $t('connections.table.created') }}</th>
               <th>{{ $t('connections.table.last_used') }}</th>
+              <th :title="$t('connections.table.usage_window', { days: usageDays })">{{ $t('connections.table.sessions') }}</th>
+              <th :title="$t('connections.table.usage_window', { days: usageDays })">{{ $t('connections.table.calls') }}</th>
               <th class="text-end">{{ $t('connections.table.actions') }}</th>
             </tr>
           </thead>
@@ -220,6 +232,11 @@ async function save() {
               <td :data-label="$t('connections.table.auth')"><span class="badge text-bg-light border">{{ token.auth === 'oauth' ? $t('connections.auth.oauth') : $t('connections.auth.manual') }}</span></td>
               <td class="text-nowrap" :data-label="$t('connections.table.created')">{{ writeDate(token.created_at) || '—' }}</td>
               <td class="text-nowrap" :data-label="$t('connections.table.last_used')">{{ writeDate(token.last_used_at) || '—' }}</td>
+              <td :data-label="$t('connections.table.sessions')">{{ token.usage.sessions || '—' }}</td>
+              <td :data-label="$t('connections.table.calls')">
+                {{ token.usage.calls || '—' }}
+                <span class="small text-muted" v-if="token.usage.refused || token.usage.failed">{{ callTrouble(token) }}</span>
+              </td>
               <td class="text-end mm-stack-actions">
                 <template v-if="isRevoking(token)">
                   <span class="badge text-bg-danger me-2">{{ $t('connections.table.will_be_revoked') }}</span>

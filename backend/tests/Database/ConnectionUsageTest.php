@@ -118,6 +118,25 @@ final class ConnectionUsageTest extends ApiTestCase
         self::assertSame(3, static::getContainer()->get(ConnectionUsage::class)->totals()['calls']);
     }
 
+    /** The owner sees each connection's counts in Settings › Assistants, and only their own. */
+    public function testSettingsShowsEachConnectionsSessionsAndCalls(): void
+    {
+        $this->rpc('initialize', ['protocolVersion' => '2025-06-18']);
+        $this->call('search', ['query' => 'anything']);
+        $this->call('get', ['id' => 999999]);
+        $this->rpc('initialize', ['protocolVersion' => '2025-06-18'], $this->kb->b->agentBearer);
+
+        $this->loginAs($this->kb->a);
+        $this->sessionRequest('GET', '/api/tokens');
+        self::assertSame(200, $this->httpStatus());
+        $page = $this->jsonResponse();
+
+        self::assertSame(ConnectionUsage::KEEP_DAYS, $page['usage_days']);
+        $usage = array_column($page['tokens'], 'usage', 'id');
+        self::assertSame(['sessions' => 1, 'calls' => 2, 'refused' => 1, 'failed' => 0], $usage[$this->kb->a->agentTokenId], 'A\'s counts are wrong, or B\'s session reached them');
+        self::assertSame(['sessions' => 0, 'calls' => 0, 'refused' => 0, 'failed' => 0], $usage[$this->kb->a->curatorTokenId]);
+    }
+
     public function testAnApiRequestWithATokenIsUse(): void
     {
         $this->request('GET', '/api/me', $this->kb->a->agentBearer);

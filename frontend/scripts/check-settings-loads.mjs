@@ -67,10 +67,10 @@ for (const staleFails of [false, true]) {
   const parent = mountScript('ConnectionsPane.vue', 'load, tokens, loadFailed')
   const first = parent.load()
   const last = parent.load()
-  parent.pending.tokens[1].resolve({ tokens: [{ id: 9, role: 'curator' }], icons: [], logos: [] })
+  parent.pending.tokens[1].resolve({ tokens: [{ id: 9, role: 'curator' }], icons: [], logos: [], usage_days: 14 })
   await last
   if (staleFails) parent.pending.tokens[0].reject(new Error('Old request failed'))
-  else parent.pending.tokens[0].resolve({ tokens: [{ id: 7, role: 'agent' }], icons: [], logos: [] })
+  else parent.pending.tokens[0].resolve({ tokens: [{ id: 7, role: 'agent' }], icons: [], logos: [], usage_days: 14 })
   await first
   assert.equal(parent.tokens.value[0].id, 9, 'Old parent response restored obsolete connection state')
   assert.equal(parent.loadFailed.value, false, 'Old parent failure hid the current list')

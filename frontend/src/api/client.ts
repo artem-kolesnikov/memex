@@ -638,6 +638,8 @@ export interface TokenInfo {
   icon_url_dark: string | null
   created_at: string
   last_used_at: string | null
+  /** Over the last `usage_days`: times the assistant opened memex, and the tools it called. */
+  usage: { sessions: number; calls: number; refused: number; failed: number }
   revoked: boolean
   /** memex holds the token, so Settings can copy it again. */
   token_kept: boolean
@@ -1340,7 +1342,7 @@ export const api = {
       `/api/settings/ai/models/${credentialId}`,
     ),
 
-  tokens: () => request<{ tokens: TokenInfo[]; icons: IconChoice[]; logos: LogoChoice[] }>('/api/tokens'),
+  tokens: () => request<{ tokens: TokenInfo[]; icons: IconChoice[]; logos: LogoChoice[]; usage_days: number }>('/api/tokens'),
   updateToken: (id: number, patch: Record<string, unknown>) =>
     request<{ id: number; display_name: string | null; icon_key: string | null; icon_url: string | null; icon_url_dark: string | null }>(
       `/api/tokens/${id}`,
