@@ -51,6 +51,13 @@ final class McpServer
 
     private ?array $servedRows = null;
 
+    /** The methods {@see ConnectionUsage} counts; the rest are listings and pings. */
+    private const COUNTED = ['initialize', 'tools/list', 'tools/call', 'prompts/get', 'resources/read'];
+
+    private ?string $usageKind = null;
+
+    private string $outcome = ConnectionUsage::OK;
+
     private const CURATOR_TOOLS = ['log', 'log_recent', 'resolve_curation_flag', 'duplicate_candidates'];
 
     private const OPEN_CURATION_TOOLS = ['curation_candidates', 'last_curated', 'blast_radius'];
@@ -108,6 +115,7 @@ final class McpServer
         private readonly NoteEnricher $enricher,
         private readonly NoteGraph $graph,
         private readonly FormerTitles $formerTitles,
+        private readonly ConnectionUsage $usage,
     ) {
     }
 
@@ -159,6 +167,29 @@ final class McpServer
             return null;
         }
 
+        $this->usageKind = in_array($method, self::COUNTED, true) ? $method : null;
+        $this->outcome = ConnectionUsage::OK;
+        try {
+            $reply = $this->dispatch($id, $method, $params);
+            if (isset($reply['error']) && $this->outcome === ConnectionUsage::OK) {
+                $this->outcome = ConnectionUsage::REFUSED;
+            }
+
+            return $reply;
+        } catch (\Throwable $e) {
+            $this->outcome = ConnectionUsage::FAILED;
+
+            throw $e;
+        } finally {
+            if ($this->usageKind !== null && $token->getId() !== null) {
+                $this->usage->record($token->getId(), $this->usageKind, $this->outcome);
+            }
+        }
+    }
+
+    /** @return array<string, mixed> */
+    private function dispatch(mixed $id, string $method, array $params): array
+    {
         return match ($method) {
             'initialize' => $this->initializeResult($id, $params),
             'ping' => $this->rpcResult($id, new \stdClass()),
@@ -522,15 +553,19 @@ final class McpServer
                 default => null,
             };
             if ($result === null) {
+                $this->usageKind = ConnectionUsage::UNKNOWN_TOOL;
+
                 return $this->rpcError($id, -32602, 'Unknown tool: '.$tool);
             }
-
+            $this->usageKind = $tool;
         } catch (\Throwable $e) {
             $limit = StorageLimitExceeded::fromThrowable($e);
             $message = $limit === null ? ClientMessage::of($e) : null;
             if ($limit === null && $message === null) {
                 $this->logger->error('An MCP tool failed', ['tool' => $tool, 'exception' => $e]);
             }
+            $this->usageKind = preg_match('/^[a-z_]{1,64}$/', $tool) === 1 ? $tool : ConnectionUsage::UNKNOWN_TOOL;
+            $this->outcome = $limit === null && $message === null ? ConnectionUsage::FAILED : ConnectionUsage::REFUSED;
             $result = $limit?->payload() ?? ['error' => $message ?? 'Tool failed: memex hit an internal error.'];
             $isError = true;
         }

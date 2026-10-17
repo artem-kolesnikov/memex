@@ -62,6 +62,10 @@ class ApiTokenAuthenticator extends AbstractAuthenticator implements Authenticat
             throw new CustomUserMessageAuthenticationException('Invalid or revoked token');
         }
         $token->touch();
+        // An MCP message is stamped by ConnectionUsage, which tells a call from the handshake.
+        if ($request->getPathInfo() !== '/mcp') {
+            $token->markCalled();
+        }
         $this->em->flush();
         $request->attributes->set(self::REQUEST_ATTRIBUTE, $token);
 

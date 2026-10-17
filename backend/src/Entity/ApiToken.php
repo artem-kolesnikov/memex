@@ -56,6 +56,10 @@ class ApiToken
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastUsedAt = null;
 
+    /** The last real use: a tool call, a skill loaded, or an API request; never the MCP handshake. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $lastCalledAt = null;
+
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $revokedAt = null;
 
@@ -154,6 +158,11 @@ class ApiToken
         $this->lastUsedAt = new \DateTimeImmutable();
     }
 
+    public function markCalled(): void
+    {
+        $this->lastCalledAt = new \DateTimeImmutable();
+    }
+
     public function getSkillsSeen(): ?string
     {
         return $this->skillsSeen;
@@ -182,6 +191,11 @@ class ApiToken
     public function getLastUsedAt(): ?\DateTimeImmutable
     {
         return $this->lastUsedAt;
+    }
+
+    public function getLastCalledAt(): ?\DateTimeImmutable
+    {
+        return $this->lastCalledAt;
     }
 
     /** What to call this connection: the owner's name for it, or the client's. */
