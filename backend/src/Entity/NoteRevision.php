@@ -189,6 +189,7 @@ class NoteRevision
         ?string $changeTitle = null,
         ?string $operation = null,
         ?ApiToken $replacedByToken = null,
+        ?\DateTimeImmutable $at = null,
     ): self {
         $revision = new self();
         $revision->noteId = (int) $note->getId();
@@ -212,7 +213,7 @@ class NoteRevision
         $revision->replacedByToken = $replacedByToken;
         $changeTitle = $changeTitle === null ? null : trim($changeTitle);
         $revision->changeTitle = ($changeTitle === null || $changeTitle === '') ? null : mb_substr($changeTitle, 0, 120);
-        $revision->replacedAt = new \DateTimeImmutable();
+        $revision->replacedAt = $at ?? new \DateTimeImmutable();
         $revision->noteUpdatedAt = $note->getUpdatedAt();
 
         return $revision;

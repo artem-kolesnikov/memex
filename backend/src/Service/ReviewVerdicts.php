@@ -31,7 +31,23 @@ class ReviewVerdicts
         private readonly NoteWriter $noteWriter,
         private readonly NoteLimbo $limbo,
         private readonly Journal $journal,
+        private readonly NoteRevisions $revisions,
     ) {
+    }
+
+    /**
+     * Runs a set of verdicts the owner gave together, so each change they
+     * approve is recorded at the same moment ({@see NoteRevisions::atOneMoment()}).
+     *
+     * @template T
+     *
+     * @param callable(): T $work
+     *
+     * @return T
+     */
+    public function together(callable $work): mixed
+    {
+        return $this->revisions->atOneMoment($work);
     }
 
     /**
@@ -262,6 +278,12 @@ class ReviewVerdicts
      * @return array{note: ?Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
      */
     public function approveTogether(Note $note, array $items, array $verdict, ?array $amendment): array
+    {
+        return $this->together(fn (): array => $this->applyTogether($note, $items, $verdict, $amendment));
+    }
+
+    /** @return array{note: ?Note, suggestions: array{tag_ids: int[], new_tags: string[]}} */
+    private function applyTogether(Note $note, array $items, array $verdict, ?array $amendment): array
     {
         $conn = $this->em->getConnection();
         $conn->beginTransaction();

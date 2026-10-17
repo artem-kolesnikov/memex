@@ -92,6 +92,25 @@ class InboxController extends ApiController
         }
         $verdict = ['comment' => $comment === '' ? null : $comment, 'precedent' => false];
 
+        // One moment for the whole selection: what the owner approved together
+        // is recorded together, and History credits every assistant in it.
+        [$done, $failed] = $this->verdicts->together(fn (): array => $this->decideAll($items, $action, $verdict));
+
+        return $this->json([
+            'action' => $action,
+            'done' => $done,
+            'failed' => $failed,
+        ]);
+    }
+
+    /**
+     * @param list<mixed>                              $items
+     * @param array{comment: ?string, precedent: bool} $verdict
+     *
+     * @return array{0: int, 1: list<array<string, mixed>>} how many were decided, and each that failed
+     */
+    private function decideAll(array $items, string $action, array $verdict): array
+    {
         $done = 0;
         $failed = [];
         // Versions this batch itself moved, by note id: the first it found and
@@ -140,11 +159,7 @@ class InboxController extends ApiController
             }
         }
 
-        return $this->json([
-            'action' => $action,
-            'done' => $done,
-            'failed' => $failed,
-        ]);
+        return [$done, $failed];
     }
 
     /** @param array{comment: ?string, precedent: bool} $verdict */

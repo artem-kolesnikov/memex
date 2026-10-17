@@ -35,11 +35,38 @@ use Psr\Log\LoggerInterface;
  */
 class NoteRevisions
 {
+    private ?\DateTimeImmutable $moment = null;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
         private readonly NoteEnricher $enricher,
     ) {
+    }
+
+    /**
+     * Runs $work with every snapshot it takes stamped at one moment. Changes
+     * the owner approves together then read as together, which is how
+     * {@see ActorView::editedWith()} finds them; stamped one by one, two
+     * approvals either side of a second credited only the later assistant.
+     *
+     * @template T
+     *
+     * @param callable(): T $work
+     *
+     * @return T
+     */
+    public function atOneMoment(callable $work): mixed
+    {
+        if ($this->moment !== null) {
+            return $work();
+        }
+        $this->moment = new \DateTimeImmutable();
+        try {
+            return $work();
+        } finally {
+            $this->moment = null;
+        }
     }
 
     /**
@@ -69,10 +96,11 @@ class NoteRevisions
                 $changeTitle,
                 $operation,
                 $note->getLastActorToken(),
+                $this->moment,
             );
         }
 
-        return NoteRevision::capture($note, $actor, $changeTitle, $operation, $actorToken);
+        return NoteRevision::capture($note, $actor, $changeTitle, $operation, $actorToken, $this->moment);
     }
 
     /**
