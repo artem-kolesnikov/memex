@@ -10,6 +10,7 @@ use App\Entity\EditProposal;
 use App\Entity\Note;
 use App\Security\ApiTokenAuthenticator;
 use App\Service\NoteJson;
+use App\Service\NoteProperties;
 use App\Service\Owner;
 use App\Service\OwnerMark;
 use App\Service\SystemTags;
@@ -150,6 +151,7 @@ abstract class ApiController extends AbstractController
             'body_md' => $keeper->getBodyMd(),
             'tags' => array_map(static fn ($tag) => $tag->getName(), $keeper->getTags()->toArray()),
             'summary' => $keeper->getSummary(),
+            'properties' => NoteProperties::json($keeper->getProperties()),
         ];
     }
 

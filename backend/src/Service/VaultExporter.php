@@ -168,11 +168,16 @@ class VaultExporter
                 $frontmatter .= 'summary_by: '.json_encode($note->getSummaryBy(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
             }
         }
-        $frontmatter .= 'source: '.$note->getSource()."\n";
+        // The note's properties, each as its own key, where Obsidian shows
+        // them. memex's own `source` and `status` lines went (2026-10-17):
+        // import never read them, and they are the names people most often
+        // give a property of their own.
+        foreach ($note->getProperties() as $name => $value) {
+            $frontmatter .= self::yamlKey((string) $name).': '.json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR)."\n";
+        }
         if ($note->getSourceUrl() !== null) {
             $frontmatter .= 'source_url: '.json_encode($note->getSourceUrl(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
         }
-        $frontmatter .= 'status: '.$note->getStatus()."\n";
         $frontmatter .= 'created: '.$note->getCreatedAt()->format(DATE_ATOM)."\n";
         $frontmatter .= 'updated: '.$note->getUpdatedAt()->format(DATE_ATOM)."\n";
         $frontmatter .= "---\n\n";
@@ -185,6 +190,14 @@ class VaultExporter
      * vault comes back out in the shape it went in and its path links still
      * open, or else its title, at the top.
      */
+    /** A property's name as YAML reads it back: bare when it can be, quoted otherwise. */
+    private static function yamlKey(string $name): string
+    {
+        return preg_match('/\A[\p{L}\p{N}_][\p{L}\p{N}_ -]*\z/u', $name) === 1 && !\in_array(strtolower($name), ['true', 'false', 'null', 'yes', 'no', 'on', 'off', '~'], true)
+            ? $name
+            : json_encode($name, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
     public function archivePath(Note $note): string
     {
         $segments = [];

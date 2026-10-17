@@ -289,8 +289,8 @@ class NoteRevisions
             );
             $conn->executeStatement(
                 "UPDATE edit_proposals SET proposed_title = NULL, proposed_body_md = NULL,
-                 proposed_summary = NULL, proposed_tags = NULL, proposed_patch = NULL,
-                 prev_title = NULL, prev_body_md = NULL, prev_summary = NULL, prev_tags = NULL,
+                 proposed_summary = NULL, proposed_tags = NULL, proposed_patch = NULL, proposed_properties = NULL,
+                 prev_title = NULL, prev_body_md = NULL, prev_summary = NULL, prev_tags = NULL, prev_properties = NULL,
                  comment = NULL, change_title = NULL
                  WHERE (note_id = :note OR merge_into_note_id = :note) AND status <> 'held'",
                 $params,

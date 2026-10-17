@@ -119,12 +119,13 @@ class HybridSearch
         bool $withSkills = true,
         ?DateWindow $dates = null,
         bool $excerpts = false,
+        ?PropertyFilter $properties = null,
     ): array {
         if ($order !== null && !in_array($order, self::ORDERS, true)) {
             throw new \InvalidArgumentException('order must be one of: '.implode(', ', self::ORDERS));
         }
 
-        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, $keywordOnly, $withSkills, $dates);
+        $scope = $this->scope($query, $tagIds, $source, $status, $flaggedOnly, $undescribedOnly, $addedByTokenId, $keywordOnly, $withSkills, $dates, $properties);
         if ($scope['empty']) {
             return ['items' => [], 'total' => 0, 'semantic_unavailable' => false, 'keyword_only' => $scope['exact']];
         }
@@ -147,7 +148,7 @@ class HybridSearch
         $matched = $section.' AS matched_section, '.$scope['hit'].' AS keyword_hit,';
         $sql = $cte.<<<SQL
         SELECT
-            n.id, n.title, n.source, n.source_url, n.status, n.summary,
+            n.id, n.title, n.source, n.source_url, n.status, n.summary, n.properties,
             n.last_actor, n.created_at, n.updated_at, n.version, {$matched}
             -- WHICH assistant wrote last, joined rather than copied onto the
             -- note: renaming a connection renames it everywhere, which is the
@@ -193,6 +194,7 @@ class HybridSearch
             foreach ($rows as &$row) {
                 $row['id'] = (int) $row['id'];
                 $row['tags'] = $tagsByNote[$row['id']] ?? [];
+                $row['properties'] = NoteProperties::json(\is_string($row['properties']) ? json_decode($row['properties'], true, 512, JSON_THROW_ON_ERROR) : null);
                 $row['flagged'] = (bool) $row['flagged'];
                 // ONE producer for this shape, shared with the ORM path in
                 // ApiController::noteToArray(). Two serialisers for one row is
@@ -286,6 +288,7 @@ class HybridSearch
         bool $keywordOnly,
         bool $withSkills,
         ?DateWindow $dates = null,
+        ?PropertyFilter $properties = null,
     ): array {
         // A query with no letters/digits ("*", "?", punctuation) can't match
         // anything meaningfully — but it WOULD get embedded, and its vector is
@@ -345,6 +348,11 @@ class HybridSearch
             ['conditions' => $conditions, 'params' => $dateParams] = $dates->sql();
             $where = [...$where, ...$conditions];
             $params = [...$params, ...$dateParams];
+        }
+        if ($properties !== null) {
+            ['conditions' => $conditions, 'params' => $propertyParams] = $properties->sql();
+            $where = [...$where, ...$conditions];
+            $params = [...$params, ...$propertyParams];
         }
         foreach (array_values($tagIds) as $i => $tagId) {
             // One EXISTS per tag: notes must carry ALL requested tags.

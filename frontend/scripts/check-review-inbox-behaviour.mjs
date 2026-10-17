@@ -600,7 +600,7 @@ await scenario('a note emptied in the card cannot be approved', {}, async (page)
 // Two panes — a diff to read and a box to type in — was the shape this
 // replaced, and it could only reach the body. What is asserted here is that
 // unlocking REPLACES the evidence rather than appearing beside it, that all
-// four fields a proposal carries are reachable, and that an untouched unlock
+// five fields a proposal carries are reachable, and that an untouched unlock
 // still approves the proposal exactly as filed.
 
 await scenario('unlocking a proposal replaces the diff rather than sitting beside it', {}, async (page) => {
@@ -616,7 +616,7 @@ await scenario('unlocking a proposal replaces the diff rather than sitting besid
   }))
   assert(state.panes === 1, `expected one editable pane, got ${state.panes}`)
   assert(state.diffsLeft === 0, 'the read-only diff is still on screen beside the editor')
-  assert(JSON.stringify(state.fields) === JSON.stringify(['Title', 'Tags', 'Description', 'Body']), `expected title, tags, description and body, in the read view's order, got ${JSON.stringify(state.fields)}`)
+  assert(JSON.stringify(state.fields) === JSON.stringify(['Title', 'Tags', 'Properties', 'Description', 'Body']), `expected title, tags, properties, description and body, in the read view's order, got ${JSON.stringify(state.fields)}`)
   assert(/new body/.test(state.body), `the editor did not open on the proposed text: ${JSON.stringify(state.body.slice(0, 40))}`)
 })
 

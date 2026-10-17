@@ -24,6 +24,8 @@ import InboxBatchDialog from '@/components/InboxBatchDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import TagInput from '@/components/TagInput.vue'
+import PropertiesEditor from '@/components/PropertiesEditor.vue'
+import { propertiesOf, rowsOf, samePropertyValue, type Properties, type PropertyRow } from '@/lib/properties'
 import ProposedDocument from '@/components/ProposedDocument.vue'
 import StaleDraftNotice, { type StaleView } from '@/components/StaleDraftNotice.vue'
 import { toastError, toastSuccess } from '@/components/toastService'
@@ -50,9 +52,11 @@ interface ProposalRow extends EditProposalItem, Loadable {
   currentBody?: string
   currentSummary?: string | null
   currentTags?: string[]
+  currentProperties?: Properties
   keeperBody?: string
   keeperTags?: string[]
   keeperSummary?: string | null
+  keeperProperties?: Properties
   backlinks?: { id: number; title: string }[]
   base?: ProposalBase
   /** Several connections' waiting changes to one note, reviewed as one card (operator, 2026-10-14). */
@@ -62,6 +66,15 @@ interface ProposalRow extends EditProposalItem, Loadable {
 
 interface NoteRow extends NoteListItem, Loadable {
   body?: string
+}
+
+/** What the amend pane's fields held when it was unlocked. */
+interface AmendSeed {
+  title: string
+  body: string
+  tags: string[]
+  summary: string
+  properties: Properties
 }
 
 type FeedEntry =
@@ -86,6 +99,7 @@ const proposals = ref<ProposalRow[]>([])
 const KIND_KEYS: Record<string, string> = {
   summary: 'inbox.kinds.summary',
   tags: 'inbox.kinds.tags',
+  properties: 'inbox.kinds.properties',
   content: 'inbox.kinds.content',
   new_note: 'inbox.kinds.new_note',
   report: 'inbox.kinds.report',
@@ -95,6 +109,7 @@ const KIND_KEYS: Record<string, string> = {
 const FIELD_KEYS: Record<string, string> = {
   summary: 'inbox.fields.summary',
   tags: 'inbox.fields.tags',
+  properties: 'inbox.fields.properties',
   content: 'inbox.fields.content',
   new_note: 'inbox.fields.new_note',
   report: 'inbox.fields.report',
@@ -138,6 +153,8 @@ function groupRow(members: ProposalRow[]): ProposalRow {
   let tags: string[] | null = null
   let title: string | null = null
   let summary: string | null = null
+  // No two connections hold the same property, so their changes simply add up.
+  let properties: Properties | null = null
   // Only changes that still fit the note make the combined document: one
   // whose sentence the owner has since rewritten is listed, marked, and
   // decided on its own, and does not hide the others.
@@ -157,6 +174,7 @@ function groupRow(members: ProposalRow[]): ProposalRow {
     if (!member.proposed_patch?.length && member.type === 'edit' && member.proposed_body_md !== null) whole = member.proposed_body_md
     if (member.proposed_title !== null) title = member.proposed_title
     if (member.proposed_summary !== null) summary = member.proposed_summary
+    if (member.proposed_properties) properties = { ...(properties ?? {}), ...member.proposed_properties }
     if (member.proposed_tags !== null) {
       const read: string[] = member.base?.tags ?? tags ?? currentTags
       const proposed: string[] = member.proposed_tags
@@ -179,6 +197,7 @@ function groupRow(members: ProposalRow[]): ProposalRow {
     comment: members.map((member) => `- **${member.proposed_by}**: ${[member.change_title, member.comment].filter(Boolean).join(' — ')}`).join('\n'),
     proposed_title: title,
     proposed_summary: summary,
+    proposed_properties: properties,
     proposed_tags: tags,
     proposed_patch: whole === null && patch.length ? patch : null,
     proposed_body_md: whole,
@@ -471,10 +490,11 @@ function evidenceReady(entry: FeedEntry): boolean {
  *  always available — a proposal that cannot land is exactly one to discard. */
 function approvable(entry: FeedEntry): boolean {
   if (hasReviewConflict(entry)) return false
-  if (editableNote(entry)) return amendedBody.value.trim() !== '' && amendedTitle.value.trim() !== ''
+  if (editableNote(entry)) return amendedBody.value.trim() !== '' && amendedTitle.value.trim() !== '' && propertiesOf(amendedProperties.value) !== null
   if (entry.kind !== 'proposal') return true
   if (editableProposal(entry)) {
     return amendedBody.value.trim() !== '' && (!amendsTitle(entry) || amendedTitle.value.trim() !== '')
+      && propertiesOf(amendedProperties.value) !== null
   }
   const row = entry.proposal
   if (!row.detailLoaded || !row.proposed_patch?.length) return true
@@ -489,10 +509,11 @@ const amendedBody = ref('')
 const amendedTitle = ref('')
 const amendedTags = ref<string[]>([])
 const amendedSummary = ref('')
+const amendedProperties = ref<PropertyRow[]>([])
 /** What the fields held when the pane was unlocked. An amendment is what the
  *  operator changed FROM this, so a pane opened and closed untouched sends
  *  nothing and the item is decided exactly as it was filed. */
-const amendSeed = ref<{ title: string; body: string; tags: string[]; summary: string } | null>(null)
+const amendSeed = ref<AmendSeed | null>(null)
 /** The tag vocabulary, for the tag field's suggestions. Loaded lazily: the
  *  inbox is read far more often than it is edited in. */
 const tagVocabulary = ref<string[]>([])
@@ -530,6 +551,7 @@ function resetDecision() {
   amendedTitle.value = ''
   amendedTags.value = []
   amendedSummary.value = ''
+  amendedProperties.value = []
   amendSeed.value = null
   decisionBusy.value = false
   decisionError.value = null
@@ -599,11 +621,12 @@ async function toggleCard(entry: FeedEntry) {
   else await loadNote(entry.note)
 }
 
-async function openForEditing(seed: { title: string; body: string; tags: string[]; summary: string }) {
+async function openForEditing(seed: AmendSeed) {
   amendedTitle.value = seed.title
   amendedBody.value = seed.body
   amendedTags.value = [...seed.tags]
   amendedSummary.value = seed.summary
+  amendedProperties.value = rowsOf(seed.properties)
   amendSeed.value = seed
   amendOpen.value = true
   if (tagVocabulary.value.length === 0) {
@@ -616,11 +639,12 @@ async function openForEditing(seed: { title: string; body: string; tags: string[
   }
 }
 
-const noteSeed = (row: NoteRow) => ({
+const noteSeed = (row: NoteRow): AmendSeed => ({
   title: row.title,
   body: row.body ?? '',
   tags: row.tags.map((tag) => tag.name),
   summary: row.summary ?? '',
+  properties: row.properties ?? {},
 })
 
 /** What the proposal would leave behind, which is what the operator edits. */
@@ -631,7 +655,7 @@ const noteSeed = (row: NoteRow) => ({
 const proposalSeed = (row: ProposalRow) => {
   const doc = proposedDoc(row, t)
 
-  return { title: doc.title, body: doc.body.after, tags: doc.tags.after, summary: doc.summary.after }
+  return { title: doc.title, body: doc.body.after, tags: doc.tags.after, summary: doc.summary.after, properties: doc.properties.after }
 }
 
 /** A detail that will not load closes its own expansion and says which item it
@@ -682,9 +706,11 @@ async function loadProposal(row: ProposalRow) {
       currentBody: detail.note.body_md,
       currentSummary: detail.note.summary,
       currentTags: detail.note.tags,
+      currentProperties: detail.note.properties,
       keeperBody: detail.merge_into?.body_md,
       keeperTags: detail.merge_into?.tags,
       keeperSummary: detail.merge_into?.summary,
+      keeperProperties: detail.merge_into?.properties,
       backlinks: detail.note.backlinks,
       detailLoaded: true,
     })
@@ -734,6 +760,7 @@ function docOf(entry: FeedEntry): ProposedDoc | null {
         proposed_patch: null,
         proposed_tags: row.tags.map((tag) => tag.name),
         proposed_summary: row.summary,
+        proposed_properties: row.properties ?? {},
       },
       t,
     )
@@ -763,11 +790,14 @@ function staleOf(entry: FeedEntry): StaleView | null {
   }
   const fields = row.stale.map((field) => {
     const [before, after] = field === 'title' ? [base.title, now.title]
-      : field === 'tags' ? ['', '']
+      : field === 'tags' || field === 'properties' ? ['', '']
       : field === 'summary' ? [base.summary ?? '', now.summary]
       : field === 'absorbed_body' ? [base.absorbed_body_md ?? '', row.currentBody ?? '']
       : [base.body_md, now.body]
-    return { field, before, after, tagsBefore: base.tags, tagsAfter: now.tags }
+    return {
+      field, before, after, tagsBefore: base.tags, tagsAfter: now.tags,
+      propertiesBefore: base.properties ?? {}, propertiesAfter: (merge ? row.keeperProperties : row.currentProperties) ?? {},
+    }
   })
   const patched = !merge && !!row.proposed_patch?.length
   const variant = patched && !resolvePatch(row.currentBody ?? '', row.proposed_patch!).ok ? 'refused'
@@ -1160,6 +1190,7 @@ async function toggleAmend(entry: FeedEntry) {
     amendedTitle.value = ''
     amendedTags.value = []
     amendedSummary.value = ''
+    amendedProperties.value = []
     return
   }
   if (entry.kind === 'note') {
@@ -1200,6 +1231,9 @@ function amendedFields(withTitle: boolean): NoteApprovalEdits | undefined {
     edits.tags = [...tags]
   }
   if (withTitle && amendedTitle.value !== seed.title) edits.title = amendedTitle.value.trim()
+  // As a set of names too: a row moved is no rewrite.
+  const properties = propertiesOf(amendedProperties.value)
+  if (properties !== null && !samePropertyValue(properties, seed.properties)) edits.properties = properties
 
   return Object.keys(edits).length === 0 ? undefined : edits
 }
@@ -1213,6 +1247,7 @@ function noteEdits(): NoteApprovalEdits | undefined {
     body_md: amendedBody.value,
     tags: [...amendedTags.value],
     ...(edits.summary !== undefined ? { summary: edits.summary } : {}),
+    ...(edits.properties !== undefined ? { properties: edits.properties } : {}),
   }
 }
 
@@ -1692,6 +1727,9 @@ useFrameNavigation(() => openKey.value, () => {
                       <span>{{ $t('inbox.amend.removed') }}</span>
                       <del v-for="tag in droppedTags(entry)" :key="tag">{{ tag }}</del>
                     </div>
+
+                    <label class="form-label">{{ $t('inbox.amend.properties_label') }}</label>
+                    <PropertiesEditor v-model="amendedProperties" :disabled="decisionBusy" />
 
                     <label class="form-label" :for="`${expandId(entry.key)}-amend-summary`">{{ $t('inbox.amend.summary_label') }}</label>
                     <textarea

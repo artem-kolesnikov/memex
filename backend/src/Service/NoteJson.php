@@ -38,6 +38,8 @@ final class NoteJson
                 static fn ($tag) => ['id' => $tag->getId(), 'name' => $tag->getName()],
                 SystemTags::sortBy($note->getTags()->toArray(), static fn ($tag) => $tag->getName())
             ),
+            // Named facts beside the text, in the order written.
+            'properties' => NoteProperties::json($note->getProperties()),
             'created_at' => $note->getCreatedAt()->format(DATE_ATOM),
             'updated_at' => $note->getUpdatedAt()->format(DATE_ATOM),
             // Send this back on an edit as `expected_version` and a write that
@@ -84,6 +86,9 @@ final class NoteJson
             // stands when this is approved, not now.
             'proposed_patch' => $proposal->getProposedPatch(),
             'proposed_tags' => $proposal->getProposedTags(),
+            // The properties it sets, by name, and null for each it removes;
+            // on a merge, the keeper's whole set as the owner amended it.
+            'proposed_properties' => $proposal->getProposedProperties(),
             'proposed_summary' => $proposal->getProposedSummary(),
             // What kind of work this is, so the inbox can be filtered to one
             // kind before anything is decided in bulk (App\Service\ReviewKinds).

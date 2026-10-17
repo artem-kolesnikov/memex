@@ -1,4 +1,5 @@
 import { resolvePatch, type AuthorRange } from '@/lib/diffs'
+import { applyPropertyChanges, type Properties } from '@/lib/properties'
 
 /** One field of the resulting document, and what it replaces. */
 export interface DocField<T> {
@@ -16,6 +17,7 @@ export interface ProposedDoc {
   /** Whose change each stretch of the body is, when several authors' changes are reviewed together. */
   bodyAuthors?: AuthorRange[]
   tags: DocField<string[]>
+  properties: DocField<Properties>
   summary: DocField<string>
   /** A merge's absorbed note: named and readable, never editable. */
   destroyed: { title: string; id: number | null; body: string } | null
@@ -34,12 +36,16 @@ export interface DocSource {
   proposed_patch: { find: string; replace: string }[] | null
   proposed_tags: string[] | null
   proposed_summary: string | null
+  /** An edit's properties to set (null removes one); a new note's whole set; a merge's amended whole set. */
+  proposed_properties?: Properties | null
   currentBody?: string
+  currentProperties?: Properties
   currentSummary?: string | null
   currentTags?: string[]
   keeperBody?: string
   keeperTags?: string[]
   keeperSummary?: string | null
+  keeperProperties?: Properties
   /** The note as the author read it, for a held edit that recorded one. */
   base?: { body_md: string; tags?: string[] } | null
   /** Whose change each stretch of the body is, for several authors' changes reviewed together. */
@@ -117,6 +123,7 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
       noteId: null,
       body: { before: '', after: source.proposed_body_md ?? '' },
       tags: { before: [], after: source.proposed_tags ?? [] },
+      properties: { before: {}, after: source.proposed_properties ?? {} },
       summary: { before: '', after: source.proposed_summary ?? '' },
       destroyed: null,
       refusal: null,
@@ -131,6 +138,7 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
       noteId: source.note?.id ?? null,
       body: { before: source.currentBody ?? '', after: '' },
       tags: { before: source.currentTags ?? [], after: [] },
+      properties: { before: source.currentProperties ?? {}, after: {} },
       summary: { before: source.currentSummary ?? '', after: '' },
       destroyed: null,
       refusal: null,
@@ -141,6 +149,8 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
     const keeperTags = source.keeperTags ?? []
     const absorbed = source.currentTags ?? []
     const keeperSummary = source.keeperSummary ?? ''
+    const keeperProperties = source.keeperProperties ?? {}
+    const absorbedProperties = source.currentProperties ?? {}
 
     return {
       heading: t('inbox.doc.heading_merge'),
@@ -151,6 +161,14 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
       // The union the merge performs, shown as the additions it makes rather
       // than asserted in a sentence beside the tags.
       tags: { before: keeperTags, after: [...keeperTags, ...absorbed.filter((tag) => !keeperTags.includes(tag))] },
+      // The keeper's properties, with the absorbed note's for names it lacks.
+      properties: {
+        before: keeperProperties,
+        after: source.proposed_properties ?? {
+          ...keeperProperties,
+          ...Object.fromEntries(Object.entries(absorbedProperties).filter(([name]) => !(name in keeperProperties))),
+        },
+      },
       summary: { before: keeperSummary, after: keeperSummary },
       destroyed: source.note === null
         ? null
@@ -165,6 +183,7 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
     const body = source.currentBody ?? ''
     const tags = source.currentTags ?? []
     const summary = source.currentSummary ?? ''
+    const properties = source.currentProperties ?? {}
 
     return {
       heading: t('inbox.doc.heading_report'),
@@ -173,6 +192,7 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
       noteId: source.note?.id ?? null,
       body: { before: body, after: body },
       tags: { before: tags, after: tags },
+      properties: { before: properties, after: properties },
       summary: { before: summary, after: summary },
       destroyed: null,
       refusal: null,
@@ -190,6 +210,10 @@ export function proposedDoc(source: DocSource, t: (key: string) => string): Prop
     noteId: source.note?.id ?? null,
     body: { before: source.currentBody ?? '', after: edited.body },
     tags: { before: source.currentTags ?? [], after: editedTags(source) },
+    properties: {
+      before: source.currentProperties ?? {},
+      after: applyPropertyChanges(source.currentProperties ?? {}, source.proposed_properties),
+    },
     summary: { before: currentSummary, after: source.proposed_summary ?? currentSummary },
     destroyed: null,
     refusal: edited.refusal,

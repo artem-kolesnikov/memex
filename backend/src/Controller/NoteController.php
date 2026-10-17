@@ -15,6 +15,7 @@ use App\Service\SystemTags;
 use App\Service\CurationFlags;
 use App\Service\HybridSearch;
 use App\Service\NoteLimbo;
+use App\Service\NoteProperties;
 use App\Service\NoteWriter;
 use App\Service\WorkPending;
 use App\Service\ReviewVerdicts;
@@ -263,6 +264,11 @@ class NoteController extends ApiController
         if ($sourceUrl !== null && Note::normaliseSourceUrl($sourceUrl) === null) {
             return $this->json($this->json400('source_url must be an http(s) URL'), Response::HTTP_BAD_REQUEST);
         }
+        try {
+            $properties = NoteProperties::set($data['properties'] ?? null);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
+        }
 
         $result = $this->noteWriter->create(
             $token,
@@ -276,6 +282,7 @@ class NoteController extends ApiController
             // exactly the caller this bound exists for.
             enrich: EmbeddingSpend::Metered,
             summary: isset($data['summary']) && is_string($data['summary']) ? $data['summary'] : null,
+            properties: $properties,
         );
 
         return $this->json([
@@ -409,6 +416,12 @@ class NoteController extends ApiController
             return $this->json($this->json400('body_md must not be empty'), Response::HTTP_BAD_REQUEST);
         }
         $tags = is_array($data['tags'] ?? null) ? array_map('strval', $data['tags']) : null;
+        // The note's whole set, as the editor holds it; absent leaves them.
+        try {
+            $properties = array_key_exists('properties', $data) ? NoteProperties::set($data['properties']) : null;
+        } catch (\InvalidArgumentException $e) {
+            return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
+        }
 
         // The staleness check, for the window a version column inside one
         // request cannot see: an editor open for minutes while a curator token
@@ -462,6 +475,9 @@ class NoteController extends ApiController
                     isset($data['comment']) && is_string($data['comment']) ? $data['comment'] : null,
                     summary: $proposedSummary,
                     patch: $patch,
+                    // A whole set here, as everywhere on this route; held as
+                    // the properties it sets and removes.
+                    properties: $properties === null ? null : NoteProperties::diff($note->getProperties(), $properties),
                 );
             } catch (\App\Service\NotePatchException|\App\Service\HeldElsewhereException $e) {
                 // The anchor did not fit the note as it stands, or another
@@ -513,7 +529,7 @@ class NoteController extends ApiController
             }
         }
 
-        $result = $this->limbo->whileHoldingNotes([$note], function () use ($note, $title, $bodyMd, $tags, $data, $request): array|JsonResponse {
+        $result = $this->limbo->whileHoldingNotes([$note], function () use ($note, $title, $bodyMd, $tags, $properties, $data, $request): array|JsonResponse {
             $this->verdicts->assertNoteVersion($note, $data['expected_version'] ?? $note->getVersion());
             // Work waiting on the note stays waiting (operator, 2026-10-14): an
             // edit applies as the words it changes, on top of this save, and
@@ -537,6 +553,7 @@ class NoteController extends ApiController
                 // Absent means "unchanged", not "off": an edit that says nothing
                 // about the request must not withdraw one.
                 operation: NoteRevision::OP_EDIT,
+                properties: $properties,
             );
         });
         if ($result instanceof JsonResponse) {
@@ -674,7 +691,8 @@ class NoteController extends ApiController
                     || ($edits['summary_provided'] && $edits['summary'] !== $note->getSummary())
                     || ($edits['tags'] !== null && self::tagSet($edits['tags']) !== self::tagSet(
                         array_map(static fn ($tag) => $tag->getName(), $note->getTags()->toArray())
-                    ));
+                    ))
+                    || ($edits['properties'] !== null && !NoteProperties::same($edits['properties'], $note->getProperties()));
                 if ($amended) {
                     $this->noteWriter->update(
                         $note,
@@ -688,6 +706,7 @@ class NoteController extends ApiController
                         summary: $edits['summary'],
                         actor: Note::actorFor(null, null),
                         operation: NoteRevision::OP_EDIT,
+                        properties: $edits['properties'],
                     );
                 }
             }
@@ -735,7 +754,7 @@ class NoteController extends ApiController
      * the verdict's, not the note's, so a plain approval with reasoning must
      * not be read as an amendment and must not write a revision.
      *
-     * @return array{title: ?string, body_md: ?string, tags: ?array<int, string>, summary: ?string, summary_provided: bool, expected_version: ?int}|null
+     * @return array{title: ?string, body_md: ?string, tags: ?array<int, string>, summary: ?string, summary_provided: bool, properties: ?array<string, mixed>, expected_version: ?int}|null
      */
     private function approvalEdits(Request $request): ?array
     {
@@ -744,7 +763,7 @@ class NoteController extends ApiController
         }
         $data = $request->toArray();
         $touched = array_filter(
-            ['title', 'body_md', 'tags', 'summary'],
+            ['title', 'body_md', 'tags', 'summary', 'properties'],
             static fn (string $field) => array_key_exists($field, $data)
         );
         if ($touched === []) {
@@ -772,6 +791,14 @@ class NoteController extends ApiController
             }
             $tags = array_map('strval', $data['tags']);
         }
+        $properties = null;
+        if (array_key_exists('properties', $data)) {
+            try {
+                $properties = NoteProperties::set($data['properties']);
+            } catch (\InvalidArgumentException $e) {
+                throw new BadRequestHttpException($e->getMessage());
+            }
+        }
         $expected = null;
         if (array_key_exists('expected_version', $data)) {
             if (!is_int($data['expected_version'])) {
@@ -790,6 +817,7 @@ class NoteController extends ApiController
             'summary' => isset($data['summary']) && is_string($data['summary']) ? $data['summary'] : null,
             'summary_provided' => array_key_exists('summary', $data)
                 && ($data['summary'] === null || is_string($data['summary'])),
+            'properties' => $properties,
             'expected_version' => $expected,
         ];
     }

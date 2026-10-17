@@ -25,12 +25,14 @@ use Symfony\Component\Yaml\Yaml;
  * `created` and `updated` come back as UTC. A value with no zone, the way
  * Obsidian writes its date properties, is read as UTC; a date after now, or
  * anything that is not a date, is dropped.
+ *
+ * Every other key is one of the note's properties ({@see NoteProperties}).
  */
 class FrontmatterParser
 {
     public const MAX_METADATA_BYTES = 65536;
 
-    /** @return array{title: string, body: string, tags: string[], aliases: list<string>, summary: ?string, summary_by: ?string, created: ?\DateTimeImmutable, updated: ?\DateTimeImmutable} */
+    /** @return array{title: string, body: string, tags: string[], aliases: list<string>, summary: ?string, summary_by: ?string, created: ?\DateTimeImmutable, updated: ?\DateTimeImmutable, properties: array<string, mixed>} */
     public function parse(string $content, string $fallbackTitle): array
     {
         $title = $fallbackTitle;
@@ -40,6 +42,7 @@ class FrontmatterParser
         $summaryBy = null;
         $created = null;
         $updated = null;
+        $properties = [];
         $body = $content;
 
         if (preg_match('/\A---\R/', $content, $opening)
@@ -80,6 +83,7 @@ class FrontmatterParser
                     }
                     $created = self::date($meta['created'] ?? null);
                     $updated = self::date($meta['updated'] ?? null);
+                    $properties = NoteProperties::fromFrontmatter($meta);
                     $body = preg_replace('/^\R/', '', $m[2], 1);
                 }
             } catch (ParseException $error) {
@@ -102,6 +106,7 @@ class FrontmatterParser
             'summary_by' => $summaryBy,
             'created' => $created,
             'updated' => $updated,
+            'properties' => $properties,
         ];
     }
 

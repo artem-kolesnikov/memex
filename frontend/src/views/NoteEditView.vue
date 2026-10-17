@@ -47,6 +47,8 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import NoteDeleteDialog from '@/components/NoteDeleteDialog.vue'
 import { SUMMARY_SOFT_CAP } from '@/lib/summaryLength'
 import TagInput from '@/components/TagInput.vue'
+import PropertiesEditor from '@/components/PropertiesEditor.vue'
+import { propertiesOf, rowsOf, type PropertyRow } from '@/lib/properties'
 import { toastError, toastSuccess } from '@/components/toastService'
 import PaneToggle from '@/components/PaneToggle.vue'
 import { useLayoutStore } from '@/stores/layout'
@@ -113,6 +115,7 @@ const entity = ref({
   sourceUrl: '',
   summary: '',
   tags: [] as string[],
+  properties: [] as PropertyRow[],
   alias: '',
 })
 // A skill's alias as saved, when the note being edited is one: the editor
@@ -369,7 +372,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 const draftHasContent = computed(() =>
   Boolean(
     entity.value.title.trim() || entity.value.bodyMd.trim() ||
-    entity.value.summary.trim() || entity.value.tags.length,
+    entity.value.summary.trim() || entity.value.tags.length || entity.value.properties.length,
   ),
 )
 
@@ -415,6 +418,10 @@ async function onFileChosen(event: Event) {
     if (read.title) entity.value.title = read.title
     if (read.tags.length) entity.value.tags = [...new Set([...entity.value.tags, ...read.tags])]
     if (read.summary) entity.value.summary = read.summary
+    const brought = rowsOf(read.properties)
+    if (brought.length) {
+      entity.value.properties = [...entity.value.properties.filter((row) => !(row.name in read.properties)), ...brought]
+    }
     if (!entity.value.title) {
       entity.value.title = file.name.replace(/\.(md|markdown|txt)$/i, '')
     }
@@ -473,6 +480,12 @@ async function saveEntity(options: { overwrite?: boolean } = {}) {
     }
     return
   }
+  // A refused name is marked on its row; nothing is sent until it is fixed.
+  const properties = propertiesOf(entity.value.properties)
+  if (properties === null) {
+    toastError(t('properties.problem.save_title'), t('properties.problem.save_body'))
+    return
+  }
   aliasError.value = null
   const alias = entity.value.alias.trim()
   const renaming = savedAlias.value !== null && alias !== savedAlias.value
@@ -503,6 +516,7 @@ async function saveEntity(options: { overwrite?: boolean } = {}) {
         tags: entity.value.tags,
         source_url: entity.value.sourceUrl.trim() || undefined,
         summary: entity.value.summary.trim(),
+        properties,
       })
       if (!lifetime.current(mine)) return
       toastSuccess(t('editor.created'), savedWith(result.note.title, result.suggested_tags))
@@ -518,6 +532,7 @@ async function saveEntity(options: { overwrite?: boolean } = {}) {
         body_md: entity.value.bodyMd,
         tags: entity.value.tags,
         summary: entity.value.summary.trim(),
+        properties,
         ...(expected !== null ? { expected_version: expected } : {}),
       })
       if (!lifetime.current(mine)) return
@@ -640,7 +655,7 @@ async function load() {
   saving.value = false
   errors.value = { title: false, body: false }
   loadedVersion.value = null
-  entity.value = { title: '', bodyMd: '', sourceUrl: '', summary: '', tags: [], alias: '' }
+  entity.value = { title: '', bodyMd: '', sourceUrl: '', summary: '', tags: [], properties: [], alias: '' }
   savedAlias.value = null
   aliasError.value = null
   if (isAddForm.value && asSkill.value) {
@@ -672,6 +687,7 @@ async function load() {
       entity.value.sourceUrl = note.source_url || ''
       entity.value.summary = note.summary || ''
       entity.value.tags = note.tags.map((t) => t.name)
+      entity.value.properties = rowsOf(note.properties)
       if (carriesSkill(entity.value.tags)) {
         const row = await api.skills().then((r) => r.skills.find((s) => s.kind === 'note' && s.note_id === wanted), () => undefined)
         if (!lifetime.current(mine)) return
@@ -926,6 +942,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', growTitle))
             <section class="app-panel mm-editor-panel">
               <label for="tags" class="mm-field-label"><span>{{ $t('editor.tags_label') }}</span></label>
               <TagInput v-model="entity.tags" :options="existingTagNames" :disabled="saving || outcomeUnknown" />
+            </section>
+
+            <section class="app-panel mm-editor-panel">
+              <p class="mm-field-label"><span>{{ $t('properties.label') }}</span></p>
+              <PropertiesEditor v-model="entity.properties" :disabled="saving || outcomeUnknown" />
             </section>
 
             <section class="app-panel mm-editor-panel" v-if="savedAlias !== null">

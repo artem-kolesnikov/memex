@@ -576,10 +576,31 @@
     },
     "summary_guidance": "What this note is about and what a reader would come to it for, in two or three sentences — about {n} characters. It is a hint, not an abstract."
   },
+  "properties": {
+    "label": "Properties",
+    "add": "Add property",
+    "name_label": "Property name",
+    "name_placeholder": "name",
+    "value_label": "Value of {name}",
+    "value_placeholder": "value",
+    "remove": "Remove {name}",
+    "empty": "empty",
+    "yes": "yes",
+    "no": "no",
+    "problem": {
+      "empty": "Give the property a name.",
+      "shape": "A name is up to 64 characters, with no dots or quotation marks.",
+      "reserved": "This name is one of the note’s own fields.",
+      "taken": "Another property already has this name.",
+      "save_title": "A property name needs fixing",
+      "save_body": "The note was not saved. Fix the name marked under Properties."
+    }
+  },
   "inbox": {
     "kinds": {
       "summary": "Summaries",
       "tags": "Tags",
+      "properties": "Properties",
       "content": "Titles & bodies",
       "new_note": "New notes",
       "report": "Reports",
@@ -589,6 +610,7 @@
     "fields": {
       "summary": "summary",
       "tags": "tags",
+      "properties": "properties",
       "content": "title & body",
       "new_note": "new note",
       "report": "report",
@@ -698,6 +720,7 @@
       "title_label": "Title",
       "body_label": "Body",
       "tags_label": "Tags",
+      "properties_label": "Properties",
       "summary_label": "Description",
       "was": "was",
       "removed": "removed",
@@ -742,6 +765,7 @@
       "heading_report": "The document as it stands:",
       "body": "Body",
       "tags": "Tags",
+      "properties": "Properties",
       "summary": "Description",
       "no_tags": "no tags",
       "no_summary": "no description"

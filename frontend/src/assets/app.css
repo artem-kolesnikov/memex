@@ -2952,6 +2952,41 @@ body.app-settings-open .app-stage { overflow: hidden; }
 .mm-summary-toggle { margin: 0; }
 .mm-note-paper > .note-body { margin-top: 20px; }
 
+/* ── properties ───────────────────────────────────────────────────────────
+   A note's named facts as a two-column list: the name muted, the value in
+   ink. In a review card the same list carries tracked changes. */
+
+.mm-properties {
+    display: grid;
+    grid-template-columns: minmax(80px, max-content) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 6px 16px;
+    margin: 14px 0 0;
+    font-size: .8rem;
+    line-height: 1.45;
+}
+.mm-properties dt { font-weight: 400; color: var(--mm-muted); overflow-wrap: anywhere; }
+.mm-properties dd { margin: 0; min-width: 0; color: var(--mm-ink); overflow-wrap: anywhere; }
+.mm-properties del + ins { margin-left: 6px; }
+.mm-properties dt.is-added { color: #14532d; }
+.mm-properties dt.is-removed { text-decoration: line-through; }
+[data-bs-theme='dark'] .mm-properties dt.is-added { color: #b7f0cd; }
+.mm-properties-empty { color: var(--mm-muted); font-style: italic; }
+.mm-doc-field .mm-properties { margin-top: 2px; font-size: .76rem; }
+
+.mm-property-rows { display: grid; gap: 6px; }
+.mm-property-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+    align-items: center;
+    gap: 6px;
+}
+.mm-property-remove { padding: 2px 6px; color: var(--mm-muted); }
+.mm-property-remove:hover { color: var(--mm-ink); }
+.mm-property-problem { grid-column: 1 / -1; margin: 0; }
+.mm-property-add { justify-self: start; margin-top: 2px; }
+.mm-property-add i { margin-right: 6px; }
+
 /* ── the context rail ─────────────────────────────────────────────────── */
 
 .mm-note-context {

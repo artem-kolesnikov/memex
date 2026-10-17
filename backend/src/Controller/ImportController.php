@@ -267,6 +267,7 @@ class ImportController extends ApiController
                         createdAt: $parsed['created'],
                         updatedAt: $parsed['updated'],
                         formerTitles: $parsed['aliases'],
+                        properties: $parsed['properties'],
                     );
                 } catch (\Throwable $error) {
                     $limit = StorageLimitExceeded::fromThrowable($error);
@@ -341,7 +342,7 @@ class ImportController extends ApiController
         return array_fill_keys($titles, true);
     }
 
-    /** @return array{title: string, body: string, tags: string[], summary: ?string, summary_by: ?string, created: ?\DateTimeImmutable, updated: ?\DateTimeImmutable} */
+    /** @return array{title: string, body: string, tags: string[], summary: ?string, summary_by: ?string, created: ?\DateTimeImmutable, updated: ?\DateTimeImmutable, properties: array<string, mixed>} */
     private function parseFile(string $content, string $name): array
     {
         try {

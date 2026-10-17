@@ -10,7 +10,8 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * A held-for-review agent change to an existing note (PRODUCT.md §Review
  * gate: "the proposal is held, not applied, until approved"). Five types:
- * 'edit' (null fields = leave untouched; tags is a full replacement list),
+ * 'edit' (null fields = leave untouched; tags is a full replacement list,
+ * properties a change set),
  * 'create' (a whole new note), 'report' (a comment saying what is wrong, and
  * no change at all), 'delete' (retire the note), 'merge' (fold `note` into
  * `mergeIntoNote`; proposedBodyMd, when present, is the keeper's body). A row's
@@ -56,6 +57,23 @@ class EditProposal
     /** @var string[]|null */
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $proposedTags;
+
+    /**
+     * The properties this edit sets, by name, and null for each it removes
+     * ({@see \App\Service\NoteProperties::changes()}); a name it does not
+     * mention is kept. A change set rather than a whole set, so two
+     * connections' waiting changes to different properties both land, and
+     * approving one never undoes a property changed since. On a merge, only
+     * the owner's amendment sets it: the keeper's properties as a whole.
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $proposedProperties = null;
+
+    /** The properties this change replaced, for an applied row's audit. */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $prevProperties = null;
 
     /**
      * The description the proposer wrote for this note. Present because memex
@@ -177,7 +195,7 @@ class EditProposal
      * its merged text was built from. Null on a row filed before 2026-10-13,
      * and on deletes and reports, which carry no text to go stale.
      *
-     * @var array{version: int, title: string, body_md: string, tags: string[], summary: ?string, absorbed_body_md?: string}|null
+     * @var array{version: int, title: string, body_md: string, tags: string[], summary: ?string, properties?: array<string, mixed>, absorbed_body_md?: string}|null
      */
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $base = null;
@@ -187,7 +205,7 @@ class EditProposal
      * the approval in the same request, which records the author's change and
      * then the owner's words as two revisions.
      *
-     * @var array{title: ?string, body: ?string, patch: ?array, tags: ?array, summary: ?string, owner: array{title: ?string, body_md: ?string, tags: ?array, summary: ?string}}|null
+     * @var array{title: ?string, body: ?string, patch: ?array, tags: ?array, summary: ?string, properties: ?array, owner: array{title: ?string, body_md: ?string, tags: ?array, summary: ?string, properties: ?array}}|null
      */
     private ?array $filed = null;
 
@@ -286,10 +304,12 @@ class EditProposal
      * Snapshot the pre-apply state and flip this row into an audit record.
      *
      * @param string[]|null $prevTags
+     * @param array<string, mixed>|null $prevProperties
      */
-    public function markApplied(?string $prevTitle, ?string $prevBodyMd, ?array $prevTags, ?string $prevSummary = null): void
+    public function markApplied(?string $prevTitle, ?string $prevBodyMd, ?array $prevTags, ?string $prevSummary = null, ?array $prevProperties = null): void
     {
         $this->status = self::STATUS_APPLIED;
+        $this->prevProperties = $prevProperties === [] ? null : $prevProperties;
         $this->base = null;
         $this->prevSummary = $prevSummary;
         $this->appliedAt = new \DateTimeImmutable();
@@ -429,8 +449,9 @@ class EditProposal
      * left to resolve.
      *
      * @param string[]|null $tags a full replacement list, as everywhere else
+     * @param array<string, mixed>|null $properties the note's whole set as the owner leaves it
      */
-    public function amend(?string $title, ?string $body, ?array $tags, ?string $summary): void
+    public function amend(?string $title, ?string $body, ?array $tags, ?string $summary, ?array $properties = null): void
     {
         if (!in_array($this->type, [self::TYPE_EDIT, self::TYPE_MERGE], true)) {
             // A delete proposes no content and a report proposes no change at
@@ -453,13 +474,15 @@ class EditProposal
             'patch' => $this->proposedPatch,
             'tags' => $this->proposedTags,
             'summary' => $this->proposedSummary,
-            'owner' => ['title' => null, 'body_md' => null, 'tags' => null, 'summary' => null],
+            'properties' => $this->proposedProperties,
+            'owner' => ['title' => null, 'body_md' => null, 'tags' => null, 'summary' => null, 'properties' => null],
         ];
         $this->filed['owner'] = [
             'title' => $title ?? $this->filed['owner']['title'],
             'body_md' => $body ?? $this->filed['owner']['body_md'],
             'tags' => $tags ?? $this->filed['owner']['tags'],
             'summary' => $summary ?? $this->filed['owner']['summary'],
+            'properties' => $properties ?? $this->filed['owner']['properties'],
         ];
         $changed = false;
         if ($title !== null) {
@@ -486,6 +509,13 @@ class EditProposal
             // (Codex, 2026-09-07).
             $changed = $changed || self::blankIsAbsent($summary) !== self::blankIsAbsent($this->effectiveSummary());
             $this->proposedSummary = $summary;
+        }
+        if ($properties !== null) {
+            // As a set of names: an echo that only moved a row is no rewrite.
+            $changed = $changed || !\App\Service\NoteProperties::same($properties, $this->effectiveProperties());
+            $this->proposedProperties = $this->type === self::TYPE_MERGE
+                ? $properties
+                : \App\Service\NoteProperties::diff($this->subject()?->getProperties() ?? [], $properties);
         }
         $this->amended = $this->amended || $changed;
     }
@@ -553,6 +583,36 @@ class EditProposal
         )));
     }
 
+    /**
+     * The properties approving this would leave: an edit's changes on the note
+     * as it is now; a merge's, the keeper's with the absorbed note's beside
+     * them, or the owner's own set.
+     *
+     * @return array<string, mixed>
+     */
+    public function effectiveProperties(): array
+    {
+        $own = $this->subject()?->getProperties() ?? [];
+        if ($this->type === self::TYPE_MERGE) {
+            return $this->proposedProperties ?? self::mergedProperties($own, $this->note->getProperties());
+        }
+
+        return $this->proposedProperties === null ? $own : \App\Service\NoteProperties::apply($own, $this->proposedProperties);
+    }
+
+    /**
+     * A merge keeps the keeper's properties and takes the absorbed note's for
+     * the names the keeper lacks.
+     *
+     * @param array<string, mixed> $keeper
+     * @param array<string, mixed> $absorbed
+     * @return array<string, mixed>
+     */
+    public static function mergedProperties(array $keeper, array $absorbed): array
+    {
+        return $keeper + $absorbed;
+    }
+
     private function effectiveSummary(): ?string
     {
         // A merge proposes no description of its own — the card shows the
@@ -607,6 +667,7 @@ class EditProposal
      *
      * @param array<int, array{find: string, replace: string}>|null $patch
      * @param string[]|null $tags
+     * @param array<string, mixed>|null $properties changes, laid over the ones already held
      */
     public function revise(
         ?string $title,
@@ -616,6 +677,7 @@ class EditProposal
         ?string $summary,
         ?string $comment,
         ?string $changeTitle,
+        ?array $properties = null,
     ): void {
         if ($title !== null) {
             $this->proposedTitle = $title;
@@ -635,6 +697,13 @@ class EditProposal
         if ($summary !== null) {
             $this->proposedSummary = $summary;
         }
+        if ($properties !== null) {
+            $held = $this->proposedProperties ?? [];
+            foreach ($properties as $name => $value) {
+                $held[$name] = $value;
+            }
+            $this->proposedProperties = $held;
+        }
         if ($comment !== null && $comment !== '') {
             $this->comment = $comment;
         }
@@ -643,7 +712,7 @@ class EditProposal
         }
         // New text is written against the note in front of its author. A
         // revision of the reasoning alone is not: it reread nothing.
-        if ($title !== null || $bodyMd !== null || $patch !== null || $tags !== null || $summary !== null) {
+        if ($title !== null || $bodyMd !== null || $patch !== null || $tags !== null || $summary !== null || $properties !== null) {
             // Tags this revision leaves alone keep what they add and remove,
             // against the note as it is now rather than as it was first read.
             $read = $this->base['tags'] ?? null;
@@ -674,7 +743,7 @@ class EditProposal
         $this->base = $base;
     }
 
-    /** @return array{version: int, title: string, body_md: string, tags: string[], summary: ?string, absorbed_body_md?: string}|null */
+    /** @return array{version: int, title: string, body_md: string, tags: string[], summary: ?string, properties?: array<string, mixed>, absorbed_body_md?: string}|null */
     public function getBase(): ?array
     {
         return $this->base;
@@ -713,6 +782,16 @@ class EditProposal
         if ($this->type === self::TYPE_EDIT && $this->proposedSummary !== null
             && self::blankIsAbsent($now['summary']) !== self::blankIsAbsent($base['summary'])) {
             $stale[] = 'summary';
+        }
+        // A property this edit changes that someone else has changed since; a
+        // draft from before properties recorded none, and is not judged.
+        if ($this->type === self::TYPE_EDIT && $this->proposedProperties !== null && \is_array($base['properties'] ?? null)) {
+            foreach (array_keys($this->proposedProperties) as $name) {
+                if (!\App\Service\NoteProperties::same($now['properties'][$name] ?? null, $base['properties'][$name] ?? null)) {
+                    $stale[] = 'properties';
+                    break;
+                }
+            }
         }
         if ($this->type === self::TYPE_MERGE && $this->proposedBodyMd !== null
             && array_key_exists('absorbed_body_md', $base) && $this->note->getBodyMd() !== $base['absorbed_body_md']) {
@@ -781,7 +860,7 @@ class EditProposal
         return $this->leftStale;
     }
 
-    /** @return array{title: string, body_md: string, tags: string[], summary: ?string} */
+    /** @return array{title: string, body_md: string, tags: string[], summary: ?string, properties: array<string, mixed>} */
     private static function fieldsOf(Note $note): array
     {
         return [
@@ -789,6 +868,7 @@ class EditProposal
             'body_md' => $note->getBodyMd(),
             'tags' => array_values(array_map(static fn (Tag $tag): string => $tag->getName(), $note->getTags()->toArray())),
             'summary' => $note->getSummary(),
+            'properties' => $note->getProperties(),
         ];
     }
 
@@ -879,11 +959,31 @@ class EditProposal
         return $this->proposedTags;
     }
 
+    /** @return array<string, mixed>|null */
+    public function getProposedProperties(): ?array
+    {
+        return $this->proposedProperties;
+    }
+
+    /** @param array<string, mixed>|null $changes */
+    public function withProposedProperties(?array $changes): self
+    {
+        $this->proposedProperties = $changes === [] ? null : $changes;
+
+        return $this;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getPrevProperties(): ?array
+    {
+        return $this->prevProperties;
+    }
+
     /**
      * The edit as its author filed it, when the owner amended it in this
      * request; null otherwise.
      *
-     * @return array{title: ?string, body: ?string, patch: ?array, tags: ?array, summary: ?string, owner: array{title: ?string, body_md: ?string, tags: ?array, summary: ?string}}|null
+     * @return array{title: ?string, body: ?string, patch: ?array, tags: ?array, summary: ?string, properties: ?array, owner: array{title: ?string, body_md: ?string, tags: ?array, summary: ?string, properties: ?array}}|null
      */
     public function filedBeforeAmendment(): ?array
     {

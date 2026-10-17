@@ -38,7 +38,7 @@ check('a name that is no alias is not used', readIntake('---\nname: Not An Alias
 check(
   'memex\'s own export writes JSON strings',
   readIntake('---\nname: "house-style"\ndescription: "Write \\"plainly\\" — always."\nmetadata:\n  memex_note_id: "12"\n---\nBody', true),
-  { title: 'House style', tags: [], summary: 'Write "plainly" — always.', body: 'Body' },
+  { title: 'House style', tags: [], summary: 'Write "plainly" — always.', properties: {}, body: 'Body' },
 )
 check(
   'a folded description is one line',
@@ -46,9 +46,36 @@ check(
   'Use this when asked.',
 )
 check('a single-quoted description', readIntake("---\nname: x\ndescription: 'It''s short.'\n---\nBody", true).summary, "It's short.")
-check('Windows line endings', readIntake('---\r\nname: x\r\ndescription: Short.\r\n---\r\nBody', true), { title: 'X', tags: [], summary: 'Short.', body: 'Body' })
+check('Windows line endings', readIntake('---\r\nname: x\r\ndescription: Short.\r\n---\r\nBody', true), { title: 'X', tags: [], summary: 'Short.', properties: {}, body: 'Body' })
 check('tags still arrive', readIntake('---\ntitle: T\ntags: [a, "b"]\n---\nBody', false).tags, ['a', 'b'])
-check('no frontmatter is all body', readIntake('# Just text', true), { title: null, tags: [], summary: null, body: '# Just text' })
+check('no frontmatter is all body', readIntake('# Just text', true), { title: null, tags: [], summary: null, properties: {}, body: '# Just text' })
+
+const obsidian = `---
+title: Kitchen remodel
+tags: [home]
+status: active
+due: 2026-11-01
+rating: 4.5
+published: true
+authors:
+  - Ann
+  - "Bo"
+years: ["2024", 2025]
+Due date: 2026-12-01T09:30:00Z
+reviewed:
+client:
+  name: Acme
+quote: 'It''s done'
+created: 2025-03-04
+---
+Cabinets first.`
+check('a note takes every other key as a property, in the shapes Obsidian writes', readIntake(obsidian, false).properties, {
+  status: 'active', due: '2026-11-01', rating: 4.5, published: true, authors: ['Ann', 'Bo'], years: ['2024', 2025],
+  'Due date': '2026-12-01T09:30:00Z', reviewed: null, quote: "It's done",
+})
+check('a skill takes none', readIntake(obsidian, true).properties, {})
+check('an older memex export brings no source or status', readIntake('---\ntitle: T\nsource: manual\nstatus: verified\n---\nBody', false).properties, {})
+check('a web clipping keeps its source', readIntake('---\ntitle: T\nsource: https://example.com/a\n---\nBody', false).properties, { source: 'https://example.com/a' })
 
 if (failures.length) {
   console.error(`check-file-intake: ${failures.length} failure(s)\n`)

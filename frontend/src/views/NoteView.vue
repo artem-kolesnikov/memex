@@ -9,6 +9,8 @@ import { api, ApiError, noteApprovalSnapshot, type NoteDetail, type NoteRevision
 import { renderNote } from '@/lib/markdown'
 import { lineDiffCounts, trackedChangesHtml } from '@/lib/diffs'
 import { formatCount, noteStats } from '@/lib/noteStats'
+import NotePropertiesTable from '@/components/NotePropertiesTable.vue'
+import { samePropertyValue, type Properties } from '@/lib/properties'
 import { toastError, toastSuccess } from '@/components/toastService'
 import ActorMark from '@/components/ActorMark.vue'
 import SkillMark from '@/components/SkillMark.vue'
@@ -348,6 +350,12 @@ function changeSize(revision: NoteRevision, index: number): { added: number; rem
   if (after === null || revision.body_md === null) return null
 
   return lineDiffCounts(revision.body_md, after)
+}
+
+/** The properties that replaced a revision's, when the edit changed them; null otherwise. */
+function propertiesChange(revision: NoteRevision, index: number): Properties | null {
+  const after = (index === 0 ? note.value?.properties : revisions.value[index - 1]?.properties) ?? {}
+  return samePropertyValue(revision.properties ?? {}, after) ? null : after
 }
 
 /** What the edit removed and added, as tracked changes. */
@@ -768,6 +776,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
               {{ summaryExpanded ? $t('note.summary.show_less') : $t('note.summary.show_more') }}
             </button>
           </template>
+          <NotePropertiesTable v-if="note.properties && Object.keys(note.properties).length" :properties="note.properties" />
           <!-- eslint-disable-next-line vue/no-v-html — renderNote escapes source markdown -->
           <div class="note-body" v-html="rendered" @click="onBodyClick"></div>
         </article>
@@ -944,6 +953,7 @@ watch([noteId, () => route.params.handle, () => auth.user?.team.handle], load, {
               <strong>{{ revision.title }}</strong>
               <span v-if="revision.tags.length">· {{ revision.tags.join(', ') }}</span>
             </p>
+            <NotePropertiesTable v-if="propertiesChange(revision, index)" :properties="propertiesChange(revision, index)!" :before="revision.properties ?? {}" />
             <!--
               WHAT CHANGED, not the whole document (operator, 2026-08-23). A
               revision row holds a full previous body, and printing it was a wall

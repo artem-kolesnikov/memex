@@ -297,6 +297,8 @@ function docSource(row: LogRow): DocSource {
     currentBody: d.prev_body_md ?? undefined,
     currentSummary: d.prev_summary,
     currentTags: d.prev_tags ?? undefined,
+    proposed_properties: d.proposed_properties ?? null,
+    currentProperties: d.prev_properties ?? undefined,
   }
 }
 </script>

@@ -57,6 +57,7 @@ class ProposalController extends ApiController
             static fn ($tag) => $tag->getName(),
             SystemTags::sortBy($proposal->getNote()->getTags()->toArray(), static fn ($tag) => $tag->getName())
         );
+        $data['note']['properties'] = \App\Service\NoteProperties::json($proposal->getNote()->getProperties());
         // For merges the meaningful diff is against the KEEPER's body; for
         // deletes the inbox shows what would dangle.
         if ($proposal->getMergeIntoNote() !== null) {
@@ -95,7 +96,7 @@ class ProposalController extends ApiController
         }
         if ($amended !== null) {
             try {
-                $proposal->amend($amended['title'], $amended['body_md'], $amended['tags'], $amended['summary']);
+                $proposal->amend($amended['title'], $amended['body_md'], $amended['tags'], $amended['summary'], $amended['properties']);
             } catch (\InvalidArgumentException $e) {
                 return $this->json($this->json400($e->getMessage()), Response::HTTP_BAD_REQUEST);
             }
@@ -199,7 +200,7 @@ class ProposalController extends ApiController
      * sent none — `comment` and `is_precedent` are the verdict's, so a verdict
      * carrying only reasoning must not be read as an amendment.
      *
-     * @return array{title: ?string, body_md: ?string, tags: ?array<int, string>, summary: ?string}|null
+     * @return array{title: ?string, body_md: ?string, tags: ?array<int, string>, summary: ?string, properties: ?array<string, mixed>}|null
      */
     private function amendment(Request $request): ?array
     {
@@ -207,7 +208,7 @@ class ProposalController extends ApiController
             return null;
         }
         $data = $request->toArray();
-        $fields = ['title', 'body_md', 'tags', 'summary'];
+        $fields = ['title', 'body_md', 'tags', 'summary', 'properties'];
         if (array_filter($fields, static fn (string $f) => array_key_exists($f, $data)) === []) {
             return null;
         }
@@ -240,7 +241,15 @@ class ProposalController extends ApiController
             }
             $summary = $data['summary'];
         }
+        $properties = null;
+        if (array_key_exists('properties', $data)) {
+            try {
+                $properties = \App\Service\NoteProperties::set($data['properties']);
+            } catch (\InvalidArgumentException $e) {
+                throw new BadRequestHttpException($e->getMessage());
+            }
+        }
 
-        return ['title' => $title, 'body_md' => $body, 'tags' => $tags, 'summary' => $summary];
+        return ['title' => $title, 'body_md' => $body, 'tags' => $tags, 'summary' => $summary, 'properties' => $properties];
     }
 }

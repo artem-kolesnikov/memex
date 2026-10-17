@@ -1513,14 +1513,16 @@ a.mm-tag-system,
 }
 
 .mm-diff ins,
-.mm-diff-body ins {
+.mm-diff-body ins,
+.mm-properties ins {
     background: rgba(26, 138, 79, 0.18);
     color: #14532d;
     text-decoration: none;
     border-radius: 2px;
 }
 .mm-diff del,
-.mm-diff-body del {
+.mm-diff-body del,
+.mm-properties del {
     background: rgba(192, 57, 43, 0.16);
     color: #7f1d1d;
     border-radius: 2px;
@@ -2154,12 +2156,14 @@ ul.pagination li a:hover {
     }
 
     .mm-diff ins,
-    .mm-diff-body ins {
+    .mm-diff-body ins,
+    .mm-properties ins {
         background: rgba(26, 138, 79, 0.35);
         color: #b7f0cd;
     }
     .mm-diff del,
-    .mm-diff-body del {
+    .mm-diff-body del,
+    .mm-properties del {
         background: rgba(192, 57, 43, 0.32);
         color: #f5b7b1;
     }

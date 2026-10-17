@@ -647,6 +647,7 @@ class CuratorLogController extends ApiController
             && $proposal->getProposedBodyMd() === null
             && $proposal->getProposedTags() === null
             && $proposal->getProposedSummary() === null
+            && $proposal->getProposedProperties() === null
         ) {
             return null;
         }
@@ -661,6 +662,8 @@ class CuratorLogController extends ApiController
             'prev_title' => $proposal->getPrevTitle(),
             'prev_body_md' => $proposal->getPrevBodyMd(),
             'prev_tags' => $proposal->getPrevTags(),
+            'proposed_properties' => $proposal->getProposedProperties(),
+            'prev_properties' => $proposal->getPrevProperties(),
         ];
     }
 }

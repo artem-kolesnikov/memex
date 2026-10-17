@@ -9,6 +9,7 @@ import { computed } from 'vue'
 import { trackedChangesHtml } from '@/lib/diffs'
 import { useSystemTags } from '@/lib/systemTags'
 import type { ProposedDoc } from '@/lib/proposedDoc'
+import NotePropertiesTable from '@/components/NotePropertiesTable.vue'
 
 const { isSystemTag, systemReason } = useSystemTags()
 
@@ -42,6 +43,9 @@ const tagPills = computed(() => {
  *  shown the resulting document, and a field nothing touched is still part of
  *  it. So an unchanged field is rendered as itself. */
 const bodyChanged = computed(() => props.doc.body.before !== props.doc.body.after)
+/** Only a document with properties on either side has a row for them. */
+const hasProperties = computed(() =>
+  Object.keys(props.doc.properties.before).length > 0 || Object.keys(props.doc.properties.after).length > 0)
 const summaryChanged = computed(() => props.doc.summary.before !== props.doc.summary.after)
 </script>
 
@@ -82,6 +86,11 @@ const summaryChanged = computed(() => props.doc.summary.before !== props.doc.sum
         >{{ pill.name }}</span>
         <span class="mm-doc-none" v-if="!tagPills.length">{{ $t('inbox.doc.no_tags') }}</span>
       </div>
+    </div>
+
+    <div class="mm-doc-field" :class="{ 'app-panel': !sheet }" v-if="hasProperties">
+      <span class="mm-doc-label">{{ $t('inbox.doc.properties') }}</span>
+      <NotePropertiesTable :properties="doc.properties.after" :before="doc.properties.before" />
     </div>
 
     <div class="mm-doc-field" :class="{ 'app-panel': !sheet }">

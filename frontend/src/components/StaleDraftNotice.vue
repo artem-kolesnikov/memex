@@ -5,13 +5,17 @@
 // top of it, an edit that replaces a field undoes it, and a patch whose text is
 // gone cannot be applied at all.
 import { trackedChangesHtml } from '@/lib/diffs'
+import NotePropertiesTable from '@/components/NotePropertiesTable.vue'
+import type { Properties } from '@/lib/properties'
 
 export interface StaleField {
-  field: 'title' | 'body' | 'tags' | 'summary' | 'absorbed_body'
+  field: 'title' | 'body' | 'tags' | 'summary' | 'properties' | 'absorbed_body'
   before: string
   after: string
   tagsBefore: string[]
   tagsAfter: string[]
+  propertiesBefore?: Properties
+  propertiesAfter?: Properties
 }
 
 export interface StaleView {
@@ -26,6 +30,7 @@ const LABELS: Record<StaleField['field'], string> = {
   body: 'inbox.doc.body',
   tags: 'inbox.doc.tags',
   summary: 'inbox.doc.summary',
+  properties: 'inbox.doc.properties',
   absorbed_body: 'inbox.stale.field.absorbed_body',
 }
 
@@ -53,6 +58,7 @@ function tagPills(item: StaleField) {
             :class="`is-${pill.state}`"
           >{{ pill.name }}</span>
         </div>
+        <NotePropertiesTable v-else-if="item.field === 'properties'" :properties="item.propertiesAfter ?? {}" :before="item.propertiesBefore ?? {}" />
         <div class="mm-was" v-else-if="item.field === 'title'">
           <del>{{ item.before }}</del> <span>{{ item.after }}</span>
         </div>

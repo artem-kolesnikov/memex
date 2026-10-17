@@ -144,6 +144,15 @@ class Note
     #[ORM\Column]
     private \DateTimeImmutable $updatedAt;
 
+    /**
+     * Named facts beside the text, in the order written
+     * ({@see \App\Service\NoteProperties}). Null when the note has none.
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $properties = null;
+
     /** @var Collection<int, Tag> */
     #[ORM\ManyToMany(targetEntity: Tag::class)]
     #[ORM\JoinTable(name: 'note_tag')]
@@ -442,6 +451,22 @@ class Note
             $this->touch();
         }
         $this->tags->clear();
+    }
+
+    /** @return array<string, mixed> */
+    public function getProperties(): array
+    {
+        return $this->properties ?? [];
+    }
+
+    /** @param array<string, mixed> $properties a whole set, already checked */
+    public function setProperties(array $properties): void
+    {
+        if ($properties === $this->getProperties()) {
+            return;
+        }
+        $this->properties = \App\Service\NoteProperties::stored($properties);
+        $this->touch();
     }
 
     private function touch(): void

@@ -151,6 +151,7 @@ class RevisionController extends ApiController
             'body_md' => $body,
             'summary' => $revision->getSummary(),
             'tags' => $revision->getTags(),
+            'properties' => \App\Service\NoteProperties::json($revision->getProperties()),
             // Who took this state away, and when — distinct from how old the
             // content itself was, which is what `content_updated_at` says.
             'replaced_by' => $revision->getReplacedBy(),

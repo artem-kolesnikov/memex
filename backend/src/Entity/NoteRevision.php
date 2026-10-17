@@ -99,6 +99,15 @@ class NoteRevision
     #[ORM\Column(type: 'json')]
     private array $tags;
 
+    /**
+     * The note's properties as they stood. Null when it had none, and on every
+     * revision written before properties existed (2026-10-17).
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $properties = null;
+
     /** One of Note::ACTOR_* — who made the edit that replaced this state. */
     #[ORM\Column(name: 'replaced_by', length: 16)]
     private string $replacedBy;
@@ -190,6 +199,7 @@ class NoteRevision
             static fn (Tag $tag): string => $tag->getName(),
             $note->getTags()->toArray()
         ));
+        $revision->properties = \App\Service\NoteProperties::stored($note->getProperties());
         $revision->replacedBy = $replacedBy;
         // Refused rather than nulled: an unknown value here would be a typo in
         // one of the five call sites, and nulling it silently renders exactly
@@ -299,6 +309,12 @@ class NoteRevision
         return $this->tags;
     }
 
+    /** @return array<string, mixed> */
+    public function getProperties(): array
+    {
+        return $this->properties ?? [];
+    }
+
     public function getReplacedBy(): string
     {
         return $this->replacedBy;
@@ -343,6 +359,7 @@ class NoteRevision
         if ($this->title !== $note->getTitle()
             || $this->bodyMd !== $note->getBodyMd()
             || $this->summary !== $note->getSummary()
+            || $this->getProperties() !== $note->getProperties()
         ) {
             return true;
         }

@@ -209,6 +209,7 @@ class NoteWriter
      *                             non-empty (enrichment won't overwrite it)
      * @param list<string> $formerTitles titles the note also answers to, from an
      *                                   export's `aliases` ({@see FormerTitles})
+     * @param array<string, mixed> $properties a whole set, already checked ({@see NoteProperties})
      * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
      */
     public function create(
@@ -226,6 +227,7 @@ class NoteWriter
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $updatedAt = null,
         array $formerTitles = [],
+        array $properties = [],
     ): array {
         $this->storageLimits->assertBody($bodyMd);
         $this->growth->assertNoteRoom();
@@ -237,6 +239,7 @@ class NoteWriter
             : Note::STATUS_VERIFIED;
         $note = new Note($token, $title, $bodyMd, $source, $sourceUrl, $status);
         $note->setImportPath($importPath);
+        $note->setProperties($properties);
         $summary = self::normaliseSummary($summary);
         if ($summary !== null) {
             // $summaryBy is for import: a description that came back in a
@@ -270,7 +273,8 @@ class NoteWriter
             } elseif ($status === Note::STATUS_VERIFIED) {
                 // Curator creates leave an audit trail: an already-applied 'create'
                 // proposal row (prev* = null — there was nothing before) + a log row.
-                $audit = EditProposal::forAppliedCreate($note, $token, $title, $bodyMd, $tagNames);
+                $audit = EditProposal::forAppliedCreate($note, $token, $title, $bodyMd, $tagNames)
+                    ->withProposedProperties($note->getProperties());
                 $this->em->persist($audit);
                 $this->journal->record(
                     (new CuratorLogEntry($token->getName(), CuratorLogEntry::ACTION_CREATE, 'Created “'.$title.'”'))
@@ -309,6 +313,8 @@ class NoteWriter
 
     /**
      * @param string[]|null $tagNames null = leave tags untouched
+     * @param array<string, mixed>|null $properties the whole set the note ends
+     *                                             with; null = leave them untouched
      * @param bool $summaryProvided true when the caller's payload carried a
      *                              summary field: non-empty = authoritative
      *                              (kept verbatim), empty = clear it, which
@@ -340,10 +346,11 @@ class NoteWriter
         ?ApiToken $actorToken = null,
         ?string $operation = null,
         bool $amendedByOperator = false,
+        ?array $properties = null,
     ): array {
         $this->limbo->whileHoldingNotes([$note], function () use (
             $note, $title, $bodyMd, $tagNames, $summaryProvided, $summary, $actor,
-            $summaryBy, $changeTitle, $actorToken, $operation, $amendedByOperator,
+            $summaryBy, $changeTitle, $actorToken, $operation, $amendedByOperator, $properties,
         ): void {
             if ($bodyMd !== null) {
                 $this->storageLimits->assertBody($bodyMd, strlen($this->lockedBody($note)));
@@ -391,6 +398,9 @@ class NoteWriter
                 }
                 $this->unretireTagsOf($note);
             }
+            if ($properties !== null) {
+                $note->setProperties($properties);
+            }
             $this->em->flush();
 
             // After the mutation and before enrichment: the revision records what
@@ -429,6 +439,7 @@ class NoteWriter
             'body' => $previous->getBodyMd() !== $note->getBodyMd(),
             'tags' => self::sortedNames($previous->getTags()) !== self::sortedNames(array_map(static fn (Tag $tag): string => $tag->getName(), $note->getTags()->toArray())),
             'summary' => $previous->getSummary() !== $note->getSummary(),
+            'properties' => $previous->getProperties() !== $note->getProperties(),
         ]));
         $description = $operation === NoteRevision::OP_RESTORE
             ? 'Restored an earlier version of “'.$note->getTitle().'”'
@@ -481,6 +492,7 @@ class NoteWriter
                 summary: $revision->getSummary(),
                 actor: Note::ACTOR_HUMAN,
                 operation: NoteRevision::OP_RESTORE,
+                properties: $revision->getProperties(),
             );
         });
         $result['suggestions'] = $this->finishUpdateEnrichment($result['note'], true, true, EmbeddingSpend::Metered, null);
@@ -688,6 +700,9 @@ class NoteWriter
                 $change['tags_added'] = array_values(array_diff($tags, $read));
                 $change['tags_removed'] = array_values(array_diff($read, $tags));
             }
+            if ($proposal->getProposedProperties() !== null) {
+                $change['properties'] = $proposal->getProposedProperties();
+            }
             $changes[] = $change;
         }
 
@@ -695,14 +710,16 @@ class NoteWriter
     }
 
     /**
-     * Refuse a write to a sentence, the title or the description that another
-     * connection's waiting edit on this note changes ({@see SurgicalEdit::claims()}).
+     * Refuse a write to a sentence, the title, the description or a property
+     * that another connection's waiting edit on this note changes
+     * ({@see SurgicalEdit::claims()}).
      *
      * @param array<int, array{find: string, replace: string}>|null $operations what the author's edit will apply
      * @param string|null $wholeBody a body that was not narrowed, which claims every sentence
+     * @param list<string> $properties the property names the author's edit changes
      * @throws HeldElsewhereException
      */
-    private function assertUnheld(Note $note, ApiToken $token, ?array $operations, ?string $wholeBody, bool $title, bool $summary): void
+    private function assertUnheld(Note $note, ApiToken $token, ?array $operations, ?string $wholeBody, bool $title, bool $summary, array $properties = []): void
     {
         $body = $this->lockedBody($note);
         $mine = SurgicalEdit::claims($body, $operations, $wholeBody);
@@ -721,6 +738,9 @@ class NoteWriter
             }
             if ($summary && $other->getProposedSummary() !== null) {
                 $held[] = 'the description';
+            }
+            foreach (array_intersect($properties, array_map('strval', array_keys($other->getProposedProperties() ?? []))) as $name) {
+                $held[] = 'the property “'.$name.'”';
             }
             $held = array_values(array_filter($held, static fn (string $what): bool => $what !== ''));
             if ($held === []) {
@@ -823,9 +843,13 @@ class NoteWriter
         ?string $summary = null,
         ?array $patch = null,
         ?string $changeTitle = null,
+        ?array $properties = null,
     ): EditProposal {
         $comment = self::agentProse($comment, $token);
-        if ($title === null && $bodyMd === null && $tagNames === null && $summary === null && $patch === null) {
+        if ($properties === []) {
+            $properties = null;
+        }
+        if ($title === null && $bodyMd === null && $tagNames === null && $summary === null && $patch === null && $properties === null) {
             // An agent that knows a note is stale but not what replaces it has
             // one honest thing to say, and forcing it to invent a plausible
             // correction to be heard is worse than the gap. It becomes a
@@ -833,7 +857,7 @@ class NoteWriter
             // approving it cannot claim to have changed the note.
             $said = $comment !== null ? self::normaliseReport($comment) : '';
             if ($said === '') {
-                throw new \InvalidArgumentException('An edit proposal must change at least one of title, body_md, patch, tags, summary — or carry a comment saying what is wrong with the note.');
+                throw new \InvalidArgumentException('An edit proposal must change at least one of title, body_md, patch, tags, summary, properties — or carry a comment saying what is wrong with the note.');
             }
             if ($token === null) {
                 // memex's own enrichment pass, which describes notes and has
@@ -895,7 +919,7 @@ class NoteWriter
         // rather than queueing a rival card carrying its own snapshot of the
         // note. Other connections keep their own draft: folding across authors
         // would discard work its author cannot see.
-        $proposal = $this->whileHoldingNote($note, function () use ($note, $token, $title, $bodyMd, $tagNames, $comment, $summary, $patch, $changeTitle, $applies, $hold, $anchorHold, $instructionHold, $applyTags): EditProposal {
+        $proposal = $this->whileHoldingNote($note, function () use ($note, $token, $title, $bodyMd, $tagNames, $comment, $summary, $patch, $changeTitle, $applies, $hold, $anchorHold, $instructionHold, $applyTags, $properties): EditProposal {
             $folded = false;
             $drafts = $this->heldDrafts($note, $token);
             $draft = $drafts[0] ?? null;
@@ -978,6 +1002,7 @@ class NoteWriter
                     $narrowed === null && $patch === null ? ($bodyMd ?? $foldInto?->getProposedBodyMd()) : null,
                     $title !== null || $foldInto?->getProposedTitle() !== null,
                     $summary !== null || $foldInto?->getProposedSummary() !== null,
+                    array_values(array_unique(array_map('strval', [...array_keys($properties ?? []), ...array_keys($foldInto?->getProposedProperties() ?? [])]))),
                 );
             }
 
@@ -988,13 +1013,14 @@ class NoteWriter
             $this->retire(array_values(array_filter($drafts, static fn (EditProposal $d): bool => $d !== $foldInto)));
 
             if ($foldInto !== null) {
-                $foldInto->revise($title, $bodyMd, $patch, $tagNames, $summary, $comment, $changeTitle);
+                $foldInto->revise($title, $bodyMd, $patch, $tagNames, $summary, $comment, $changeTitle, $properties);
                 $proposal = $foldInto;
                 $folded = true;
             } else {
                 $proposal = (new EditProposal($note, $token, $title, $bodyMd, $tagNames, $comment))
                     ->withProposedSummary($summary)
                     ->withProposedPatch($patch)
+                    ->withProposedProperties($properties)
                     ->withChangeTitle($changeTitle);
                 if (!$applies) {
                     $proposal->rebase();
@@ -1014,7 +1040,7 @@ class NoteWriter
             // the ruling it implements (operator, 2026-08-23: everything a pass
             // produces is proposed).
             if (!$applies) {
-                $changed = self::changedFields($title, $bodyMd, $tagNames, $summary, $patch);
+                $changed = self::changedFields($title, $bodyMd, $tagNames, $summary, $patch, $properties);
                 // Why it is held is the useful half of a curator's row. "At own
                 // request" was the only reason a curator's edit could be held until
                 // C-9, and reading it against an edit the SERVER held would be
@@ -1052,6 +1078,7 @@ class NoteWriter
                     $note->getBodyMd(),
                     array_map(static fn ($tag) => $tag->getName(), $note->getTags()->toArray()),
                     $note->getSummary(),
+                    $note->getProperties(),
                 );
                 // The actor is passed explicitly: without it `lastActor` kept
                 // whoever edited the note previously, and — since 2026-08-16 — the
@@ -1075,6 +1102,7 @@ class NoteWriter
                     // the revision it creates.
                     changeTitle: $changeTitle,
                     operation: NoteRevision::OP_EDIT,
+                    properties: $properties === null ? null : NoteProperties::apply($note->getProperties(), $properties),
                 ));
                 $this->gcTags();
                 // Somebody else's draft written against the text this just
@@ -1089,7 +1117,7 @@ class NoteWriter
                     ],
                     array_diff_key($this->staleDraftsOn($note), $staleBefore),
                 )));
-                $changed = self::changedFields($title, $bodyMd, $tagNames, $summary);
+                $changed = self::changedFields($title, $bodyMd, $tagNames, $summary, null, $properties);
                 $this->journal->record(
                     (new CuratorLogEntry(
                         $token->getName(),
@@ -1177,7 +1205,7 @@ class NoteWriter
      * @param string[]|null $tagNames
      * @return string[]
      */
-    private static function changedFields(?string $title, ?string $bodyMd, ?array $tagNames, ?string $summary = null, ?array $patch = null): array
+    private static function changedFields(?string $title, ?string $bodyMd, ?array $tagNames, ?string $summary = null, ?array $patch = null, ?array $properties = null): array
     {
         return array_keys(array_filter(
             [
@@ -1188,6 +1216,7 @@ class NoteWriter
                 'body' => $bodyMd ?? $patch,
                 'tags' => $tagNames,
                 'summary' => $summary,
+                'properties' => $properties,
             ],
             static fn ($v) => $v !== null
         ));
@@ -1362,7 +1391,7 @@ class NoteWriter
             // asking a second time to find out whether the body changed re-runs it
             // against a body that has already changed, and the anchor is gone.
             $body = $this->resolveBodyForApply($proposal);
-            $result = $this->applyAsFiled($proposal, $proposal->getProposedTitle(), $body, $proposal->getProposedTags(), $proposal->getProposedSummary());
+            $result = $this->applyAsFiled($proposal, $proposal->getProposedTitle(), $body, $proposal->getProposedTags(), $proposal->getProposedSummary(), $proposal->getProposedProperties());
         } else {
             // Amended while being approved (operator, 2026-10-14): the author's
             // change is recorded as it was filed, credited to its author, and the
@@ -1378,9 +1407,9 @@ class NoteWriter
                 }
                 $body = null;
             }
-            $result = $body === null && $filed['title'] === null && $filed['tags'] === null && $filed['summary'] === null
+            $result = $body === null && $filed['title'] === null && $filed['tags'] === null && $filed['summary'] === null && $filed['properties'] === null
                 ? null
-                : $this->applyAsFiled($proposal, $filed['title'], $body, $filed['tags'], $filed['summary']);
+                : $this->applyAsFiled($proposal, $filed['title'], $body, $filed['tags'], $filed['summary'], $filed['properties']);
             $result = $this->amendAfterApproval($note, $filed['owner']) ?? $result
                 ?? ['note' => $note, 'suggestions' => ['tag_ids' => [], 'new_tags' => []]];
         }
@@ -1396,7 +1425,7 @@ class NoteWriter
      * after every author's change (operator, 2026-10-14). Only what differs
      * from the note as it now stands; null when nothing does.
      *
-     * @param array{title: ?string, body_md: ?string, tags: ?array, summary: ?string} $amendment
+     * @param array{title: ?string, body_md: ?string, tags: ?array, summary: ?string, properties?: ?array} $amendment
      * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}|null
      */
     public function amendAfterApproval(Note $note, array $amendment): ?array
@@ -1406,7 +1435,8 @@ class NoteWriter
         $body = $amendment['body_md'] !== null && $amendment['body_md'] !== $note->getBodyMd() ? $amendment['body_md'] : null;
         $tags = $amendment['tags'] !== null && self::sortedNames(array_values(array_unique($amendment['tags']))) !== self::sortedNames($current) ? $amendment['tags'] : null;
         $summary = $amendment['summary'] !== null && self::normaliseSummary($amendment['summary']) !== $note->getSummary() ? $amendment['summary'] : null;
-        if ($title === null && $body === null && $tags === null && $summary === null) {
+        $properties = ($amendment['properties'] ?? null) !== null && !NoteProperties::same($amendment['properties'], $note->getProperties()) ? $amendment['properties'] : null;
+        if ($title === null && $body === null && $tags === null && $summary === null && $properties === null) {
             return null;
         }
 
@@ -1420,6 +1450,7 @@ class NoteWriter
             summary: $summary,
             actor: Note::actorFor(null, null),
             operation: NoteRevision::OP_AMENDMENT,
+            properties: $properties,
         );
     }
 
@@ -1428,9 +1459,10 @@ class NoteWriter
      * approval is a gate, not authorship.
      *
      * @param string[]|null $tags as filed, applied as what they add and remove
+     * @param array<string, mixed>|null $properties as filed: the ones it sets and removes
      * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
      */
-    private function applyAsFiled(EditProposal $proposal, ?string $title, ?string $body, ?array $tags, ?string $summary): array
+    private function applyAsFiled(EditProposal $proposal, ?string $title, ?string $body, ?array $tags, ?string $summary, ?array $properties = null): array
     {
         $note = $proposal->getNote();
 
@@ -1462,6 +1494,7 @@ class NoteWriter
             changeTitle: $proposal->getChangeTitle(),
             actorToken: $proposal->getProposedByToken(),
             operation: NoteRevision::OP_PROPOSAL,
+            properties: $properties === null ? null : NoteProperties::apply($note->getProperties(), $properties),
         );
     }
 
@@ -1532,6 +1565,7 @@ class NoteWriter
         // the operator taking over the document the merge leaves behind.
         $tags = $proposal->getProposedTags();
         $summary = $proposal->getProposedSummary();
+        $properties = $proposal->getProposedProperties();
         $this->em->remove($proposal);
 
         return $this->mergeNotes(
@@ -1543,6 +1577,7 @@ class NoteWriter
             $proposal->isAmended(),
             $tags,
             $summary,
+            $properties,
         );
     }
 
@@ -1552,6 +1587,8 @@ class NoteWriter
      * @param string[]|null $mergedTags the keeper's tags as the operator amended
      *                                   them; null leaves the union this method
      *                                   already performed
+     * @param array<string, mixed>|null $mergedProperties the keeper's properties
+     *                                                   as the operator amended them
      * @return array{note: Note, suggestions: array{tag_ids: int[], new_tags: string[]}}
      */
     private function mergeNotes(
@@ -1563,6 +1600,7 @@ class NoteWriter
         bool $amendedByOperator = false,
         ?array $mergedTags = null,
         ?string $mergedSummary = null,
+        ?array $mergedProperties = null,
     ): array {
         if ($mergedBody !== null) {
             $this->storageLimits->assertBody($mergedBody, strlen($this->lockedBody($keeper)));
@@ -1585,6 +1623,7 @@ class NoteWriter
             array_map(static fn (Tag $tag): string => $tag->getName(), $keeper->getTags()->toArray()),
             array_map(static fn (Tag $tag): string => $tag->getName(), $absorb->getTags()->toArray()),
         )));
+        $properties = $mergedProperties ?? EditProposal::mergedProperties($keeper->getProperties(), $absorb->getProperties());
         $this->em->flush();
 
         // Retarget inbound links onto the keeper. The keeper's own links to
@@ -1617,7 +1656,7 @@ class NoteWriter
         // Any of the three is a write to the keeper. Tags and a description
         // arrive only from an operator's amendment, which is why a merge that
         // proposes nothing still reaches update() when they are present.
-        if ($mergedBody !== null || $mergedTags !== null || $mergedSummary !== null) {
+        if ($mergedBody !== null || $mergedTags !== null || $mergedSummary !== null || $mergedProperties !== null) {
             $this->deferredEnrichment[] = $keeper;
             return $this->update(
                 $keeper,
@@ -1630,6 +1669,7 @@ class NoteWriter
                 actor: $actor,
                 actorToken: $actorToken,
                 operation: NoteRevision::OP_MERGE,
+                properties: $properties,
                 // The keeper's text can be the operator's own: every merge is
                 // amendable, including one that proposed no body at all. Credit
                 // stays with the proposer; the revision records that the text
@@ -1645,6 +1685,7 @@ class NoteWriter
         foreach ($this->resolveTags($union) as $tag) {
             $keeper->addTag($tag);
         }
+        $keeper->setProperties($properties);
         $this->unretireTagsOf($keeper);
         $this->enricher->syncLinks($keeper);
         $this->em->flush();

@@ -1,6 +1,7 @@
 import router from '@/router'
 import { i18n } from '@/i18n'
 import { sessionEpoch, StaleOperationError } from '@/lib/operationLifetime'
+import type { Properties } from '@/lib/properties'
 
 export interface TagRef {
   id: number
@@ -32,6 +33,8 @@ export interface NoteListItem {
   summary: string | null
   summary_by: string | null
   tags: TagRef[]
+  /** Named facts beside the text, in the order written. */
+  properties?: Properties
   created_at: string
   updated_at: string
   version?: number
@@ -125,6 +128,8 @@ export interface EditProposalItem {
   proposed_patch: { find: string; replace: string }[] | null
   proposed_tags: string[] | null
   proposed_summary: string | null
+  /** The properties it sets, and null for each it removes; a merge's is the keeper's whole set. */
+  proposed_properties: Properties | null
   kinds: string[]
   comment: string | null
   proposed_by: string
@@ -135,7 +140,7 @@ export interface EditProposalItem {
   stale: StaleField[]
 }
 
-export type StaleField = 'title' | 'body' | 'tags' | 'summary' | 'absorbed_body'
+export type StaleField = 'title' | 'body' | 'tags' | 'summary' | 'properties' | 'absorbed_body'
 
 /** The note as the author of a held draft read it. */
 export interface ProposalBase {
@@ -144,6 +149,7 @@ export interface ProposalBase {
   body_md: string
   tags: string[]
   summary: string | null
+  properties?: Properties
   absorbed_body_md?: string
 }
 
@@ -657,6 +663,7 @@ export interface NoteRevision {
   body_md: string | null
   summary: string | null
   tags: string[]
+  properties?: Properties
   replaced_by: string
   operation: string | null
   replaced_by_actor: Actor | null
@@ -695,6 +702,7 @@ export interface NoteApprovalEdits {
   body_md?: string
   tags?: string[]
   summary?: string
+  properties?: Properties
 }
 
 export interface NoteApprovalSnapshot {
@@ -762,6 +770,8 @@ export interface CuratorLogRow {
     prev_title: string | null
     prev_body_md: string | null
     prev_tags: string[] | null
+    proposed_properties?: Properties | null
+    prev_properties?: Properties | null
   } | null
 }
 
@@ -1022,7 +1032,7 @@ export const api = {
     request<{ pending_notes: number; edit_proposals: number; total: number }>(
       '/api/inbox/count',
     ),
-  createNote: (data: { title: string; body_md: string; tags?: string[]; source_url?: string; summary?: string }) =>
+  createNote: (data: { title: string; body_md: string; tags?: string[]; source_url?: string; summary?: string; properties?: Properties }) =>
     request<NoteWriteResponse>('/api/notes', { method: 'POST', body: JSON.stringify(data) }),
   updateNote: (
     id: number,
@@ -1031,6 +1041,7 @@ export const api = {
       body_md?: string
       tags?: string[]
       summary?: string
+      properties?: Properties
       expected_version?: number
     },
   ) =>
@@ -1063,9 +1074,10 @@ export const api = {
           body_md: string
           summary: string | null
           tags: string[]
+          properties?: Properties
           backlinks?: { id: number; title: string }[]
         }
-        merge_into: { id: number; title: string; version: number; skill: boolean; body_md?: string; tags?: string[]; summary?: string | null } | null
+        merge_into: { id: number; title: string; version: number; skill: boolean; body_md?: string; tags?: string[]; summary?: string | null; properties?: Properties } | null
         base?: ProposalBase
       }
     >(`/api/proposals/${id}`),

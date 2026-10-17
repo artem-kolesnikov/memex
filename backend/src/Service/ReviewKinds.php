@@ -25,6 +25,7 @@ final class ReviewKinds
 {
     public const SUMMARY = 'summary';
     public const TAGS = 'tags';
+    public const PROPERTIES = 'properties';
     public const CONTENT = 'content';
     public const DELETION = 'deletion';
     public const MERGE = 'merge';
@@ -34,7 +35,7 @@ final class ReviewKinds
     /** @return string[] every kind the UI offers as a filter, in the order it offers them */
     public static function all(): array
     {
-        return [self::SUMMARY, self::TAGS, self::CONTENT, self::NEW_NOTE, self::REPORT, self::DELETION, self::MERGE];
+        return [self::SUMMARY, self::TAGS, self::PROPERTIES, self::CONTENT, self::NEW_NOTE, self::REPORT, self::DELETION, self::MERGE];
     }
 
     /**
@@ -54,6 +55,7 @@ final class ReviewKinds
         ?string $bodyMd = null,
         ?array $tags = null,
         ?string $summary = null,
+        ?array $properties = null,
     ): array {
         if ($type === EditProposal::TYPE_DELETE) {
             return [self::DELETION];
@@ -80,6 +82,9 @@ final class ReviewKinds
         if ($tags !== null) {
             $kinds[] = self::TAGS;
         }
+        if ($properties !== null) {
+            $kinds[] = self::PROPERTIES;
+        }
         if ($title !== null || $bodyMd !== null) {
             $kinds[] = self::CONTENT;
         }
@@ -105,6 +110,7 @@ final class ReviewKinds
             $proposal->getProposedBodyMd() ?? ($proposal->getProposedPatch() !== null ? '' : null),
             $proposal->getProposedTags(),
             $proposal->getProposedSummary(),
+            $proposal->getProposedProperties(),
         );
     }
 }

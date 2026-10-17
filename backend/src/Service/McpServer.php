@@ -540,6 +540,7 @@ final class McpServer
                 ], $this->skills('auto'))],
                 'get_skill' => $this->toolGetSkill($args),
                 'list_tags' => $this->toolListTags(),
+                'list_properties' => $this->toolListProperties(),
                 'health' => [
                     'status' => 'ok',
                     'address' => $this->origin,
@@ -584,6 +585,7 @@ final class McpServer
         }
         $order = isset($args['order']) ? (string) $args['order'] : null;
         $dates = DateWindow::from($args);
+        $properties = PropertyFilter::from($args['properties'] ?? null);
 
         $tagIds = [];
         $unknownTags = [];
@@ -612,6 +614,7 @@ final class McpServer
             $offset,
             dates: $dates,
             excerpts: true,
+            properties: $properties,
         );
 
         return [
@@ -633,6 +636,7 @@ final class McpServer
                 'status' => $row['status'],
                 'source_url' => $row['source_url'],
                 'tags' => array_column($row['tags'], 'name'),
+                ...(\is_array($row['properties']) ? ['properties' => $row['properties']] : []),
                 'updated_at' => $row['updated_at'],
                 ...(is_string($row['matched_section'] ?? null) && $row['matched_section'] !== '' ? ['matched_section' => $row['matched_section']] : []),
                 ...(isset($row['matched_text']) ? ['matched_text' => $row['matched_text']] : []),
@@ -976,6 +980,8 @@ final class McpServer
             $this->tagNames($args),
             enrich: EmbeddingSpend::Metered,
             summary: self::summaryArg($args),
+            // A new note has nothing to remove, so null sets nothing.
+            properties: array_filter(NoteProperties::set($args['properties'] ?? null), static fn (mixed $value): bool => $value !== null),
         );
 
         return $this->writeResult($result);
@@ -996,6 +1002,7 @@ final class McpServer
         $tags = isset($args['tags']) && is_array($args['tags']) ? array_map('strval', $args['tags']) : null;
         $summary = self::summaryArg($args);
         $patch = array_key_exists('patch', $args) ? NotePatch::parse($args['patch']) : null;
+        $properties = NoteProperties::changes($args['properties'] ?? null);
 
         $proposal = $this->noteWriter->propose(
             $note,
@@ -1008,6 +1015,7 @@ final class McpServer
             summary: $summary,
             patch: $patch,
             changeTitle: isset($args['change_title']) && is_string($args['change_title']) ? $args['change_title'] : null,
+            properties: $properties,
         );
 
         $out = [
@@ -1648,6 +1656,55 @@ final class McpServer
         ];
     }
 
+    /**
+     * The property names notes carry, how many notes carry each, and the
+     * values most used under it, so an assistant reuses the names and values
+     * already here. A list property counts each of its items; an object
+     * property lists no values, since a filter reaches inside it by a dotted
+     * name rather than matching it whole.
+     */
+    private function toolListProperties(): array
+    {
+        $conn = $this->em->getConnection();
+        $names = $conn->fetchAllAssociative(
+            'SELECT p.key AS name, COUNT(*) AS note_count
+             FROM notes n, json_each(n.properties) p
+             GROUP BY p.key ORDER BY note_count DESC, p.key'
+        );
+        $values = $conn->fetchAllAssociative(
+            "SELECT p.key AS name, v.type AS type, v.value AS value, COUNT(DISTINCT n.id) AS note_count
+             FROM notes n, json_each(n.properties) p, json_each(n.properties, '$.\"' || p.key || '\"') v
+             WHERE p.type <> 'object' AND v.type NOT IN ('object', 'array', 'null')
+             GROUP BY p.key, v.type, v.value ORDER BY p.key, note_count DESC, v.value"
+        );
+        $byName = [];
+        foreach ($values as $row) {
+            $byName[$row['name']][] = [
+                'value' => match ($row['type']) {
+                    'true' => true,
+                    'false' => false,
+                    'integer' => (int) $row['value'],
+                    'real' => (float) $row['value'],
+                    default => $row['value'],
+                },
+                'note_count' => (int) $row['note_count'],
+            ];
+        }
+
+        return ['properties' => array_map(static function (array $row) use ($byName): array {
+            $used = $byName[$row['name']] ?? [];
+
+            return [
+                'name' => $row['name'],
+                'note_count' => (int) $row['note_count'],
+                'values' => array_slice($used, 0, self::PROPERTY_VALUES_SHOWN),
+            ] + (count($used) > self::PROPERTY_VALUES_SHOWN ? ['more_values' => count($used) - self::PROPERTY_VALUES_SHOWN] : []);
+        }, $names)];
+    }
+
+    /** How many of a property's values `list_properties` names, most used first. */
+    private const PROPERTY_VALUES_SHOWN = 10;
+
     /** @return string[] */
     private function tagNames(array $args): array
     {
@@ -1791,6 +1848,7 @@ final class McpServer
         'list_skills' => 'read',
         'get_skill' => 'read',
         'list_tags' => 'read',
+        'list_properties' => 'read',
         'health' => 'read',
         'propose' => 'write',
         'log' => 'write',
@@ -1820,7 +1878,7 @@ final class McpServer
             [
                 'name' => 'search',
                 'title' => 'Search notes',
-                'description' => 'Search or browse the knowledge base. With `query`: hybrid semantic+keyword ranking. WITHOUT `query`: lists notes, filtered by tags/status — use this to browse a tag or list all notes (do NOT pass a filler query with a tag filter; query and tags are ANDed and a non-matching query hides tagged notes). `order` + `offset` walk a result set page by page: `total` tells you how far it goes, and the sort is stable, so successive offsets neither skip nor repeat a note. `updated_after` / `updated_before` and `created_after` / `created_before` narrow by when a note last changed or was added: what changed since Monday is `updated_after` with no query. Returns summaries; a keyword match also carries `matched_text`, the passage of the body around the words it matched, which often answers the question without opening the note. Use `get` for full content.',
+                'description' => 'Search or browse the knowledge base. With `query`: hybrid semantic+keyword ranking. WITHOUT `query`: lists notes, filtered by tags, status or properties — use this to browse a tag or list all notes (do NOT pass a filler query with a tag filter; query and tags are ANDed and a non-matching query hides tagged notes). `order` + `offset` walk a result set page by page: `total` tells you how far it goes, and the sort is stable, so successive offsets neither skip nor repeat a note. `updated_after` / `updated_before` and `created_after` / `created_before` narrow by when a note last changed or was added: what changed since Monday is `updated_after` with no query. Returns summaries; a keyword match also carries `matched_text`, the passage of the body around the words it matched, which often answers the question without opening the note. Use `get` for full content.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1834,6 +1892,7 @@ final class McpServer
                         'updated_before' => ['type' => 'string', 'description' => 'Only notes last changed before this moment, written as for `updated_after`'],
                         'created_after' => ['type' => 'string', 'description' => 'Only notes added at or after this moment, written as for `updated_after`'],
                         'created_before' => ['type' => 'string', 'description' => 'Only notes added before this moment, written as for `updated_after`'],
+                        'properties' => ['type' => 'object', 'description' => 'Only notes whose properties match ALL of these, by name (list_properties names what notes carry). `{"status": "active"}` the value, and a list property matches when it holds it; `{"topics": ["a", "b"]}` a list holding every one; `{"priority": {"$in": ["high", "critical"]}}` any one; `{"due": {"$lt": "2026-11-01"}}` and `$gt`, `$gte`, `$lte`: numbers by value, text (dates written YYYY-MM-DD included) in alphabetical order; `{"score": {"$between": [0.3, 0.8]}}` both ends included; `{"client.name": "Acme"}` a value inside an object property. Operators keep their `$`'],
                         'body_encoding' => $bodyEncoding,
                     ],
                 ],
@@ -1911,6 +1970,7 @@ final class McpServer
 
                         'summary' => ['type' => 'string', 'maxLength' => 5000, 'description' => 'A short description of what this note contains, written by YOU. Send it with every new note — you are already holding the text, so describing it costs you nothing extra, and memex never describes what an assistant writes. With note_id it is an edit like any other, and a summary ALONE is a complete edit: that is how you describe a note that has none. TWO OR THREE SENTENCES, about '.self::SUMMARY_SOFT_CAP.' characters, plain, no preamble: what the note is about and what a reader would come to it for. This is a hint that helps somebody decide whether to open the note, NOT an abstract of it — a description that has to be read in full has failed at its job'],
                         'tags' => $tags,
+                        'properties' => ['type' => 'object', 'description' => 'Facts about the note as named values, the frontmatter fields Obsidian calls properties: `{"status": "active", "due": "2026-11-01", "client": "Acme"}`. A value is text, a number, true or false, a list, or an object of these; write dates as YYYY-MM-DD so they compare as dates. On a new note, its properties. On an edit, only the ones to change: each name you send is set, `null` removes it, and every one you leave out is kept. Call list_properties first and reuse the names and values already in use. A name is 1-64 characters with no dots; title, tags, aliases, summary, summary_by, source_url, created and updated are the note\'s own fields, not properties'],
                         'source_url' => ['type' => 'string', 'description' => 'Provenance URL, if any (new notes only)'],
                         'change_title' => ['type' => 'string', 'maxLength' => 120, 'description' => 'SIX OR SEVEN WORDS saying what this edit does and why — a subject line, not a sentence. "Correct the deploy host after the move", "Add the missing arming period". It is what the operator sees in the review inbox and in the note\'s history, so it is the line that decides whether they open the row: a title reading "update note" wastes the only glance they give it. Different from `comment`, which is the prose underneath'],
                         'comment' => ['type' => 'string', 'description' => 'For edits: a REPORT of what the change does, under `change_title`. '.FilingRules::SENTENCE.', saying what the note says now — and where there is more than one, '.FilingRules::BULLETS.', in the order they appear in the note. Evidence a sentence needs (a note id, a quoted phrase) goes inside that sentence. Nothing else: no "if you approve / if you reject", no account of your reasoning or your uncertainty, no restatement of the note. The one thing that may be added is an observation or a tooling gap you have no other place to file — that goes '.FilingRules::OBSERVATION.'. The operator is looking at the diff and reads this in seconds, usually on a phone — an essay here is a rejection waiting to happen no matter how right it was. Markdown renders, so write '.FilingRules::LINE_BREAKS],
@@ -1982,6 +2042,12 @@ final class McpServer
                 'name' => 'list_tags',
                 'title' => 'List tags',
                 'description' => 'The knowledge base\'s tag vocabulary with note counts — consult before tagging for consistency. Also returns `retired`: names the owner deliberately removed from the vocabulary, with `merged_into` naming the word they moved those notes to where there was one. Do not propose a retired name. It is a record of a decision, not a gap: the owner took that word off every note that carried it, and offering it back is how a tidy-up gets quietly undone. A tag marked `system: true` is one memex itself reads: carrying it CHANGES what assistants are served, and `system_effect` says exactly how. Weigh those two before adding or removing them on a note — they are not descriptive words. The owner cannot delete them from the vocabulary, and neither can you.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()],
+            ],
+            [
+                'name' => 'list_properties',
+                'title' => 'List properties',
+                'description' => 'The property names notes carry, with how many notes carry each and its most used values (up to ten, with `more_values` counting the rest) — consult before setting properties, so a note reuses the names and values already here (`status: done` beside the others, not `state: finished`). A list property counts each of its items. `search` filters on them with `properties`.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()],
             ],
             [

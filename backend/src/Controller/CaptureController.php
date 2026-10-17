@@ -261,6 +261,7 @@ class CaptureController extends ApiController
                         createdAt: $parsed['created'],
                         updatedAt: $parsed['updated'],
                         formerTitles: $parsed['aliases'],
+                        properties: $parsed['properties'],
                     );
                 } catch (\Throwable $error) {
                     $limit = StorageLimitExceeded::fromThrowable($error);

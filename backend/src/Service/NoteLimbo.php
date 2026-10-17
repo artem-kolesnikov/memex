@@ -61,6 +61,7 @@ class NoteLimbo
         // "a person did" with no person. A restore is meant to be faithful,
         // not an approximation authored by whoever pressed restore.
         'last_actor_token_id',
+        'properties',
     ];
 
     /**
@@ -455,7 +456,7 @@ class NoteLimbo
                 "UPDATE deleted_notes
                     SET body_md = NULL, summary = NULL, summary_by = NULL,
                         source_url = NULL, import_path = NULL, deleted_reason = NULL,
-                        tags = '[]', purged_at = :now
+                        tags = '[]', properties = NULL, purged_at = :now
                  WHERE id = :id AND purged_at IS NULL",
                 ['id' => $id, 'now' => self::stamp()]
             ) > 0;
@@ -549,7 +550,7 @@ class NoteLimbo
             $this->em->flush();
 
             $conn->executeStatement(
-                'UPDATE deleted_notes SET body_md = NULL, summary = NULL, purged_at = :now WHERE id IN (:ids)',
+                'UPDATE deleted_notes SET body_md = NULL, summary = NULL, properties = NULL, purged_at = :now WHERE id IN (:ids)',
                 ['now' => $now, 'ids' => $ids],
                 ['ids' => ArrayParameterType::INTEGER]
             );
