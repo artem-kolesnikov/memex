@@ -21,7 +21,7 @@ final class SmokeTest extends DatabaseTestCase
 
         // Including the ones the ORM does not manage — the full-text and
         // vector tables and their metadata exist only in the schema files.
-        foreach (['notes', 'deleted_notes', 'edit_proposals', 'note_embeddings', 'note_embedding_chunks', 'notes_fts', 'note_embedding_vectors', 'note_embedding_chunk_vectors'] as $table) {
+        foreach (['notes', 'deleted_notes', 'edit_proposals', 'note_embeddings', 'note_embedding_chunks', 'notes_fts', 'notes_terms', 'note_embedding_vectors', 'note_embedding_chunk_vectors'] as $table) {
             self::assertContains($table, $tables);
         }
 

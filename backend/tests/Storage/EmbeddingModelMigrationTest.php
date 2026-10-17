@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Storage;
 
+use App\Service\SearchTerms;
 use App\Storage\SchemaMigrator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Filesystem\Filesystem;
@@ -36,6 +37,7 @@ final class EmbeddingModelMigrationTest extends TestCase
         $db->enableExceptions(true);
         $db->loadExtension(PHP_OS_FAMILY === 'Darwin' ? 'vec0.dylib' : 'vec0.so');
         $db->createFunction('memex_body_over_limit', static fn (int $bytes): int => 0, 1);
+        $db->createFunction('memex_search_terms', static fn (?string $text): string => SearchTerms::index((string) $text), 1);
         SchemaMigrator::migrate($db, $this->dir.'/v2');
         $db->exec("INSERT INTO notes (id, title, body_md, source, status, created_at, updated_at) VALUES (1, 'Note', 'Body', 'manual', 'verified', '2026-09-01', '2026-09-01')");
         $db->exec("INSERT INTO note_embedding_vectors (rowid, embedding) VALUES (1, '[".implode(',', array_fill(0, 1536, 0.25))."]')");

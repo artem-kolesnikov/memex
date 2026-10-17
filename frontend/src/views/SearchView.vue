@@ -736,6 +736,7 @@ async function readUrl(requestId: number) {
           </button>
         </div>
         <p class="app-page-lede" v-if="total">{{ $t('search.notes_in_memex', total) }}</p>
+        <p class="app-page-lede" v-if="total && semanticUnavailable">{{ $t('search.semantic_unavailable') }}</p>
       </div>
     </header>
 

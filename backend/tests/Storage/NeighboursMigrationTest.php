@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Storage;
 
+use App\Service\SearchTerms;
 use App\Storage\SchemaMigrator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Filesystem\Filesystem;
@@ -35,6 +36,7 @@ final class NeighboursMigrationTest extends TestCase
         $db->enableExceptions(true);
         $db->loadExtension(PHP_OS_FAMILY === 'Darwin' ? 'vec0.dylib' : 'vec0.so');
         $db->createFunction('memex_body_over_limit', static fn (int $bytes): int => 0, 1);
+        $db->createFunction('memex_search_terms', static fn (?string $text): string => SearchTerms::index((string) $text), 1);
         SchemaMigrator::migrate($db, $this->dir.'/v1');
 
         foreach ([1, 2, 3] as $id) {

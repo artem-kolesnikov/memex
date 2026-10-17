@@ -133,6 +133,7 @@
     },
     "title": "Notes",
     "notes_in_memex": "{count} notes in memex | {count} note in memex | {count} notes in memex",
+    "semantic_unavailable": "Meaning-based search is unavailable right now, so only notes containing these words are listed.",
     "new_note": "New note",
     "placeholder": "Search your knowledge base",
     "loading": "Loading...",

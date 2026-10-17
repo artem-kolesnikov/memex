@@ -26,6 +26,11 @@ namespace App\Service;
  * string does NOT match. `NOT ai` is `"ai"` negated, `memex OR NOT ai` is
  * `"ai" NOT "memex"` negated. Every expression has one of the two forms.
  *
+ * The MATCH string is for `notes_terms`, so every word is written the way
+ * that index holds it ({@see SearchTerms}). `passage` is for `notes_fts`,
+ * which holds the note's own text: every word the query asks for, any of
+ * them, for marking where a match was found.
+ *
  * English stop words are dropped as words, the way the search always treated
  * them: `NOT the` excludes nothing, and a query of nothing but stop words
  * matches no text (`words` stays true, so the caller can still search it by
@@ -71,9 +76,9 @@ final class KeywordQuery
     private bool $words = false;
 
     /**
-     * @return array{match: string, negated: bool, exact: bool, words: bool} `match` is empty when
-     *         nothing is left to match; `words` says whether the query named any word at all,
-     *         stop words included
+     * @return array{match: string, negated: bool, exact: bool, words: bool, passage: string} `match`
+     *         is empty when nothing is left to match; `words` says whether the query named any word
+     *         at all, stop words included
      */
     public static function parse(string $query): array
     {
@@ -92,29 +97,41 @@ final class KeywordQuery
 
         $root = self::node(self::T_AND, $parts);
         if ($root === null) {
-            return ['match' => '', 'negated' => false, 'exact' => $exact, 'words' => $self->words];
+            return ['match' => '', 'negated' => false, 'exact' => $exact, 'words' => $self->words, 'passage' => ''];
         }
         [$negated, $match] = self::compile($root);
 
-        return ['match' => $match, 'negated' => $negated, 'exact' => $exact, 'words' => $self->words];
+        return [
+            'match' => $match,
+            'negated' => $negated,
+            'exact' => $exact,
+            'words' => $self->words,
+            'passage' => implode(' OR ', array_unique(self::passages($root, false))),
+        ];
     }
 
     /**
      * The words as typed, all of them required, no operators — the canary's
      * question of whether a title finds itself, never a person's search.
      *
-     * @return array{match: string, negated: bool, exact: bool, words: bool}
+     * @return array{match: string, negated: bool, exact: bool, words: bool, passage: string}
      */
     public static function literal(string $query): array
     {
         $words = self::words(self::scrub($query));
-        $kept = array_values(array_filter($words, static fn (string $w): bool => !self::isStopWord($w)));
+        $pieces = [];
+        foreach ($words as $word) {
+            if (!self::isStopWord($word)) {
+                array_push($pieces, ...SearchTerms::query($word));
+            }
+        }
 
         return [
-            'match' => implode(' AND ', array_map(self::quote(...), $kept)),
+            'match' => implode(' AND ', array_map(static fn (array $p): string => SearchTerms::quote($p['match']), $pieces)),
             'negated' => false,
             'exact' => false,
             'words' => $words !== [],
+            'passage' => implode(' OR ', array_unique(array_merge(...array_column($pieces, 'passages')))),
         ];
     }
 
@@ -133,7 +150,7 @@ final class KeywordQuery
         $i = 0;
         while ($i < $length) {
             $c = $query[$i];
-            if (ctype_space($c)) {
+            if (self::isSpace($c)) {
                 ++$i;
                 continue;
             }
@@ -177,7 +194,7 @@ final class KeywordQuery
                 continue;
             }
             $start = $i;
-            while ($i < $length && !ctype_space($query[$i]) && strpos('()"|&!', $query[$i]) === false) {
+            while ($i < $length && !self::isSpace($query[$i]) && strpos('()"|&!', $query[$i]) === false) {
                 ++$i;
             }
             $raw = substr($query, $start, $i - $start);
@@ -233,15 +250,19 @@ final class KeywordQuery
         ));
     }
 
+    /**
+     * ASCII whitespace only: the scan goes byte by byte, and `ctype_space()`
+     * under a UTF-8 locale takes 0xA0 for a space, which is the middle byte of
+     * "格" and of a capital "Р".
+     */
+    private static function isSpace(string $byte): bool
+    {
+        return strpos(" \t\n\r\v\f", $byte) !== false;
+    }
+
     private static function isStopWord(string $word): bool
     {
         return in_array(mb_strtolower($word), self::STOP_WORDS, true);
-    }
-
-    /** An FTS5 string: whatever it holds is text for the tokenizer, never syntax. */
-    private static function quote(string $text): string
-    {
-        return '"'.str_replace('"', '""', $text).'"';
     }
 
     /** expression := conjunction (OR conjunction)* */
@@ -312,8 +333,14 @@ final class KeywordQuery
         switch ($token[0]) {
             case self::T_WORD:
                 $this->words = true;
+                if (self::isStopWord($token[1][0])) {
+                    return null;
+                }
 
-                return self::isStopWord($token[1][0]) ? null : [self::T_WORD, $token[1]];
+                return self::node(self::T_AND, array_map(
+                    static fn (array $p): array => [self::T_WORD, $p['match'], $p['passages']],
+                    SearchTerms::query($token[1][0]),
+                ));
             case self::T_PHRASE:
                 $this->words = true;
                 $words = $token[1];
@@ -323,8 +350,22 @@ final class KeywordQuery
                 while ($words !== [] && self::isStopWord($words[count($words) - 1])) {
                     array_pop($words);
                 }
+                $pieces = [];
+                foreach ($words as $word) {
+                    array_push($pieces, ...SearchTerms::query($word));
+                }
 
-                return $words === [] ? null : [self::T_WORD, $words];
+                if ($pieces === []) {
+                    return null;
+                }
+                // Words the index holds as typed are marked as the phrase itself.
+                $plain = array_filter($pieces, static fn (array $p): bool => $p['passages'] !== [SearchTerms::quote($p['match'])]) === [];
+
+                return [
+                    self::T_WORD,
+                    implode(' ', array_column($pieces, 'match')),
+                    $plain ? [SearchTerms::quote(implode(' ', $words))] : array_merge(...array_column($pieces, 'passages')),
+                ];
             case self::T_OPEN:
                 $inner = $this->expression();
                 if ($this->peek() === self::T_CLOSE) {
@@ -360,7 +401,7 @@ final class KeywordQuery
     private static function compile(array $node): array
     {
         if ($node[0] === self::T_WORD) {
-            return [false, self::quote(implode(' ', $node[1])), true];
+            return [false, SearchTerms::quote($node[1]), true];
         }
         if ($node[0] === self::T_NOT) {
             [$negated, $expression, $atomic] = self::compile($node[1][0]);
@@ -392,6 +433,24 @@ final class KeywordQuery
         }
 
         return [true, ...self::except(self::join($negative, 'AND'), $positive)];
+    }
+
+    /**
+     * The passage terms of every word the expression asks for, leaving out the
+     * ones it asks to be absent.
+     *
+     * @return list<string>
+     */
+    private static function passages(array $node, bool $negated): array
+    {
+        if ($node[0] === self::T_WORD) {
+            return $negated ? [] : $node[2];
+        }
+        if ($node[0] === self::T_NOT) {
+            return self::passages($node[1][0], !$negated);
+        }
+
+        return array_merge(...array_map(static fn (array $child): array => self::passages($child, $negated), $node[1]));
     }
 
     /**

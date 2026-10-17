@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Storage;
 
+use App\Service\SearchTerms;
 use App\Service\StorageLimits;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -36,6 +37,7 @@ final class VaultDatabase
         Sqlite::configure($db);
         Sqlite::loadVectors($db);
         $db->createFunction('memex_body_over_limit', fn (int $bytes): int => (int) $this->limits->bodyOverLimit($bytes), 1);
+        $db->createFunction('memex_search_terms', static fn (?string $text): string => SearchTerms::index((string) $text), 1, SQLITE3_DETERMINISTIC);
         SchemaMigrator::migrate($db, $this->schemaDir);
     }
 

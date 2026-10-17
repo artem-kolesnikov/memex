@@ -15,16 +15,22 @@ use Doctrine\ORM\EntityManagerInterface;
  * cosine distance cutoff, and FTS5 keyword matching of every word. Hard
  * facets (status, source, tag) stay exact WHERE clauses in every mode.
  *
- * **Keyword matches win outright** (deliberate divergence from mm2, which
- * blends both tiers into one list). If the query's words all appear in some
- * note the facets allow, those notes ARE the answer and nothing else is shown;
- * the vector tier only answers queries no note matches literally. A knowledge
- * base has exact-recall expectations a news feed doesn't: measured 2026-08-18
- * on the live vault, searching a rare proper noun ("webdesk") put its nearest
- * neighbour at distance 0.580 and ~20 unrelated notes inside the 0.68 cutoff —
- * for a token the embedding model has no concept of, every note is equidistant
- * noise, and blending buried six true matches among fifteen strangers. The
- * cutoff is the vault model's ({@see EmbeddingModel::searchDistance()}).
+ * **The notes holding every word lead, and meaning joins them only from
+ * nearer.** A note that lacks the words is listed when it is nearer in
+ * meaning than every note that has them, and then ahead of them; when no
+ * note has them, the vector tier answers alone. A knowledge base has
+ * exact-recall expectations a news feed doesn't: measured 2026-08-18 on the
+ * live vault, searching a rare proper noun ("webdesk") put ~20 unrelated
+ * notes inside the cutoff — for a token the embedding model has no concept
+ * of, every note is equidistant noise, and blending buried six true matches
+ * among fifteen strangers. Its own notes are nearer than the noise, so the
+ * rule keeps them on top, while "health insurance" still finds the medical
+ * note that never says "health". The cutoff is the vault model's
+ * ({@see EmbeddingModel::searchDistance()}).
+ *
+ * Keywords match in `notes_terms`, which reads every script
+ * ({@see SearchTerms}); `notes_fts` holds the note's own text, for the
+ * passage that shows a match.
  */
 class HybridSearch
 {
@@ -68,7 +74,7 @@ class HybridSearch
      * The notes the keyword expression matches, with their BM25 score over
      * title and body as one document. FTS5 scores lower-is-better.
      */
-    private const KEYWORD_HITS = 'SELECT rowid AS note_id, bm25(notes_fts) AS rank FROM notes_fts WHERE notes_fts MATCH :keyword_query';
+    private const KEYWORD_HITS = 'SELECT rowid AS note_id, bm25(notes_terms) AS rank FROM notes_terms WHERE notes_terms MATCH :keyword_query';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -124,7 +130,7 @@ class HybridSearch
         }
         [
             'where' => $where, 'params' => $params, 'types' => $types, 'cte' => $cte, 'join' => $join,
-            'semantic' => $semantic, 'relevance' => $relevance,
+            'section' => $section, 'relevance' => $relevance,
             'semantic_unavailable' => $semanticUnavailable, 'exact' => $exact,
         ] = $scope;
         $conn = $this->em->getConnection();
@@ -138,7 +144,7 @@ class HybridSearch
         // Which section of a long note the query landed in, so a reader of a
         // 60,000-character note knows where to look. Only a meaning-based hit
         // has one; a keyword hit matched the note as a whole.
-        $matched = $semantic ? 'sem.heading AS matched_section,' : 'NULL AS matched_section,';
+        $matched = $section.' AS matched_section, '.$scope['hit'].' AS keyword_hit,';
         $sql = $cte.<<<SQL
         SELECT
             n.id, n.title, n.source, n.source_url, n.status, n.summary,
@@ -200,8 +206,13 @@ class HybridSearch
                 );
             }
             unset($row);
-            if ($excerpts && $scope['matched'] !== null) {
-                $passages = $this->passages($conn, $scope['matched'], $ids);
+            $hits = array_column(array_filter($rows, static fn (array $r): bool => (bool) $r['keyword_hit']), 'id');
+            foreach ($rows as &$row) {
+                unset($row['keyword_hit']);
+            }
+            unset($row);
+            if ($excerpts && $scope['matched'] !== null && $hits !== []) {
+                $passages = $this->passages($conn, $scope['matched'], $hits);
                 foreach ($rows as &$row) {
                     if (isset($passages[$row['id']])) {
                         $row['matched_text'] = $passages[$row['id']];
@@ -262,7 +273,7 @@ class HybridSearch
      * the ORDER BY a relevance ordering means, or null when no tier ranks.
      *
      * @param int[] $tagIds
-     * @return array{empty: true, exact: bool}|array{empty: false, where: string, params: array<string, mixed>, types: array<string, mixed>, cte: string, join: string, semantic: bool, relevance: ?string, semantic_unavailable: bool, exact: bool}
+     * @return array{empty: true, exact: bool}|array{empty: false, where: string, params: array<string, mixed>, types: array<string, mixed>, cte: string, join: string, section: string, relevance: ?string, semantic_unavailable: bool, exact: bool, matched: ?string, hit: string}
      */
     private function scope(
         ?string $query,
@@ -344,28 +355,31 @@ class HybridSearch
 
         $cte = '';
         $join = '';
-        $semantic = false;
+        $section = 'NULL';
         $relevance = null;
         /**
          * A semantic search was WANTED and did not happen — over budget, or
          * ml-processor is down. Not the same as "no semantic tier was needed":
-         * a keyword hit answers the query properly and leaves this false.
+         * an expression with operators never wants one and leaves this false.
          *
-         * Reported because the fallback returns an honest EMPTY set (see the
-         * else below), and an empty answer that cannot say why is a search
-         * claiming the knowledge base holds nothing on the subject.
+         * Reported because the fallback returns the literal matches alone, or
+         * an honest EMPTY set when there are none (see the else below), and an
+         * empty answer that cannot say why is a search claiming the knowledge
+         * base holds nothing on the subject.
          */
         $semanticUnavailable = false;
         // The query carried OR, NOT or a phrase (KeywordQuery): it is an
         // expression over the literal text and has no meaning to embed, so a
         // miss is the whole answer rather than a reason to search by meaning.
         $exact = false;
-        // The expression a keyword hit matched, for the passage that shows it.
+        // The words a keyword hit matched, for the passage that shows it.
         // Null when no keyword tier answered, or when it matched by absence.
         $matched = null;
+        // Which rows hold the words, as SQL: the ones a passage is looked for in.
+        $hit = '0';
         if ($query !== null && trim($query) !== '') {
             [
-                'match' => $keywordQuery, 'negated' => $negated, 'exact' => $exact, 'words' => $words,
+                'match' => $keywordQuery, 'negated' => $negated, 'exact' => $exact, 'words' => $words, 'passage' => $passage,
             ] = $keywordOnly ? KeywordQuery::literal($query) : KeywordQuery::parse($query);
             if ($keywordQuery === '' && !$words) {
                 // Operators with no words between them (`AND`, `NOT OR`):
@@ -374,41 +388,31 @@ class HybridSearch
                 // on a degraded semantic tier would be the unfiltered listing.
                 return ['empty' => true, 'exact' => $exact];
             }
-            // Nothing but stop words is a query no text can match: it goes
-            // straight to the semantic tier, and never to FTS5 as an empty
-            // expression.
-            $keywordJoin = '';
-            $keywordWhere = [];
             if ($keywordQuery !== '') {
-                if ($negated) {
-                    $keywordWhere[] = 'n.id NOT IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH :keyword_query)';
-                } else {
-                    $keywordJoin = ' JOIN ('.self::KEYWORD_HITS.') kw ON kw.note_id = n.id';
-                }
-            }
-            // The probe carries the same facets as the search itself: "does
-            // anything I'm allowed to see contain these words" — a query whose
-            // only literal matches are filtered out by the status facet still
-            // deserves the semantic tier.
-            $keywordMode = $keywordQuery !== ''
-                && $this->hasKeywordMatch($conn, $keywordJoin, [...$where, ...$keywordWhere], $params, $types, $keywordQuery);
-
-            if ($keywordMode) {
-                $join = $keywordJoin;
-                $where = [...$where, ...$keywordWhere];
                 $params['keyword_query'] = $keywordQuery;
-                $matched = $negated ? null : $keywordQuery;
-                // Every row matches the expression; BM25 separates the note
-                // the query is *about* from the one that mentions it once. A
-                // negated expression matches by what a note lacks, and has
-                // nothing to score: its rows rank by recency.
-                $relevance = $negated
-                    ? 'n.updated_at DESC, n.id DESC'
-                    : 'kw.rank ASC, n.updated_at DESC, n.id DESC';
-            } elseif ($keywordOnly || $exact) {
-                return ['empty' => true, 'exact' => $exact];
-                // No embedding call at all in this mode: nothing left to rank
-                // by distance, and query embedding is per-search OpenAI spend.
+            }
+            $literalOnly = function () use (&$join, &$where, &$relevance, &$matched, &$hit, $negated, $passage): void {
+                if ($negated) {
+                    // Matches by what a note lacks, and has nothing to score:
+                    // its rows rank by recency.
+                    $where[] = 'n.id NOT IN (SELECT rowid FROM notes_terms WHERE notes_terms MATCH :keyword_query)';
+                    $relevance = 'n.updated_at DESC, n.id DESC';
+
+                    return;
+                }
+                $join = ' JOIN ('.self::KEYWORD_HITS.') kw ON kw.note_id = n.id';
+                $relevance = 'kw.rank ASC, n.updated_at DESC, n.id DESC';
+                $matched = $passage === '' ? null : $passage;
+                $hit = '1';
+            };
+
+            if ($keywordOnly || $exact) {
+                // No embedding call at all in this mode: an expression has no
+                // meaning to rank by, and query embedding is per-search spend.
+                if ($keywordQuery === '') {
+                    return ['empty' => true, 'exact' => $exact];
+                }
+                $literalOnly();
             } else {
                 // Query embedding is not gated by the vault's AI switch: the
                 // search box has nobody to delegate to, and embeddings run on
@@ -436,7 +440,15 @@ class HybridSearch
                 // exactly the same position, and telling them so is the same
                 // sentence.
                 $semanticUnavailable = $queryVector === null;
-                if ($queryVector !== null) {
+                if ($queryVector === null) {
+                    if ($keywordQuery === '') {
+                        // Nothing but stop words, and no meaning to search by:
+                        // an honest empty set rather than the unfiltered listing.
+                        $where[] = '0';
+                    } else {
+                        $literalOnly();
+                    }
+                } else {
                     // Exact k-NN over the vault's chunks, then each note's
                     // nearest chunk, which is the one the cutoff judges.
                     $cte = 'WITH chunk_hits AS ('
@@ -448,17 +460,48 @@ class HybridSearch
                         .'FROM chunk_hits h JOIN note_embedding_chunks c ON c.id = h.chunk_id), '
                         .'semantic_candidates AS ('
                         .'SELECT note_id, heading, dist FROM chunk_candidates WHERE nearest = 1) ';
-                    $join = ' JOIN semantic_candidates sem ON sem.note_id = n.id';
                     $params['query_vector'] = pack('g*', ...$queryVector);
                     $types['query_vector'] = ParameterType::BINARY;
-                    $where[] = 'sem.dist < '.$this->space->model()->searchDistance();
-                    $semantic = true;
-                    $relevance = 'sem.dist ASC, n.id DESC';
-                } else {
-                    // Embedding unavailable and nothing matches literally: the
-                    // answer is an honest empty set rather than the unfiltered
-                    // listing.
-                    $where[] = '0';
+                    $cutoff = 'sem.dist < '.$this->space->model()->searchDistance();
+                    if ($keywordQuery === '') {
+                        $join = ' JOIN semantic_candidates sem ON sem.note_id = n.id';
+                        $where[] = $cutoff;
+                        $section = 'sem.heading';
+                        $relevance = 'sem.dist ASC, n.id DESC';
+                    } else {
+                        // The notes holding every word are the answer, and a
+                        // note without them joins only when it is nearer in
+                        // meaning than every one of them. Measured 2026-10-17
+                        // on the maintainer's vault (115 notes, 32 judged
+                        // queries): "health insurance" had six notes that
+                        // happen to say both words and hid the medical note
+                        // that is nearest by far; blending both lists ranked
+                        // it seventh, and admitting every note inside the
+                        // cutoff put twenty-eight strangers after "webdesk"'s
+                        // nine true matches. A rare name's own note is nearer
+                        // than the strangers, so nothing passes it.
+                        //
+                        // Among the notes holding the words, the keyword and
+                        // meaning ranks are fused (reciprocal rank, k = 60),
+                        // so the note a query is about passes the one that
+                        // mentions it in passing, and a tie goes to the keyword
+                        // score, the order before this. A note with no vector yet
+                        // stands at distance 0: with nothing to compare, the
+                        // literal match wins, as it did before.
+                        $cte .= ', kw AS ('.self::KEYWORD_HITS.'), '
+                            .'literal AS (SELECT n.id AS note_id, kw.rank, '
+                            .'CASE WHEN sem.dist IS NULL AND NOT EXISTS (SELECT 1 FROM note_embedding_chunks ec WHERE ec.note_id = n.id) THEN 0 ELSE sem.dist END AS bound, '
+                            .'1.0 / (60 + ROW_NUMBER() OVER (ORDER BY kw.rank, n.id)) '
+                            .'+ CASE WHEN sem.dist IS NULL THEN 0 ELSE 1.0 / (60 + ROW_NUMBER() OVER (ORDER BY sem.dist IS NULL, sem.dist, n.id)) END AS fused '
+                            .'FROM notes n JOIN kw ON kw.note_id = n.id LEFT JOIN semantic_candidates sem ON sem.note_id = n.id '
+                            .self::where($where).') ';
+                        $join = ' LEFT JOIN literal lit ON lit.note_id = n.id LEFT JOIN semantic_candidates sem ON sem.note_id = n.id';
+                        $where[] = '(lit.note_id IS NOT NULL OR ('.$cutoff.' AND sem.dist < (SELECT COALESCE(MIN(bound), 2) FROM literal)))';
+                        $section = 'CASE WHEN lit.note_id IS NULL THEN sem.heading END';
+                        $relevance = 'lit.note_id IS NOT NULL, CASE WHEN lit.note_id IS NULL THEN sem.dist END, lit.fused DESC, lit.rank ASC, n.updated_at DESC, n.id DESC';
+                        $matched = $passage === '' ? null : $passage;
+                        $hit = 'lit.note_id IS NOT NULL';
+                    }
                 }
             }
         }
@@ -470,11 +513,12 @@ class HybridSearch
             'types' => $types,
             'cte' => $cte,
             'join' => $join,
-            'semantic' => $semantic,
+            'section' => $section,
             'relevance' => $relevance,
             'semantic_unavailable' => $semanticUnavailable,
             'exact' => $exact,
             'matched' => $matched,
+            'hit' => $hit,
         ];
     }
 
@@ -518,14 +562,14 @@ class HybridSearch
      * @param list<int> $ids
      * @return array<int, string>
      */
-    private function passages(Connection $conn, string $keywordQuery, array $ids): array
+    private function passages(Connection $conn, string $words, array $ids): array
     {
         // Control characters as the marks, because no note holds them, so a
         // passage carrying one is a passage FTS5 found a match in.
         $rows = $conn->executeQuery(
             "SELECT rowid AS id, snippet(notes_fts, 1, char(2), char(3), '…', ".self::PASSAGE_TOKENS.") AS passage
-             FROM notes_fts WHERE notes_fts MATCH :keyword_query AND rowid IN (:ids)",
-            ['keyword_query' => $keywordQuery, 'ids' => $ids],
+             FROM notes_fts WHERE notes_fts MATCH :words AND rowid IN (:ids)",
+            ['words' => $words, 'ids' => $ids],
             ['ids' => ArrayParameterType::INTEGER],
         )->fetchAllAssociative();
 
@@ -545,25 +589,5 @@ class HybridSearch
     private static function where(array $conditions): string
     {
         return $conditions === [] ? '' : 'WHERE '.implode(' AND ', $conditions);
-    }
-
-    /**
-     * Does any note the facets allow match the expression? One existence
-     * check, and the cheapest question in the class: when the answer is yes
-     * the search never embeds the query at all.
-     *
-     * @param list<string>         $where  The facet conditions and the keyword's own
-     * @param array<string, mixed> $params The facet params $where was built with
-     * @param array<string, mixed> $types
-     */
-    private function hasKeywordMatch(Connection $conn, string $join, array $where, array $params, array $types, string $keywordQuery): bool
-    {
-        $params['keyword_query'] = $keywordQuery;
-
-        return $conn->executeQuery(
-            'SELECT 1 FROM notes n'.$join.' '.self::where($where).' LIMIT 1',
-            $params,
-            $types,
-        )->fetchOne() !== false;
     }
 }

@@ -98,14 +98,17 @@ class ExportController extends ApiController
                 1,
                 100,
             );
+            // A search whose meaning tier did not run returns the notes holding
+            // the words and leaves out the ones nearer in meaning, which would
+            // make this archive quietly incomplete: the one place such an
+            // answer could not be recovered from. It is refused instead.
+            if ($result['semantic_unavailable']) {
+                return $this->json(
+                    $this->json400('Meaning-based search is unavailable right now, so an export of this search could be incomplete. Try again shortly, or select the notes and export them.'),
+                    Response::HTTP_SERVICE_UNAVAILABLE,
+                );
+            }
             $rows = $result['items'];
-            // `semantic_unavailable` is deliberately not surfaced here, and the
-            // reason is a property rather than an oversight: the vector tier
-            // only ever runs when NOTHING matches the query literally, so a
-            // degraded search cannot return a partial set — it returns an empty
-            // one, and the 404 below is what the caller gets. An export is the
-            // one place a quietly-incomplete answer would be unrecoverable, and
-            // this path cannot produce one.
         }
         if ($rows === []) {
             return $this->json($this->json400('No notes match the selection'), Response::HTTP_NOT_FOUND);

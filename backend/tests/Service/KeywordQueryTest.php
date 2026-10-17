@@ -15,7 +15,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 /**
  * The search-box grammar, case by case. The MATCH strings asserted here are
  * what FTS5 receives, so a change to the parser that "just" reformats them
- * has to say so in this file.
+ * has to say so in this file. Every word is written as `notes_terms` holds
+ * it, which is the word itself unless it is Cyrillic or of an unspaced script.
  */
 final class KeywordQueryTest extends KernelTestCase
 {
@@ -64,6 +65,12 @@ final class KeywordQueryTest extends KernelTestCase
         yield 'NOT a stop word excludes nothing' => ['NOT the', self::compiled('', exact: true)];
         yield 'a phrase keeps the stop words inside it' => ['"the review the gate"', self::compiled('"review the gate"', exact: true)];
         yield 'a group past eight deep reads as a space' => ['(((((((((x OR y) z))))))))', self::compiled('"x" OR ("y" AND "z")', exact: true)];
+        yield 'a Cyrillic word is asked for by its stem' => ['договора аренды', self::compiled('"договор" AND "аренд"')];
+        yield 'a run of an unspaced script is the phrase of its pairs' => ['价格表', self::compiled('"价格 格表"')];
+        yield 'a one-character run is itself' => ['价', self::compiled('"价"')];
+        yield 'a word mixing scripts is a phrase per script' => ['iPhone价格', self::compiled('"iPhone" AND "价格"')];
+        yield 'a phrase is stemmed word by word' => ['"договор аренды"', self::compiled('"договор аренд"', exact: true)];
+        yield 'NOT works on stems too' => ['NOT договоры', self::compiled('"договор"', exact: true, negated: true)];
     }
 
     /**
@@ -73,12 +80,37 @@ final class KeywordQueryTest extends KernelTestCase
      */
     public function testParse(string $query, array $compiled): void
     {
-        self::assertSame($compiled, KeywordQuery::parse($query));
+        $parsed = KeywordQuery::parse($query);
+        unset($parsed['passage']);
+        self::assertSame($compiled, $parsed);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function passages(): iterable
+    {
+        yield 'every word asked for, any of them' => ['memex memory', '"memex" OR "memory"'];
+        yield 'a word asked to be absent is not marked' => ['memex NOT ai', '"memex"'];
+        yield 'a phrase is marked as a phrase' => ['"review gate"', '"review gate"'];
+        yield 'a Cyrillic word marks every form of its stem' => ['договора', '"договор"*'];
+        yield 'a phrase with a Cyrillic word marks its words apart' => ['"договор аренды"', '"договор"* OR "аренд"*'];
+        yield 'an unspaced run has nothing to mark in the text' => ['价格', ''];
     }
 
     /**
-     * Whatever a person types, FTS5 accepts the expression the parser hands
-     * it: every one runs against a vault's own notes_fts without an error.
+     * What `notes_fts`, which holds the note's own text, is asked for to mark
+     * the passage a match was found in.
+     *
+     * @dataProvider passages
+     */
+    public function testPassage(string $query, string $passage): void
+    {
+        self::assertSame($passage, KeywordQuery::parse($query)['passage']);
+    }
+
+    /**
+     * Whatever a person types, FTS5 accepts the expressions the parser hands
+     * it: the match runs against a vault's own notes_terms and the passage
+     * against its notes_fts, both without an error.
      */
     public function testNoInputProducesUnbalancedOrForeignSyntax(): void
     {
@@ -94,6 +126,7 @@ final class KeywordQueryTest extends KernelTestCase
         $alphabet = [
             'a', 'b', 'x', 'the', ' ', '(', ')', '"', '-', '!', '&', '|', ':', '*', '<', '>', "'", '\\', "\0", "\t", 'é',
             '^', '+', '{', '}', ',', 'OR', 'NOT', 'AND', 'NEAR', 'NEAR(', 'title:', 'a-b', "a'b", '(((((((((',
+            'д', 'договора', 'ё', '价', '价格表', 'ที่', 'iPhone价格', "и\u{0306}",
         ];
         $refused = [];
         mt_srand(20260921);
@@ -105,13 +138,15 @@ final class KeywordQueryTest extends KernelTestCase
             }
             $query = implode(mt_rand(0, 1) ? ' ' : '', $parts);
             foreach ([KeywordQuery::parse($query), KeywordQuery::literal($query)] as $compiled) {
-                if ($compiled['match'] === '') {
-                    continue;
-                }
-                try {
-                    $connection->fetchOne('SELECT count(*) FROM notes_fts WHERE notes_fts MATCH :q', ['q' => $compiled['match']]);
-                } catch (DbalException $e) {
-                    $refused[] = var_export($query, true).' => '.$compiled['match'].': '.$e->getMessage();
+                foreach (['notes_terms' => $compiled['match'], 'notes_fts' => $compiled['passage']] as $table => $expression) {
+                    if ($expression === '') {
+                        continue;
+                    }
+                    try {
+                        $connection->fetchOne("SELECT count(*) FROM {$table} WHERE {$table} MATCH :q", ['q' => $expression]);
+                    } catch (DbalException $e) {
+                        $refused[] = var_export($query, true).' => '.$expression.': '.$e->getMessage();
+                    }
                 }
             }
         }
