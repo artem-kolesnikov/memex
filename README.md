@@ -4,7 +4,7 @@
  
 # memex
 
-### Project notes *you and your AI* work from.
+### Turn your conversations into *AI memory* you can actually use.
 
 Memex is a simple notebook for you and your AI assistants. Ask your AI to save decisions and context. Use those notes with any assistant you connect. Skip the repeat explanations. Read, edit, and review suggested updates. You decide what stays.
 
