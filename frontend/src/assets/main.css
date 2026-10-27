@@ -378,70 +378,77 @@ header .navbar {
     margin: 6px 0;
 }
 /* ── pages a signed-out stranger meets ─────────────────────────
-   Sign-in and an invite link. Both are the landing page's eggshell band and
-   neither follows the app's theme: a visitor with no account has no theme of ours, and
-   the accent stored in a browser belongs to whoever last used the app on it —
-   which on the operator's own machine painted the invite page his gold.
+   Sign-in, sign-up and an invite link wear the landing page's Sunrise: its
+   canvas, its paper card, its buttons. Neither follows the app's theme: a
+   visitor with no account has no theme of ours, and the accent stored in a
+   browser belongs to whoever last used the app on it.
 
    The whole light palette is redeclared here rather than left to inherit,
-   because theme-boot writes its values to `html` as an INLINE style. Inheriting
-   would mean inheriting dark. `data-bs-theme="light"` on the same element is
-   the other half: without it Bootstrap paints its own controls — the form
-   fields especially — out of the dark theme, on a card that is hard-coded
-   eggshell. Keep the two together; either alone leaves half a page dark.
-
-   This began on the sign-in screen alone and covers every public route now: the same
-   defect reached the invite page, where a stranger following a mailed link met
-   the accent of whoever last used the app in that browser. The colours are the
-   ones the sign-in fix chose — the brand blue, not an accent of this file's
-   own — because a second palette for the same set of pages is how they drift
-   apart. */
+   because theme-boot writes its values to `html` as an INLINE style, and the
+   `--app-*` depth tokens app.css resolves on `html` are redeclared for the same
+   reason. `data-bs-theme="light"` on the same element is the other half:
+   without it Bootstrap paints its own controls out of the dark theme. Keep the
+   two together; either alone leaves half a page dark. */
 .mm-public {
-    --mm-primary: #0054a6;
-    --mm-primary-rgb: 0, 84, 166;
-    --mm-primary-hover: #00458a;
-    --mm-primary-soft: #e7eef7;
+    --mm-primary: #1376a3;
+    --mm-primary-rgb: 19, 118, 163;
+    --mm-primary-hover: #04638f;
+    --mm-primary-soft: #9bd8f3;
     --mm-on-primary: #ffffff;
     /* Redeclared, not inherited: :root resolves --mm-primary-fill against the
        APP accent, and a descendant inherits that resolved colour rather than
-       the var(). Without this, the first filled control on a public page would
-       come out in the app's blue. */
+       the var(). */
     --mm-primary-fill: var(--mm-primary);
 
-    --mm-bg: #f8f6f2;
+    --mm-bg: #edf4f7;
     --mm-surface: #fffefb;
-    --mm-chrome: #fffefb;
-    --mm-footer: #e5ded2;
-    --mm-line: #e8e2d6;
-    /* Not the eggshell #d2c9b9 the band uses elsewhere. This is the value the
-       sign-in fix chose for the input BORDER, and it is a shade lighter on
-       purpose. Taking the band's own line colour here darkened the field on a
-       screen he had already signed off. */
-    --mm-line-strong: #d9d2c3;
-    --mm-rule: #d2c9b9;
-    --mm-ink: #262119;
-    --mm-ink-soft: #57503f;
-    --mm-body-ink: #262119;
-    --mm-muted: #736a58;
-    --mm-highlight: #ebe6da;
-    --mm-hover: #eeede5;
-    --mm-tag-bg: #e6e1d3;
-    --mm-on-tag: #4a4436;
-    --mm-tag-hover: #dad3c3;
-    --mm-table-head: #efebe3;
+    --mm-chrome: #f8fbfc;
+    --mm-line: #ccd9e0;
+    --mm-line-strong: #b7c7d0;
+    --mm-rule: #b7c7d0;
+    --mm-ink: #20303c;
+    --mm-ink-soft: #607482;
+    --mm-body-ink: #20303c;
+    --mm-muted: #7e909b;
+    --mm-highlight: #e4eef2;
+    --mm-hover: #eef6f8;
+    --mm-tag-bg: #e6edf1;
+    --mm-on-tag: #4b5f6c;
+    --mm-tag-hover: #d8e3e9;
+    --mm-table-head: #f1f0ea;
     --mm-row-bg: #fffefb;
-    --mm-row-alt: #f7f4ee;
-    /* White, not the band's #fffefb: a field has to read as a hole in the
-       card rather than as more card. The sign-in fix chose this and it is
-       kept. */
-    --mm-input-bg: #ffffff;
-    --mm-select-bg: #ffffff;
-    --mm-placeholder: #736a58;
-    --mm-link: #0054a6;
-    --mm-link-rgb: 0, 84, 166;
-    --mm-link-hover: #00458a;
+    --mm-row-alt: #f7f8f6;
+    --mm-input-bg: #f8fbfc;
+    --mm-select-bg: #f8fbfc;
+    --mm-placeholder: #81919b;
+    --mm-link: #1376a3;
+    --mm-link-rgb: 19, 118, 163;
+    --mm-link-hover: #04638f;
+
+    --app-hairline: var(--mm-line);
+    --app-hairline-strong: var(--mm-line-strong);
+    --app-paper: var(--mm-surface);
+    --app-panel-border: var(--mm-line-strong);
+    --app-focus: 0 0 0 3px rgba(19, 118, 163, .24);
+    --app-edge-light: rgba(255, 255, 255, .9);
+    --app-edge-light-soft: rgba(255, 255, 255, .84);
+    --app-shadow-small: 0 1px 1px rgba(255, 255, 255, .9) inset, 0 2px 7px rgba(43, 65, 78, .10);
+    --app-shadow-raised: 0 1px 0 rgba(255, 255, 255, .95) inset, 0 1px 1px rgba(36, 58, 72, .08), 0 9px 26px rgba(42, 62, 75, .11);
+    --app-shadow-inset: inset 0 1px 2px rgba(31, 49, 61, .13), 0 1px 0 rgba(255, 255, 255, .86);
+    --app-shadow-pressed: inset 0 2px 5px rgba(21, 66, 88, .17), 0 1px 0 rgba(255, 255, 255, .75);
 
     color-scheme: light;
+}
+
+/* The landing's footer: charcoal under a light page. */
+footer.footer.mm-public {
+    --mm-footer: #1b1b1b;
+    --mm-link: #bdbdb8;
+    --mm-link-hover: #ebe8df;
+    --mm-muted: #8f8f8b;
+    --bs-secondary-color: #8f8f8b;
+    border-top: 1px solid #333333;
+    color-scheme: dark;
 }
 
 /* One column: every signed-out page is only a door. */
@@ -451,7 +458,7 @@ header .navbar {
     /* Only the bottom padding of <main class="pb-4"> is escaped. There is no
        container to break out of sideways, and `width: 100vw` overflowed by the
        width of the scrollbar gutter `html` reserves — a dark strip of the app's
-       body down the right edge of an eggshell page. */
+       body down the right edge of a light page. */
     margin: 0 0 -1.5rem;
     width: 100%;
 }
@@ -463,18 +470,6 @@ header .navbar {
     mask-position: -40px calc(100% + 26px);
 }
 
-/* ── the signed-out pages ────────────────────────────────────── */
-.mm-door {
-    --mml-egg-top: #fdfcf9;
-    --mml-egg-bg: #f8f6f2;
-    --mml-egg-bot: #eee8da;
-    --mml-egg-surface: #fffefb;
-    --mml-egg-line: #e8e2d6;
-    --mml-egg-ink: #262119;
-    --mml-egg-soft: #57503f;
-    --mml-egg-muted: #736a58;
-}
-
 .mm-login-side {
     position: relative;
     display: flex;
@@ -484,18 +479,22 @@ header .navbar {
 }
 .mm-login-inner { position: relative; z-index: 1; width: 100%; max-width: 26rem; }
 
-/* The door — eggshell, with the mark behind it exactly as the light bands on
-   the landing page carry it: a CSS mask, so the tint belongs to this file. */
+/* The door — the landing's canvas, with the mark behind it as a CSS mask, so
+   the tint belongs to this file. */
 .mm-login-door {
-    background: linear-gradient(180deg, var(--mml-egg-top) 0%, var(--mml-egg-bg) 48%, var(--mml-egg-bot) 100%);
-    color: var(--mml-egg-ink);
+    background:
+        radial-gradient(circle at 89% 7%, rgba(0, 189, 242, .14), transparent 29rem),
+        radial-gradient(circle at 55% -5%, rgba(0, 189, 242, .075), transparent 23rem),
+        radial-gradient(circle at 5% 96%, rgba(217, 182, 87, .16), transparent 31rem),
+        var(--mm-bg);
+    color: var(--mm-ink);
     text-align: center;
 }
 .mm-login-door::after {
     content: '';
     position: absolute; inset: 0;
     pointer-events: none;
-    background-color: #d2c9b9;
+    background-color: var(--mm-line-strong);
     -webkit-mask-image: url('/logos/memex-watermark.svg');
     mask-image: url('/logos/memex-watermark.svg');
     -webkit-mask-repeat: no-repeat;
@@ -508,27 +507,36 @@ header .navbar {
 }
 .mm-login-mark { display: block; height: 62px; width: auto; margin: 0 auto; }
 .mm-login-welcome {
-    font-size: clamp(22px, 2.4vw, 28px);
-    font-weight: 600;
-    letter-spacing: -.024em;
+    font-size: clamp(24px, 2.6vw, 30px);
+    font-weight: 750;
+    line-height: 1.08;
+    letter-spacing: -.035em;
     margin: 1rem 0 1.5rem;
-    color: var(--mml-egg-ink);
+    color: var(--mm-ink);
 }
 .mm-login-box {
-    background: var(--mml-egg-surface);
-    border: 1px solid var(--mml-egg-line);
+    position: relative;
+    overflow: hidden;
+    background: var(--mm-surface);
+    border: 1px solid var(--mm-line-strong);
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(38, 33, 25, .06);
+    box-shadow: var(--app-shadow-raised);
     padding: clamp(1.1rem, 2.2vw, 1.6rem);
     text-align: left;
 }
+.mm-login-box::before {
+    content: '';
+    position: absolute; inset: 0 0 auto;
+    height: 3px;
+    background: var(--app-paper-edge);
+}
 .mm-login-provider { white-space: nowrap; }
-.mm-login-fineprint { font-size: 13px; color: var(--mml-egg-muted); text-align: center; }
+.mm-login-fineprint { font-size: 13px; color: var(--mm-ink-soft); text-align: center; }
 
 .mm-public-lede {
     font-size: 15px;
     line-height: 1.5;
-    color: var(--mml-egg-soft);
+    color: var(--mm-ink-soft);
     margin: 0 0 1.25rem;
 }
 
