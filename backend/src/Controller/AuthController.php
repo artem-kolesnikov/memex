@@ -222,9 +222,11 @@ class AuthController extends ApiController
     }
 
     /**
-     * Which language the screen speaks. English is bundled; anything else has
-     * to be a file the operator installed, or the choice would name words the
-     * SPA cannot fetch. Null puts the account back on English.
+     * Which language the screen speaks. English and the shipped languages are
+     * bundled; anything else has to be a file the operator installed, or the
+     * choice would name words the SPA cannot fetch. English is kept as a
+     * choice like any other, so it wins over a browser that remembers another;
+     * null forgets the choice, and each browser keeps its own.
      */
     #[Route('/api/me/locale', methods: ['PATCH'])]
     public function updateLocale(Request $request, Locales $locales): JsonResponse
@@ -241,7 +243,7 @@ class AuthController extends ApiController
             return $this->json($this->json400('That language is not installed on this server'), Response::HTTP_BAD_REQUEST);
         }
 
-        $this->settings()->setLocale($locale === Locales::BUNDLED ? null : $locale);
+        $this->settings()->setLocale($locale);
         $this->em->flush();
 
         return $this->me($request);
@@ -280,7 +282,9 @@ class AuthController extends ApiController
             // How this person wants memex to look, on whichever device they
             // have just opened. Empty until they choose something.
             'appearance' => Appearance::read($settings->getAppearance()),
-            'locale' => $settings->getLocale() ?? Locales::BUNDLED,
+            // Null until they choose one: the browser's language stands, which
+            // is how somebody who signs up from a Russian page stays in Russian.
+            'locale' => $settings->getLocale(),
             // Empty until they choose; an absent key is that control's default,
             // which the SPA owns so a first paint needs nothing from here.
             'map' => MapSettings::read($settings->getMapSettings()),

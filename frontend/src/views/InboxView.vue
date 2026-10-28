@@ -388,9 +388,9 @@ function cardBody(entry: FeedEntry): Omit<Card, 'reasonHtml' | 'reasonBlock'> {
 
   if (entry.kind === 'proposal') {
     const row = entry.proposal
-    const chip = row.type === 'delete' ? t('common.delete')
+    const chip = row.type === 'delete' ? t('inbox.chip.delete')
       : row.type === 'merge' ? t('inbox.chip.merge')
-      : row.type === 'report' ? t('inbox.chip.report') : t('common.edit')
+      : row.type === 'report' ? t('inbox.chip.report') : t('inbox.chip.edit')
     // A card is titled by its RESULT. For a merge that is the note left
     // standing, not the one being consumed: the operator is deciding what the
     // survivor ends up saying, and heading the card with a title about to

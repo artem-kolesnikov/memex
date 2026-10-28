@@ -74,7 +74,7 @@ class VaultSettings
     #[ORM\Column(name: 'map_settings', type: 'json', nullable: true)]
     private ?array $mapSettings = null;
 
-    /** Interface language, one of the codes App\Service\Locales has installed. Null is English. */
+    /** Interface language, one of the codes App\Service\Locales offers. Null until the owner chooses one. */
     #[ORM\Column(length: 8, nullable: true)]
     private ?string $locale = null;
 

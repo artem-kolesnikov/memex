@@ -396,8 +396,8 @@ export interface Me {
   appearance?: AppearancePrefs
   /** How this account wants the map drawn. Absent keys are the SPA's defaults. */
   map?: MapPrefs
-  /** Interface language: `en`, or a code the operator installed. */
-  locale?: string
+  /** Interface language: `en`, a shipped one, or a code the operator installed. Null until they choose. */
+  locale?: string | null
   /** Whether ChatGPT, Claude and Gemini can reach this memex, which decides what Settings offers to connect. */
   web_assistants?: boolean
   /** `upload` when a picture is stored, null for the silhouette. */

@@ -24,7 +24,7 @@ import { presetQuery, routeCriteria, sameCriteria, usePresetStore } from '@/stor
 import type { SearchPreset } from '@/api/client'
 import { useI18n } from 'vue-i18n'
 import { editions } from '@/editions'
-import { docsPage } from '@/lib/docs'
+import { docsPage, sitePrefix } from '@/lib/docs'
 
 declare global {
   interface Window {
@@ -163,6 +163,7 @@ function isActive(name: string) {
 const isPublicPage = computed(() => route.meta.public === true)
 const currentYear = new Date().getFullYear()
 const footerLinks = editions.flatMap((edition) => edition.footerLinks ?? [])
+const footerHref = (link: (typeof footerLinks)[number]) => (link.localized ? sitePrefix() : '') + link.href
 const overlays = editions.flatMap((edition) => edition.overlays ?? [])
 
 // Header inbox badge. The count lives in a store rather than here because the
@@ -624,7 +625,7 @@ async function logout() {
             <span class="text-muted small">
               <template v-for="(link, i) in footerLinks" :key="link.href">
                 <span v-if="i > 0" class="mx-1">|</span>
-                <a :href="link.href">{{ $t(link.labelKey) }}</a>
+                <a :href="footerHref(link)">{{ $t(link.labelKey) }}</a>
               </template>
             </span>
           </div>
@@ -655,7 +656,7 @@ async function logout() {
       <span class="text-muted small">
         <template v-for="(link, i) in footerLinks" :key="link.href">
           <span v-if="i > 0" class="mx-1">|</span>
-          <a :href="link.href">{{ $t(link.labelKey) }}</a>
+          <a :href="footerHref(link)">{{ $t(link.labelKey) }}</a>
         </template>
       </span>
     </div>

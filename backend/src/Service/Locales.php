@@ -8,14 +8,18 @@ namespace App\Service;
  * The interface languages this box offers beyond English.
  *
  * English is bundled with the SPA and is the fallback for every key a file
- * leaves out, so a language here may be partial and still be offered. What is
- * stored is the operator's own file, verbatim: the server checks that it is a
+ * leaves out, so a language here may be partial and still be offered. The SPA
+ * also ships the languages in SHIPPED, so every server offers those and none
+ * installs them. Any other is the operator's own file, stored verbatim: the server checks that it is a
  * JSON object whose leaves are all strings and nothing more, because the keys
  * belong to the frontend build and only the frontend can say which are current.
  */
 final class Locales
 {
     public const BUNDLED = 'en';
+
+    /** What the SPA bundles beside English, as frontend/src/locales/<code>.json. */
+    public const SHIPPED = ['ru'];
 
     /** BCP 47-ish: a language, optionally a region. `ru`, `pt-br`, `zh-hant`. */
     public const CODE = '/^[a-z]{2,3}(-[a-z]{2,4})?\z/';
@@ -52,7 +56,7 @@ final class Locales
         $out = [];
         foreach (glob($this->localesDir.'/*.json') ?: [] as $path) {
             $code = basename($path, '.json');
-            if (!self::isCode($code)) {
+            if (!self::isCode($code) || self::isShipped($code)) {
                 continue;
             }
             $decoded = json_decode((string) file_get_contents($path), true);
@@ -67,15 +71,25 @@ final class Locales
         return $out;
     }
 
+    public static function isShipped(string $code): bool
+    {
+        return in_array($code, self::SHIPPED, true);
+    }
+
     public function isAvailable(string $code): bool
     {
-        return $code === self::BUNDLED || (self::isCode($code) && is_file($this->path($code)));
+        return $code === self::BUNDLED || self::isShipped($code) || $this->isInstalled($code);
+    }
+
+    public function isInstalled(string $code): bool
+    {
+        return self::isCode($code) && !self::isShipped($code) && is_file($this->path($code));
     }
 
     /** The file as uploaded, or null when that language is not installed. */
     public function read(string $code): ?string
     {
-        if (!self::isCode($code) || !is_file($this->path($code))) {
+        if (!$this->isInstalled($code)) {
             return null;
         }
 
@@ -91,6 +105,9 @@ final class Locales
     {
         if ($code === self::BUNDLED) {
             return [null, 'English is bundled with memex and cannot be replaced.'];
+        }
+        if (self::isShipped($code)) {
+            return [null, 'That language ships with memex and cannot be replaced.'];
         }
         if (!self::isCode($code)) {
             return [null, 'A language code is two or three letters, optionally followed by a region: ru, pt-br.'];
@@ -133,7 +150,7 @@ final class Locales
 
     public function remove(string $code): bool
     {
-        if (!self::isCode($code) || !is_file($this->path($code))) {
+        if (!$this->isInstalled($code)) {
             return false;
         }
 

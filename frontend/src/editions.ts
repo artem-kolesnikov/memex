@@ -14,8 +14,8 @@ export interface Edition {
   assistantSetups?: AssistantSetup[]
   /** Rendered over the app while somebody is signed in. */
   overlays?: Component[]
-  /** Links in the footer, after the copyright. */
-  footerLinks?: { labelKey: string; href: string }[]
+  /** Links in the footer, after the copyright; `localized` pages exist under /<lang>/ in every shipped language. */
+  footerLinks?: { labelKey: string; href: string; localized?: boolean }[]
   /** The name assistants' settings give this memex, where it is not `memex`. */
   connectionName?: string
 }

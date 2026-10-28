@@ -26,7 +26,7 @@ import ToastService from 'primevue/toastservice'
 
 import App from './App.vue'
 import router from './router'
-import { BUNDLED, i18n, setLocale, storedLocale } from './i18n'
+import { BUNDLED, LOCALE_CODE, i18n, loadEdits, setLocale, storedLocale } from './i18n'
 import { editions } from './editions'
 
 export const app = createApp(App)
@@ -41,6 +41,9 @@ for (const edition of editions) edition.install?.(app, router)
 
 // The language a returning person chose, fetched before the first paint so the
 // sign-in page speaks it too. A file that cannot be fetched leaves English.
-const boot = storedLocale()
-const ready = boot === BUNDLED ? Promise.resolve() : setLocale(boot).catch(() => undefined)
+// The public pages in another language link here with ?lang=, which chooses
+// that one for this browser.
+const asked = new URLSearchParams(window.location.search).get('lang')
+const boot = asked !== null && LOCALE_CODE.test(asked) ? asked : storedLocale()
+const ready = (boot === BUNDLED && asked === null ? loadEdits(BUNDLED) : setLocale(boot)).catch(() => undefined)
 ready.then(() => app.mount('#app'))

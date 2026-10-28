@@ -2,15 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError, type MapPrefs, type Me } from '@/api/client'
 import { sessionEpoch, invalidateSession, StaleOperationError } from '@/lib/operationLifetime'
-import { BUNDLED, currentLocale, setLocale, i18n } from '@/i18n'
+import { currentLocale, setLocale, i18n } from '@/i18n'
 
 // The account's language wins over the browser's memory of it, and a choice
-// the operator has since uninstalled comes back as English and is applied.
-// Nobody signed in changes nothing: the sign-in page keeps the remembered one.
+// the operator has since uninstalled comes back as no choice. Without one, and
+// with nobody signed in, the browser keeps the language it remembers.
 function adoptLocale(me: Me | null) {
-  if (!me) return
-  const wanted = me.locale ?? BUNDLED
-  if (wanted !== currentLocale()) void setLocale(wanted).catch(() => undefined)
+  if (!me?.locale) return
+  if (me.locale !== currentLocale()) void setLocale(me.locale).catch(() => undefined)
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -85,7 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function chooseLocale(code: string): Promise<void> {
     await writeUser(() => api.updateLocale(code))
-    await setLocale(user.value?.locale ?? BUNDLED)
+    await setLocale(user.value?.locale ?? code)
   }
 
   /** Leaving. There is nothing to write back — the account this store holds

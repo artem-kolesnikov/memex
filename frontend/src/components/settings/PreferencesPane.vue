@@ -16,7 +16,7 @@ import { useLayoutStore, type LayoutMode } from '@/stores/layout'
 import { sessionEpoch, useOperationLifetime } from '@/lib/operationLifetime'
 import OperationOutcomeNotice from '@/components/OperationOutcomeNotice.vue'
 import { toastError } from '@/components/toastService'
-import { BUNDLED, currentLocale, languageName } from '@/i18n'
+import { BUNDLED, SHIPPED, currentLocale, languageName } from '@/i18n'
 import ThemeChoice from '@/components/ThemeChoice.vue'
 import {
   DATE_FORMATS,
@@ -53,9 +53,10 @@ const lifetime = useOperationLifetime()
 const { t } = useI18n()
 const installed = ref<InstalledLocale[]>([])
 const languages = computed(() => [
-  { id: BUNDLED, label: languageName(BUNDLED) },
-  ...installed.value.map((l) => ({ id: l.code, label: languageName(l.code) })),
-])
+  BUNDLED,
+  ...SHIPPED,
+  ...installed.value.map((l) => l.code),
+].map((id) => ({ id, label: languageName(id) })))
 
 const textSize = ref(window.getAppearance?.('text') ?? '15')
 const mdFont = ref(window.getAppearance?.('font') ?? 'sans')
@@ -68,7 +69,7 @@ onMounted(async () => {
   try {
     installed.value = (await api.locales()).locales
   } catch {
-    /* the dropdown offers English alone */
+    /* the dropdown offers what ships with memex */
   }
 })
 

@@ -623,6 +623,8 @@
       "with_stem": "{stem}, {affected}"
     },
     "chip": {
+      "edit": "Edit",
+      "delete": "Delete",
       "merge": "Merge",
       "report": "Report",
       "new": "New",

@@ -94,6 +94,45 @@ function leaves(tree, prefix = '', out = new Set()) {
   return out
 }
 
+function values(tree, prefix = '', out = new Map()) {
+  for (const [k, v] of Object.entries(tree)) {
+    const path = prefix ? `${prefix}.${k}` : k
+    if (v && typeof v === 'object') values(v, path, out)
+    else out.set(path, v)
+  }
+  return out
+}
+
+// A language shipped beside English (src/locales/<code>.json, and an edition's
+// own <code>.json) may leave a key to English, but may not keep one English no
+// longer has or lose a placeholder English fills, and the server must offer it.
+function checkShipped() {
+  const php = readFileSync(join(root, '../backend/src/Service/Locales.php'), 'utf8')
+  const server = [...(/SHIPPED = \[([^\]]*)\]/.exec(php)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+  const shipped = readdirSync(join(root, 'src/locales')).filter((f) => f.endsWith('.json') && f !== 'en.json').map((f) => f.slice(0, -5)).sort()
+  if (server.join() !== shipped.join()) {
+    findings.push(`src/locales ships [${shipped}] but Locales::SHIPPED offers [${server}]`)
+  }
+  const placeholders = (text) => [...new Set(String(text).match(/\{[A-Za-z_][\w.]*\}/g) ?? [])].sort().join()
+  const pairs = [['src/locales', 'en.json']]
+  for (const edition of readdirSync(join(root, 'src/edition'))) pairs.push([`src/edition/${edition}`, 'en.json'])
+  for (const code of shipped) {
+    let fallback = 0
+    for (const [dir] of pairs) {
+      if (!existsSync(join(root, dir, 'en.json'))) continue
+      const en = values(JSON.parse(readFileSync(join(root, dir, 'en.json'), 'utf8')))
+      const file = join(root, dir, `${code}.json`)
+      const own = existsSync(file) ? values(JSON.parse(readFileSync(file, 'utf8'))) : new Map()
+      for (const [key, text] of own) {
+        if (!en.has(key)) findings.push(`${dir}/${code}.json: "${key}" is not in en.json`)
+        else if (placeholders(text) !== placeholders(en.get(key))) findings.push(`${dir}/${code}.json: "${key}" fills ${placeholders(text) || 'nothing'}, English fills ${placeholders(en.get(key)) || 'nothing'}`)
+      }
+      fallback += [...en.keys()].filter((key) => !own.has(key)).length
+    }
+    if (fallback) console.log(`${code}: ${fallback} key(s) fall back to English`)
+  }
+}
+
 const used = new Map()
 for (const file of files) {
   const source = readFileSync(file, 'utf8')
@@ -117,6 +156,7 @@ if (!textOnly) {
   for (const [key, where] of used) {
     if (!known.has(key)) findings.push(`${where}: key "${key}" is not in en.json`)
   }
+  checkShipped()
   const unused = [...known].filter((k) => !used.has(k) && !k.startsWith('common.'))
   if (unused.length) {
     console.log(`${unused.length} key(s) in en.json are named nowhere in src/ (dynamic keys are invisible here):`)
