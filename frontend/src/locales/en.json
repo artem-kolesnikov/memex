@@ -1457,7 +1457,6 @@
       "title": "Connected assistants & agents",
       "connected_count": "{count} connected | {count} connected | {count} connected",
       "name": "Name",
-      "auth": "Auth",
       "created": "Created",
       "last_used": "Last used",
       "sessions": "Sessions",
@@ -1484,7 +1483,7 @@
       "token_copied": "Token copied"
     },
     "new_token": {
-      "copy_now": "Copy this token and add it to your assistant. You can copy it again from Actions › Copy token.",
+      "copy_now": "Copy this token and add it to your assistant. You can copy it again from ⋯ › Copy token.",
       "copy_token": "Copy the token",
       "copy_failed": "Could not copy the token",
       "add": "Add token"

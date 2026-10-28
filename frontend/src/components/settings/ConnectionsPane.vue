@@ -65,12 +65,11 @@ const hasCurator = computed(() => liveTokens.value.some((t) => t.role === 'curat
 
 const dirty = computed(() => revokeDraft.value.size > 0)
 
-function callTrouble(token: TokenInfo): string {
-  const parts = [
+function callTrouble(token: TokenInfo): string[] {
+  return [
     token.usage.refused ? t('connections.table.refused', { count: token.usage.refused }) : '',
     token.usage.failed ? t('connections.table.failed', { count: token.usage.failed }) : '',
   ].filter(Boolean)
-  return `(${parts.join(', ')})`
 }
 
 let tokenRequest = 0
@@ -197,12 +196,11 @@ async function save() {
           <thead>
             <tr>
               <th>{{ $t('connections.table.name') }}</th>
-              <th>{{ $t('connections.table.auth') }}</th>
               <th>{{ $t('connections.table.created') }}</th>
               <th>{{ $t('connections.table.last_used') }}</th>
               <th :title="$t('connections.table.usage_window', { days: usageDays })">{{ $t('connections.table.sessions') }}</th>
               <th :title="$t('connections.table.usage_window', { days: usageDays })">{{ $t('connections.table.calls') }}</th>
-              <th class="text-end">{{ $t('connections.table.actions') }}</th>
+              <th class="text-end"><span class="visually-hidden">{{ $t('connections.table.actions') }}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -224,18 +222,22 @@ async function save() {
                   />
                   <span>
                     {{ token.display_name || token.label }}
-                    <span class="d-block small text-muted" v-if="token.display_name">{{ token.label }}</span>
-                    <span class="d-block small text-muted" v-else-if="token.description">{{ token.description }}</span>
+                    <span class="d-block small text-muted">
+                      <template v-if="token.display_name">{{ token.label }}</template>
+                      <template v-else-if="token.description">{{ token.description }}</template>
+                      <span class="badge text-bg-light border" :class="{ 'ms-1': token.display_name || token.description }">{{ token.auth === 'oauth' ? $t('connections.auth.oauth') : $t('connections.auth.manual') }}</span>
+                    </span>
                   </span>
                 </div>
               </td>
-              <td :data-label="$t('connections.table.auth')"><span class="badge text-bg-light border">{{ token.auth === 'oauth' ? $t('connections.auth.oauth') : $t('connections.auth.manual') }}</span></td>
               <td class="text-nowrap" :data-label="$t('connections.table.created')">{{ writeDate(token.created_at) || '—' }}</td>
               <td class="text-nowrap" :data-label="$t('connections.table.last_used')">{{ writeDate(token.last_used_at) || '—' }}</td>
               <td :data-label="$t('connections.table.sessions')">{{ token.usage.sessions || '—' }}</td>
               <td :data-label="$t('connections.table.calls')">
-                {{ token.usage.calls || '—' }}
-                <span class="small text-muted" v-if="token.usage.refused || token.usage.failed">{{ callTrouble(token) }}</span>
+                <span>
+                  {{ token.usage.calls || '—' }}
+                  <span class="d-block small text-muted" v-if="token.usage.refused || token.usage.failed">(<template v-for="(part, i) in callTrouble(token)" :key="part"><template v-if="i">, </template><span class="text-nowrap">{{ part }}</span></template>)</span>
+                </span>
               </td>
               <td class="text-end mm-stack-actions">
                 <template v-if="isRevoking(token)">
@@ -243,10 +245,11 @@ async function save() {
                   <a href="javascript:void(0)" class="small" @click="undoRevoke(token)">{{ $t('connections.table.undo') }}</a>
                 </template>
                 <div class="dropdown" v-else>
-                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                  <button class="btn btn-sm btn-outline-secondary" type="button"
                           data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}'
-                          aria-expanded="false" :disabled="saving">
-                    {{ $t('connections.table.actions') }}
+                          aria-expanded="false" :disabled="saving"
+                          :aria-label="$t('connections.table.actions')" :title="$t('connections.table.actions')">
+                    <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
                   </button>
                   <ul class="dropdown-menu dropdown-menu-end app-menu">
                     <li>

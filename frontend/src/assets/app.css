@@ -4828,8 +4828,9 @@ h3, .h3, h4, .h4 { letter-spacing: -.018em; }
 .mm-settings-identity { display: flex; align-items: center; gap: 12px; }
 .mm-settings-identity > :first-child:not(:only-child) { flex: none; width: 20px; text-align: center; }
 .mm-settings-identity > :only-child { margin-left: 32px; }
-.mm-settings-identity > span { min-width: 0; overflow-wrap: anywhere; }
+.mm-settings-identity > span { min-width: 0; overflow-wrap: break-word; }
 .mm-settings-table { width: 100%; }
+.mm-settings-table > thead > tr > th { white-space: normal; }
 .mm-settings-table > thead > tr > th:last-child.text-end { width: 1%; }
 .mm-settings-table .mm-stack-actions { white-space: nowrap; }
 @media (max-width: 767.98px) {
