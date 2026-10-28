@@ -53,7 +53,7 @@
     "primevue": "^3.53.1",
     "three": "^0.185.1",
     "vue": "^3.5.40",
-    "vue-i18n": "^11.4.10",
+    "vue-i18n": "^11.4.16",
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
